@@ -160,10 +160,12 @@ interface Attachment {
  * 
  * @property {(message: string, attachments: Attachment[]) => void} onSend - Callback when user sends a message
  * @property {boolean} isLoading - Whether AI is processing (disables input)
+ * @property {string[]} promptHistory - Array of previous user prompts for up-arrow navigation
  */
 interface InputAreaProps {
   onSend: (message: string, attachments: Attachment[]) => void;
   isLoading: boolean;
+  promptHistory?: string[];
 }
 
 // ============================================================================
@@ -196,7 +198,7 @@ interface InputAreaProps {
  *   isLoading={isWaitingForAI}
  * />
  */
-export function ChatInputArea({ onSend, isLoading }: InputAreaProps) {
+export function ChatInputArea({ onSend, isLoading, promptHistory = [] }: InputAreaProps) {
   // ===========================================================================
   // STATE & REFS
   // ===========================================================================
@@ -206,6 +208,18 @@ export function ChatInputArea({ onSend, isLoading }: InputAreaProps) {
    * Cleared after successful send
    */
   const [input, setInput] = useState("");
+
+  /**
+   * Ghost text state - when user presses up arrow, shows previous prompt greyed out
+   * User must press Tab to activate (make editable)
+   */
+  const [ghostText, setGhostText] = useState<string | null>(null);
+
+  /**
+   * History navigation index - tracks position in prompt history
+   * -1 means not navigating history
+   */
+  const [historyIndex, setHistoryIndex] = useState(-1);
 
   /**
    * Reference to textarea element for height manipulation
@@ -465,13 +479,72 @@ export function ChatInputArea({ onSend, isLoading }: InputAreaProps) {
    * Implements:
    * - Enter: Send message (default)
    * - Shift+Enter: Insert newline (browser default)
+   * - ArrowUp: Navigate to previous prompt (shows as ghost text)
+   * - ArrowDown: Navigate to next prompt in history
+   * - Tab: Activate ghost text (make it editable)
+   * - Escape: Clear ghost text
    * 
    * @param {React.KeyboardEvent} e - Keyboard event
    */
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Enter to send
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+      return;
+    }
+
+    // Up arrow - navigate to previous prompt
+    if (e.key === "ArrowUp" && !input.trim() && promptHistory.length > 0) {
+      e.preventDefault();
+      const newIndex = historyIndex === -1 ? promptHistory.length - 1 : Math.max(0, historyIndex - 1);
+      setHistoryIndex(newIndex);
+      setGhostText(promptHistory[newIndex]);
+      return;
+    }
+
+    // Down arrow - navigate forward in history or clear
+    if (e.key === "ArrowDown" && ghostText !== null) {
+      e.preventDefault();
+      if (historyIndex < promptHistory.length - 1) {
+        const newIndex = historyIndex + 1;
+        setHistoryIndex(newIndex);
+        setGhostText(promptHistory[newIndex]);
+      } else {
+        // At the end, clear ghost text
+        setGhostText(null);
+        setHistoryIndex(-1);
+      }
+      return;
+    }
+
+    // Tab - activate ghost text
+    if (e.key === "Tab" && ghostText !== null) {
+      e.preventDefault();
+      setInput(ghostText);
+      setGhostText(null);
+      setHistoryIndex(-1);
+      return;
+    }
+
+    // Escape - clear ghost text
+    if (e.key === "Escape" && ghostText !== null) {
+      e.preventDefault();
+      setGhostText(null);
+      setHistoryIndex(-1);
+      return;
+    }
+  };
+
+  /**
+   * Handle Tab button click - same as pressing Tab key
+   */
+  const handleTabClick = () => {
+    if (ghostText !== null) {
+      setInput(ghostText);
+      setGhostText(null);
+      setHistoryIndex(-1);
+      textareaRef.current?.focus();
     }
   };
 
@@ -656,20 +729,45 @@ export function ChatInputArea({ onSend, isLoading }: InputAreaProps) {
         </AnimatePresence>
 
         {/* Textarea Container - Padding around the input */}
-        <div className="px-4 pt-4 pb-14">
+        <div className="px-4 pt-4 pb-14 relative">
+            {/* Ghost Text Overlay - Shows previous prompt when navigating history */}
+            <AnimatePresence>
+              {ghostText !== null && !input && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute inset-0 px-4 pt-4 pb-14 pointer-events-none"
+                >
+                  <div className="text-base text-muted-foreground/50 whitespace-pre-wrap break-words">
+                    {ghostText}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* 
              * Native Textarea Element
              * Using native for better control over resize behavior
              * Styled to be invisible (transparent background, no border)
              */}
             <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask Meowstic anything..."
-            className="w-full bg-transparent border-none resize-none outline-none text-base max-h-[200px] min-h-[24px] placeholder:text-muted-foreground"
-            rows={1}
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                // Clear ghost text when user starts typing
+                if (ghostText !== null) {
+                  setGhostText(null);
+                  setHistoryIndex(-1);
+                }
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder={ghostText !== null ? "" : "Ask Meowstic anything..."}
+              className="w-full bg-transparent border-none resize-none outline-none text-base max-h-[200px] min-h-[24px] placeholder:text-muted-foreground relative z-10"
+              rows={1}
+              data-testid="input-chat-message"
             />
         </div>
 
@@ -680,7 +778,29 @@ export function ChatInputArea({ onSend, isLoading }: InputAreaProps) {
          */}
         <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center">
             {/* Left Side: Action Buttons */}
-            <div className="flex gap-1">
+            <div className="flex gap-1 items-center">
+              {/* Tab Button - Lights up when ghost text is active */}
+              <AnimatePresence>
+                {ghostText !== null && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8, width: 0 }}
+                    animate={{ opacity: 1, scale: 1, width: "auto" }}
+                    exit={{ opacity: 0, scale: 0.8, width: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleTabClick}
+                      className="h-7 px-2 rounded-md bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 transition-all font-mono text-xs font-medium"
+                      data-testid="button-tab-activate"
+                    >
+                      Tab ↵
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Screen Capture Button */}
               <Button 
                 variant="ghost" 

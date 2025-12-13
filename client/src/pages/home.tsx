@@ -771,7 +771,11 @@ export default function Home() {
          * Gradient fade effect at top blends with chat area
          */}
         <div className="w-full bg-gradient-to-t from-background via-background to-transparent pt-10 pb-6 px-4 z-20">
-          <ChatInputArea onSend={handleSendMessage} isLoading={isLoading} />
+          <ChatInputArea 
+            onSend={handleSendMessage} 
+            isLoading={isLoading}
+            promptHistory={messages.filter(m => m.role === 'user').map(m => m.content)}
+          />
         </div>
       </div>
     </div>
