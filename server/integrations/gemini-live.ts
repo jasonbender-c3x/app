@@ -132,9 +132,15 @@ export async function sendTextMessage(
   console.log(`[Live API] Sending message to session ${liveSession.id}: "${text.substring(0, 50)}..."`);
   
   try {
-    // Use simplified format that works with the JS SDK (string directly as turns)
-    liveSession.session.sendClientContent({
-      turns: text,
+    // Use proper content format for the Gemini Live API
+    // turns must be an array of content objects with role and parts
+    await liveSession.session.sendClientContent({
+      turns: [
+        {
+          role: "user",
+          parts: [{ text: text }]
+        }
+      ],
       turnComplete: true
     });
     console.log(`[Live API] Message sent successfully`);
