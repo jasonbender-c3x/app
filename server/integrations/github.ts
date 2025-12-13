@@ -454,6 +454,42 @@ export async function getCommit(owner: string, repo: string, sha: string) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// BRANCH OPERATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function listBranches(owner: string, repo: string, perPage = 100) {
+  const octokit = await getUncachableGitHubClient();
+  const { data } = await octokit.repos.listBranches({
+    owner,
+    repo,
+    per_page: perPage
+  });
+  
+  return data.map(branch => ({
+    name: branch.name,
+    sha: branch.commit.sha,
+    protected: branch.protected
+  }));
+}
+
+export async function deleteBranch(owner: string, repo: string, branchName: string) {
+  const octokit = await getUncachableGitHubClient();
+  await octokit.git.deleteRef({
+    owner,
+    repo,
+    ref: `heads/${branchName}`
+  });
+  
+  return { success: true, deletedBranch: branchName };
+}
+
+export async function getDefaultBranch(owner: string, repo: string) {
+  const octokit = await getUncachableGitHubClient();
+  const { data } = await octokit.repos.get({ owner, repo });
+  return data.default_branch;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // USER OPERATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
