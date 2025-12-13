@@ -53,7 +53,7 @@ export async function createLiveSession(
   
   try {
     const session = await ai.live.connect({
-      model: "gemini-2.5-flash-preview-native-audio-dialog",
+      model: "gemini-2.0-flash-live-001",
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
@@ -73,7 +73,8 @@ export async function createLiveSession(
         },
         onmessage: (message: any) => {
           try {
-            const serverContent = message.data?.serverContent;
+            console.log("[Live API] Raw message received:", JSON.stringify(message).substring(0, 500));
+            const serverContent = message.serverContent;
             if (serverContent?.modelTurn?.parts) {
               for (const part of serverContent.modelTurn.parts) {
                 if (part.inlineData?.data) {
@@ -131,14 +132,12 @@ export async function sendTextMessage(
   console.log(`[Live API] Sending message to session ${liveSession.id}: "${text.substring(0, 50)}..."`);
   
   try {
-    // Use the correct format for the JS SDK
-    await liveSession.session.sendClientContent({
-      turns: [{
-        role: "user",
-        parts: [{ text }]
-      }],
+    // Use simplified format that works with the JS SDK (string directly as turns)
+    liveSession.session.sendClientContent({
+      turns: text,
       turnComplete: true
     });
+    console.log(`[Live API] Message sent successfully`);
   } catch (error: any) {
     console.error(`[Live API] Error sending message:`, error);
     throw error;
