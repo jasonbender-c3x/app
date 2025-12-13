@@ -206,6 +206,7 @@ export async function registerRoutes(
       res.json(chat);
     } catch (error) {
       // Validation errors or database errors return 400 Bad Request
+      console.error("[POST /api/chats] Error creating chat:", error);
       res.status(400).json({ error: "Invalid request" });
     }
   });
@@ -226,6 +227,7 @@ export async function registerRoutes(
       const chats = await storage.getChats();
       res.json(chats);
     } catch (error) {
+      console.error("[GET /api/chats] Error fetching chats:", error);
       res.status(500).json({ error: "Failed to fetch chats" });
     }
   });
@@ -263,6 +265,7 @@ export async function registerRoutes(
       // Return both chat metadata and messages
       res.json({ chat, messages });
     } catch (error) {
+      console.error(`[GET /api/chats/${req.params.id}] Error fetching chat:`, error);
       res.status(500).json({ error: "Failed to fetch chat" });
     }
   });
@@ -298,6 +301,7 @@ export async function registerRoutes(
       
       res.json({ success: true });
     } catch (error) {
+      console.error(`[PATCH /api/chats/${req.params.id}] Error updating chat:`, error);
       res.status(500).json({ error: "Failed to update chat" });
     }
   });
