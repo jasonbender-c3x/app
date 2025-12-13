@@ -618,7 +618,9 @@ export default function DebugPage() {
                     Message
                   </h3>
                   <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border">
-                    <p className="text-sm whitespace-pre-wrap">{selectedLLM.userMessage}</p>
+                    <p className="text-sm whitespace-pre-wrap text-[#e0e0e0]">
+                      {selectedLLM.userMessage || <span className="text-[#666] italic">(No user message)</span>}
+                    </p>
                   </div>
                 </div>
 
@@ -629,7 +631,7 @@ export default function DebugPage() {
                     Prompt
                   </h3>
                   <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border max-h-[300px] overflow-y-auto">
-                    <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground">{selectedLLM.systemPrompt}</pre>
+                    <pre className="text-sm font-mono whitespace-pre-wrap text-[#c5c5c5] leading-relaxed">{selectedLLM.systemPrompt}</pre>
                   </div>
                 </div>
 
@@ -641,11 +643,11 @@ export default function DebugPage() {
                     </h3>
                     <div className="space-y-2 max-h-[200px] overflow-y-auto p-2 rounded-lg bg-secondary/10 border border-border">
                       {selectedLLM.conversationHistory.map((msg, idx) => (
-                        <div key={idx} className="p-2 rounded bg-[#1e1e1e] text-xs">
+                        <div key={idx} className="p-2 rounded bg-[#1e1e1e] text-sm">
                           <span className={`font-semibold ${msg.role === 'user' ? 'text-blue-400' : 'text-green-400'}`}>
                             {msg.role.toUpperCase()}:
                           </span>
-                          <span className="ml-2 text-muted-foreground">{truncateText(msg.content, 200)}</span>
+                          <span className="ml-2 text-[#c5c5c5]">{truncateText(msg.content, 200)}</span>
                         </div>
                       ))}
                     </div>
@@ -659,7 +661,9 @@ export default function DebugPage() {
                     Response (Clean)
                   </h3>
                   <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border max-h-[300px] overflow-y-auto">
-                    <p className="text-sm whitespace-pre-wrap">{selectedLLM.cleanContent || '(empty)'}</p>
+                    <p className="text-sm whitespace-pre-wrap text-[#e0e0e0] leading-relaxed">
+                      {selectedLLM.cleanContent || <span className="text-[#666] italic">(empty)</span>}
+                    </p>
                   </div>
                 </div>
 
@@ -670,7 +674,7 @@ export default function DebugPage() {
                     Response
                   </h3>
                   <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border max-h-[200px] overflow-y-auto">
-                    <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground">{selectedLLM.rawResponse}</pre>
+                    <pre className="text-sm font-mono whitespace-pre-wrap text-[#b0b0b0] leading-relaxed">{selectedLLM.rawResponse}</pre>
                   </div>
                 </div>
 
