@@ -201,14 +201,19 @@ export default function Home() {
 
   /**
    * Effect: Connect/disconnect Live Audio when Live Mode is toggled
+   * Note: We use refs for liveAudio methods to avoid re-running on every render
    */
+  const liveAudioRef = useRef(liveAudio);
+  liveAudioRef.current = liveAudio;
+  
   useEffect(() => {
-    if (isLiveMode && !liveAudio.isConnected) {
-      liveAudio.connect();
-    } else if (!isLiveMode && liveAudio.isConnected) {
-      liveAudio.disconnect();
+    const audio = liveAudioRef.current;
+    if (isLiveMode && !audio.isConnected) {
+      audio.connect();
+    } else if (!isLiveMode && audio.isConnected) {
+      audio.disconnect();
     }
-  }, [isLiveMode, liveAudio]);
+  }, [isLiveMode]);
 
   /**
    * Effect: Load all chats on component mount
