@@ -131,14 +131,13 @@ export async function sendTextMessage(
   console.log(`[Live API] Sending message to session ${liveSession.id}: "${text.substring(0, 50)}..."`);
   
   try {
-    await liveSession.session.send({
-      clientContent: {
-        turns: [{
-          role: "user",
-          parts: [{ text }]
-        }],
-        turnComplete: true
-      }
+    // Use the correct format for the JS SDK
+    await liveSession.session.sendClientContent({
+      turns: [{
+        role: "user",
+        parts: [{ text }]
+      }],
+      turnComplete: true
     });
   } catch (error: any) {
     console.error(`[Live API] Error sending message:`, error);
@@ -175,12 +174,10 @@ export async function sendAudioInput(
 
   const base64Audio = audioData.toString("base64");
   
-  await liveSession.session.send({
-    realtimeInput: {
-      mediaChunks: [{
-        mimeType: "audio/pcm;rate=16000",
-        data: base64Audio
-      }]
-    }
+  await liveSession.session.sendRealtimeInput({
+    mediaChunks: [{
+      mimeType: "audio/pcm;rate=16000",
+      data: base64Audio
+    }]
   });
 }
