@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction, RequestHandler } from "express";
+import { logBuffer } from "../services/log-buffer";
 
 export type AsyncHandler = (
   req: Request,
@@ -67,6 +68,19 @@ function logApiError(
     console.error(`  Stack Trace:\n${err.stack}`);
   }
   console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  
+  // Also log to the in-memory buffer for debug UI access
+  logBuffer.error(
+    `[${method}] ${url} - ${errorLog.message}`,
+    JSON.stringify({
+      status,
+      type: errorLog.type,
+      params: errorLog.params,
+      query: errorLog.query,
+      body: errorLog.body,
+      stack: err.stack?.split('\n').slice(0, 5).join('\n'),
+    }, null, 2)
+  );
 }
 
 /**
@@ -134,6 +148,12 @@ export function logIntegrationError(
     console.error(`  Stack Trace:\n${error.stack}`);
   }
   console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  
+  // Also log to the in-memory buffer for debug UI access
+  logBuffer.error(
+    `[${integrationName}] ${operation} - ${error.message}`,
+    JSON.stringify({ details, stack: error.stack?.split('\n').slice(0, 5).join('\n') }, null, 2)
+  );
 }
 
 export function createApiError(message: string, status: number): Error & { status: number } {
