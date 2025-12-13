@@ -360,6 +360,12 @@ export default function Home() {
       setMessages((prev) => [...prev, tempUserMessage]);
       setIsLoading(true);
 
+      // Step 2.5: If Live Mode is enabled, send user's message directly to Live API
+      // This generates audio response in real-time while text response streams
+      if (isLiveMode && liveAudio.isConnected) {
+        liveAudio.sendMessage(content);
+      }
+
       // Step 3: Send message to backend with optional attachments
       const response = await fetch(`/api/chats/${chatId}/messages`, {
         method: 'POST',
@@ -458,13 +464,10 @@ export default function Home() {
               // Step 6: Stream complete - reload final messages and speak response
               if (data.done) {
                 setIsLoading(false);
-                // Speak the AI response - use Live Audio if enabled, otherwise TTS
-                if (aiMessageContent) {
-                  if (isLiveMode && liveAudio.isConnected) {
-                    liveAudio.sendMessage(aiMessageContent);
-                  } else {
-                    speak(aiMessageContent);
-                  }
+                // Speak the AI response using TTS (only if NOT in Live Mode)
+                // Live Mode already sent user's input to Live API at step 2.5
+                if (aiMessageContent && !isLiveMode) {
+                  speak(aiMessageContent);
                 }
                 // Get actual stored messages with real IDs
                 const updatedMessages = await loadChatMessages(chatId);
