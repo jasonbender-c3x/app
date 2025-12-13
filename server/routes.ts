@@ -840,22 +840,26 @@ export async function registerRoutes(
   const activeSessions = new Map<WebSocket, LiveSession>();
   
   wss.on("connection", async (ws, req) => {
-    console.log("[Live API] New WebSocket connection");
+    console.log("[Live API] New WebSocket connection from", req.url);
     
     let liveSession: LiveSession | null = null;
     
     ws.on("message", async (data) => {
+      console.log("[Live API] Received message:", data.toString().substring(0, 100));
       try {
         const message = JSON.parse(data.toString());
+        console.log("[Live API] Parsed message type:", message.type);
         
         switch (message.type) {
           case "connect": {
             const sessionId = crypto.randomUUID();
             const voice = message.voice || "Kore";
             const systemInstruction = message.systemInstruction;
+            console.log("[Live API] Creating session with voice:", voice);
             
             try {
               liveSession = await createLiveSession(sessionId, { voice, systemInstruction });
+              console.log("[Live API] Session created successfully:", sessionId);
               activeSessions.set(ws, liveSession);
               
               liveSession.emitter.on("audio", (audioBuffer: Buffer) => {
