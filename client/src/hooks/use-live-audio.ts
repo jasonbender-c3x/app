@@ -84,7 +84,12 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
   }, [onAudioEnd]);
 
   const queueAudioData = useCallback(async (pcmData: ArrayBuffer) => {
-    if (!audioContextRef.current) return;
+    if (!audioContextRef.current) {
+      console.error("[Live Audio] No AudioContext available");
+      return;
+    }
+
+    console.log("[Live Audio] Received audio chunk:", pcmData.byteLength, "bytes");
 
     try {
       const int16Array = new Int16Array(pcmData);
@@ -127,6 +132,16 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
     audioContextRef.current = new AudioContext({ sampleRate: SAMPLE_RATE });
     audioQueueRef.current = [];
     nextPlayTimeRef.current = 0;
+    
+    // Resume AudioContext to handle browser autoplay policy
+    // Most browsers require user interaction before audio can play
+    if (audioContextRef.current.state === "suspended") {
+      audioContextRef.current.resume().then(() => {
+        console.log("[Live Audio] AudioContext resumed successfully");
+      }).catch((err) => {
+        console.error("[Live Audio] Failed to resume AudioContext:", err);
+      });
+    }
 
     ws.onopen = () => {
       console.log("[Live Audio] WebSocket connected, sending connect message");
