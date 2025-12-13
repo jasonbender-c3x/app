@@ -39,7 +39,6 @@ waitForPort = 5000
 mockupState = "FULLSTACK"
 integrations = ["javascript_gemini:1.0.0", "google-drive:1.0.0", "google-mail:1.0.0", "google-calendar:1.0.0", "github:1.0.0", "javascript_log_in_with_replit:1.0.0"]
 
-
 [[ports]]
 localPort = 5000
 externalPort = 80
