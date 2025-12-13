@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Bug, Database, Terminal, RefreshCw, Trash2, ChevronLeft, ChevronRight, X, Table2 } from "lucide-react";
+import { ArrowLeft, Bug, Database, Terminal, RefreshCw, Trash2, ChevronLeft, ChevronRight, Table2, Brain, Clock, Wrench, Eye, Code } from "lucide-react";
 import { Link } from "wouter";
 
 interface LogEntry {
@@ -25,9 +25,31 @@ interface TableData {
   total: number;
 }
 
+interface LLMInteraction {
+  id: string;
+  timestamp: string;
+  chatId: string;
+  messageId: string;
+  systemPrompt: string;
+  userMessage: string;
+  conversationHistory: Array<{ role: string; content: string }>;
+  attachments: Array<{ type: string; filename?: string; mimeType?: string }>;
+  rawResponse: string;
+  parsedToolCalls: unknown[];
+  cleanContent: string;
+  toolResults: Array<{ toolId: string; type: string; success: boolean; result?: unknown; error?: string }>;
+  model: string;
+  durationMs: number;
+  tokenEstimate?: {
+    inputTokens: number;
+    outputTokens: number;
+  };
+}
+
 export default function DebugPage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
+  const [llmInteractions, setLLMInteractions] = useState<LLMInteraction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("logs");
   
@@ -37,9 +59,13 @@ export default function DebugPage() {
   const [tablePage, setTablePage] = useState(0);
   const pageSize = 20;
 
+  const [selectedLLM, setSelectedLLM] = useState<LLMInteraction | null>(null);
+  const [llmViewMode, setLLMViewMode] = useState<"beautified" | "raw">("beautified");
+
   useEffect(() => {
     loadLogs();
     loadDatabaseInfo();
+    loadLLMInteractions();
   }, []);
 
   useEffect(() => {
@@ -78,6 +104,28 @@ export default function DebugPage() {
     } catch (error) {
       console.error('Failed to load database info:', error);
       setTables([]);
+    }
+  };
+
+  const loadLLMInteractions = async () => {
+    try {
+      const response = await fetch('/api/debug/llm');
+      if (response.ok) {
+        const data = await response.json();
+        setLLMInteractions(data);
+      }
+    } catch (error) {
+      console.error('Failed to load LLM interactions:', error);
+      setLLMInteractions([]);
+    }
+  };
+
+  const clearLLMInteractions = async () => {
+    try {
+      await fetch('/api/debug/llm', { method: 'DELETE' });
+      setLLMInteractions([]);
+    } catch (error) {
+      console.error('Failed to clear LLM interactions:', error);
     }
   };
 
@@ -122,16 +170,13 @@ export default function DebugPage() {
     }
   };
 
-  // Prettify log message - convert escaped characters and format JSON
   const formatLogMessage = (message: string) => {
-    // Replace escaped newlines with actual newlines
     let formatted = message
       .replace(/\\n/g, '\n')
       .replace(/\\t/g, '\t')
       .replace(/\\r/g, '')
       .replace(/\\"/g, '"');
     
-    // Try to detect and pretty-print JSON in the message
     const jsonMatch = formatted.match(/ :: ([\s\S]+)$/);
     if (jsonMatch) {
       const prefix = formatted.slice(0, formatted.indexOf(' :: '));
@@ -141,7 +186,6 @@ export default function DebugPage() {
         const prettyJson = JSON.stringify(parsed, null, 2);
         return { prefix, json: prettyJson };
       } catch {
-        // Not valid JSON, return as-is
         return { prefix: formatted, json: null };
       }
     }
@@ -159,6 +203,17 @@ export default function DebugPage() {
     if (value === undefined) return '';
     if (typeof value === 'object') return JSON.stringify(value);
     return String(value);
+  };
+
+  const formatDuration = (ms: number) => {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(2)}s`;
+  };
+
+  const truncateText = (text: string, maxLen: number) => {
+    if (!text) return '';
+    if (text.length <= maxLen) return text;
+    return text.slice(0, maxLen) + '...';
   };
 
   const totalPages = tableData ? Math.ceil(tableData.total / pageSize) : 0;
@@ -179,7 +234,7 @@ export default function DebugPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="logs" className="flex items-center gap-2" data-testid="tab-logs">
               <Terminal className="h-4 w-4" />
               Logs
@@ -187,6 +242,10 @@ export default function DebugPage() {
             <TabsTrigger value="database" className="flex items-center gap-2" data-testid="tab-database">
               <Database className="h-4 w-4" />
               Database
+            </TabsTrigger>
+            <TabsTrigger value="llm" className="flex items-center gap-2" data-testid="tab-llm">
+              <Brain className="h-4 w-4" />
+              LLM Prompts
             </TabsTrigger>
           </TabsList>
 
@@ -315,9 +374,86 @@ export default function DebugPage() {
               )}
             </div>
           </TabsContent>
+
+          <TabsContent value="llm" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <p className="text-muted-foreground">Recent LLM interactions (last 50)</p>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={loadLLMInteractions}
+                  data-testid="button-refresh-llm"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={clearLLMInteractions}
+                  data-testid="button-clear-llm"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {llmInteractions.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground rounded-lg border border-border bg-secondary/20">
+                  <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No LLM interactions recorded yet</p>
+                  <p className="text-sm mt-2">Send a message to start capturing prompts</p>
+                </div>
+              ) : (
+                llmInteractions.map((interaction) => (
+                  <button
+                    key={interaction.id}
+                    onClick={() => setSelectedLLM(interaction)}
+                    className="w-full p-4 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/40 hover:border-primary/50 transition-all cursor-pointer text-left group"
+                    data-testid={`llm-entry-${interaction.id}`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs text-muted-foreground">
+                            {formatLogTime(interaction.timestamp)}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-xs font-mono">
+                            {interaction.model}
+                          </span>
+                        </div>
+                        <p className="font-medium text-sm group-hover:text-primary transition-colors truncate">
+                          {truncateText(interaction.userMessage, 100)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1 truncate">
+                          {truncateText(interaction.cleanContent, 80)}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {formatDuration(interaction.durationMs)}
+                        </div>
+                        {interaction.toolResults.length > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-amber-400">
+                            <Wrench className="h-3 w-3" />
+                            {interaction.toolResults.length} tools
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
+      {/* Table Data Modal */}
       <Dialog open={!!selectedTable} onOpenChange={(open) => !open && closeTableModal()}>
         <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
           <DialogHeader>
@@ -410,6 +546,197 @@ export default function DebugPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* LLM Interaction Detail Modal */}
+      <Dialog open={!!selectedLLM} onOpenChange={(open) => !open && setSelectedLLM(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-primary" />
+                LLM Interaction
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  {selectedLLM && formatLogTime(selectedLLM.timestamp)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={llmViewMode === "beautified" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setLLMViewMode("beautified")}
+                  data-testid="button-view-beautified"
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  Beautified
+                </Button>
+                <Button
+                  variant={llmViewMode === "raw" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setLLMViewMode("raw")}
+                  data-testid="button-view-raw"
+                >
+                  <Code className="h-4 w-4 mr-1" />
+                  Raw JSON
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1 h-[70vh]">
+            {selectedLLM && llmViewMode === "raw" ? (
+              <pre className="p-4 bg-[#1e1e1e] rounded-lg text-xs text-[#d4d4d4] font-mono whitespace-pre-wrap overflow-x-auto">
+                {JSON.stringify(selectedLLM, null, 2)}
+              </pre>
+            ) : selectedLLM && (
+              <div className="space-y-6 p-2">
+                {/* Metadata */}
+                <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-secondary/20 border border-border">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Model</p>
+                    <p className="font-mono text-sm">{selectedLLM.model}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Duration</p>
+                    <p className="font-mono text-sm">{formatDuration(selectedLLM.durationMs)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Chat ID</p>
+                    <p className="font-mono text-xs truncate">{selectedLLM.chatId}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Message ID</p>
+                    <p className="font-mono text-xs truncate">{selectedLLM.messageId}</p>
+                  </div>
+                </div>
+
+                {/* User Message */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-xs">USER</span>
+                    Message
+                  </h3>
+                  <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border">
+                    <p className="text-sm whitespace-pre-wrap">{selectedLLM.userMessage}</p>
+                  </div>
+                </div>
+
+                {/* System Prompt */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-xs">SYSTEM</span>
+                    Prompt
+                  </h3>
+                  <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border max-h-[300px] overflow-y-auto">
+                    <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground">{selectedLLM.systemPrompt}</pre>
+                  </div>
+                </div>
+
+                {/* Conversation History */}
+                {selectedLLM.conversationHistory.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">
+                      Conversation History ({selectedLLM.conversationHistory.length} messages)
+                    </h3>
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto p-2 rounded-lg bg-secondary/10 border border-border">
+                      {selectedLLM.conversationHistory.map((msg, idx) => (
+                        <div key={idx} className="p-2 rounded bg-[#1e1e1e] text-xs">
+                          <span className={`font-semibold ${msg.role === 'user' ? 'text-blue-400' : 'text-green-400'}`}>
+                            {msg.role.toUpperCase()}:
+                          </span>
+                          <span className="ml-2 text-muted-foreground">{truncateText(msg.content, 200)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Response */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-green-500/20 text-green-400 text-xs">AI</span>
+                    Response (Clean)
+                  </h3>
+                  <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border max-h-[300px] overflow-y-auto">
+                    <p className="text-sm whitespace-pre-wrap">{selectedLLM.cleanContent || '(empty)'}</p>
+                  </div>
+                </div>
+
+                {/* Raw Response */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 text-xs">RAW</span>
+                    Response
+                  </h3>
+                  <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border max-h-[200px] overflow-y-auto">
+                    <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground">{selectedLLM.rawResponse}</pre>
+                  </div>
+                </div>
+
+                {/* Tool Calls */}
+                {selectedLLM.parsedToolCalls.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-amber-400" />
+                      Parsed Tool Calls ({selectedLLM.parsedToolCalls.length})
+                    </h3>
+                    <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border max-h-[200px] overflow-y-auto">
+                      <pre className="text-xs font-mono whitespace-pre-wrap text-amber-200">
+                        {JSON.stringify(selectedLLM.parsedToolCalls, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tool Results */}
+                {selectedLLM.toolResults.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-amber-400" />
+                      Tool Results ({selectedLLM.toolResults.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {selectedLLM.toolResults.map((result, idx) => (
+                        <div key={idx} className={`p-3 rounded-lg border ${result.success ? 'bg-green-500/5 border-green-500/30' : 'bg-red-500/5 border-red-500/30'}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-mono text-xs">{result.type}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded ${result.success ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                              {result.success ? 'SUCCESS' : 'FAILED'}
+                            </span>
+                          </div>
+                          {result.error && (
+                            <p className="text-xs text-red-400 mb-2">{result.error}</p>
+                          )}
+                          {result.result && (
+                            <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap max-h-[100px] overflow-y-auto">
+                              {typeof result.result === 'string' ? result.result : JSON.stringify(result.result, null, 2)}
+                            </pre>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Attachments */}
+                {selectedLLM.attachments.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">
+                      Attachments ({selectedLLM.attachments.length})
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedLLM.attachments.map((att, idx) => (
+                        <span key={idx} className="px-3 py-1 rounded-full bg-secondary text-xs">
+                          {att.filename || att.type} ({att.mimeType})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>

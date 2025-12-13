@@ -329,6 +329,7 @@ export async function registerRoutes(
    * @returns {Error} 500 - Streaming/AI error
    */
   app.post("/api/chats/:id/messages", async (req, res) => {
+    const startTime = Date.now();
     try {
       // ─────────────────────────────────────────────────────────────────────
       // STEP 1: Validate and save user's message
@@ -658,6 +659,8 @@ export async function registerRoutes(
       // Include tool results in message metadata if any tools were executed
       const messageMetadata = toolResults.length > 0 ? { toolResults } : undefined;
       
+      const endTime = Date.now();
+      
       await storage.addMessage({
         chatId: req.params.id,
         role: "ai",
@@ -665,6 +668,31 @@ export async function registerRoutes(
         geminiContent: geminiContentToStore,
         metadata: messageMetadata,
       });
+
+      // Log to LLM debug buffer for debugging
+      try {
+        const { llmDebugBuffer } = await import("./services/llm-debug-buffer");
+        llmDebugBuffer.add({
+          chatId: req.params.id,
+          messageId: savedMessage.id,
+          systemPrompt: composedPrompt.systemPrompt,
+          userMessage: composedPrompt.userMessage,
+          conversationHistory: chatMessages.map(m => ({ role: m.role, content: m.content })),
+          attachments: composedPrompt.attachments.map(a => ({ 
+            type: a.type, 
+            filename: a.filename,
+            mimeType: a.mimeType 
+          })),
+          rawResponse: fullResponse,
+          parsedToolCalls: parser.getExtractedToolCalls(),
+          cleanContent: finalContent,
+          toolResults,
+          model: "gemini-2.0-flash-exp",
+          durationMs: endTime - (startTime || endTime),
+        });
+      } catch (logError) {
+        console.error("Failed to log LLM interaction:", logError);
+      }
 
       // Send completion event with tool results summary and close the stream
       res.write(`data: ${JSON.stringify({ 
@@ -746,6 +774,44 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching table data:", error);
       res.status(500).json({ error: "Failed to fetch table data" });
+    }
+  });
+
+  // LLM Debug endpoints - view prompts and responses
+  app.get("/api/debug/llm", async (req, res) => {
+    try {
+      const { llmDebugBuffer } = await import("./services/llm-debug-buffer");
+      const limit = parseInt(req.query.limit as string) || 20;
+      const interactions = llmDebugBuffer.getAll(limit);
+      res.json(interactions);
+    } catch (error) {
+      console.error("Error fetching LLM debug data:", error);
+      res.status(500).json({ error: "Failed to fetch LLM debug data" });
+    }
+  });
+
+  app.get("/api/debug/llm/:id", async (req, res) => {
+    try {
+      const { llmDebugBuffer } = await import("./services/llm-debug-buffer");
+      const interaction = llmDebugBuffer.getById(req.params.id);
+      if (!interaction) {
+        return res.status(404).json({ error: "Interaction not found" });
+      }
+      res.json(interaction);
+    } catch (error) {
+      console.error("Error fetching LLM interaction:", error);
+      res.status(500).json({ error: "Failed to fetch LLM interaction" });
+    }
+  });
+
+  app.delete("/api/debug/llm", async (_req, res) => {
+    try {
+      const { llmDebugBuffer } = await import("./services/llm-debug-buffer");
+      llmDebugBuffer.clear();
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error clearing LLM debug data:", error);
+      res.status(500).json({ error: "Failed to clear LLM debug data" });
     }
   });
 
