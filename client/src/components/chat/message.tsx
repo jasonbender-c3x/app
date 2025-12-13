@@ -135,13 +135,22 @@ interface MessageProps {
 
 /**
  * Strip tool call blocks from message content
- * Removes content between 🐱✂️ and ✂️🐱 delimiters (tool call blocks)
- * Also handles legacy JSON patterns for backwards compatibility
+ * The backend format is: [JSON tool calls]\n\n✂️🐱\n\nmarkdown content
+ * This function removes everything up to and including the delimiter,
+ * keeping only the clean markdown content for display.
+ * Also handles legacy JSON patterns for backwards compatibility.
  */
 function stripToolCalls(content: string): string {
-  // Primary: Remove delimited tool call blocks (🐱✂️ ... ✂️🐱)
+  // Primary: Remove everything up to and including the ✂️🐱 delimiter
+  // Backend format is: [JSON tool calls]\n\n✂️🐱\n\nmarkdown content
+  const delimiterIndex = content.indexOf('✂️🐱');
+  let cleaned = delimiterIndex !== -1 
+    ? content.substring(delimiterIndex + '✂️🐱'.length).trim()
+    : content;
+  
+  // Legacy: Remove delimited tool call blocks (🐱✂️ ... ✂️🐱)
   const delimiterPattern = /🐱✂️[\s\S]*?✂️🐱/g;
-  let cleaned = content.replace(delimiterPattern, '');
+  cleaned = cleaned.replace(delimiterPattern, '');
   
   // Known tool type prefixes for targeted matching
   const toolTypePattern = '(?:github_|gmail_|calendar_|drive_|docs_|sheets_|tasks_|terminal_|tavily_|perplexity_|browserbase_|api_call|search|web_search|google_search|duckduckgo_search|browser_scrape|file_ingest|file_upload)[\\w_]*';
