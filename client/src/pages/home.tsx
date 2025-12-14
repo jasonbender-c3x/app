@@ -749,15 +749,31 @@ export default function Home() {
             // =================================================================
             <div className="flex flex-col gap-2 py-6 min-h-full">
               {/* Render each message using ChatMessage component */}
-              {messages.map((msg) => (
-                <ChatMessage 
-                  key={msg.id} 
-                  role={msg.role as "user" | "ai"} 
-                  content={msg.content} 
-                  metadata={(msg as any).metadata}
-                  createdAt={msg.createdAt}
-                />
-              ))}
+              {messages.map((msg, index) => {
+                // For AI messages, find the previous user message as promptSnapshot
+                let promptSnapshot: string | undefined;
+                if (msg.role === 'ai' && index > 0) {
+                  for (let i = index - 1; i >= 0; i--) {
+                    if (messages[i].role === 'user') {
+                      promptSnapshot = messages[i].content;
+                      break;
+                    }
+                  }
+                }
+                
+                return (
+                  <ChatMessage 
+                    key={msg.id} 
+                    id={msg.id}
+                    chatId={currentChatId || undefined}
+                    role={msg.role as "user" | "ai"} 
+                    content={msg.content} 
+                    metadata={(msg as any).metadata}
+                    createdAt={msg.createdAt}
+                    promptSnapshot={promptSnapshot}
+                  />
+                );
+              })}
               
               {/* 
                * AI Thinking Indicator

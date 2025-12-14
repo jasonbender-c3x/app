@@ -410,6 +410,37 @@ export type InsertExecutionLog = z.infer<typeof insertExecutionLogSchema>;
 export type ExecutionLog = typeof executionLogs.$inferSelect;
 
 // =============================================================================
+// FEEDBACK SYSTEM - User feedback on AI responses for evolution
+// =============================================================================
+/**
+ * FEEDBACK TABLE
+ * --------------
+ * Stores user feedback on AI responses. This is the backbone for the evolution
+ * system - feedback is analyzed to generate improvements via GitHub PRs.
+ */
+export const feedback = pgTable("feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").references(() => messages.id, { onDelete: "cascade" }),
+  chatId: varchar("chat_id").references(() => chats.id, { onDelete: "cascade" }),
+  rating: varchar("rating", { length: 20 }), // "positive" | "negative" | null
+  categories: jsonb("categories"), // { accuracy, helpfulness, clarity, completeness }
+  likedAspects: text("liked_aspects").array(),
+  dislikedAspects: text("disliked_aspects").array(),
+  freeformText: text("freeform_text"),
+  promptSnapshot: text("prompt_snapshot"), // Full prompt at time of response
+  responseSnapshot: text("response_snapshot"), // Full AI response
+  kernelId: varchar("kernel_id"), // Reference to kernel version used
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertFeedbackSchema = createInsertSchema(feedback).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
+export type Feedback = typeof feedback.$inferSelect;
+
+// =============================================================================
 // STRUCTURED LLM OUTPUT SCHEMAS
 // =============================================================================
 /**

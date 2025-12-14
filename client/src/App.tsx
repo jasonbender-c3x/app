@@ -92,6 +92,7 @@ import PythonSandboxPage from "@/pages/python-sandbox";
 import PlaywrightTestingPage from "@/pages/playwright-testing";
 import WebSearchPage from "@/pages/web-search";
 import KnowledgeIngestionPage from "@/pages/knowledge-ingestion";
+import MarkdownPlaygroundPage from "@/pages/markdown-playground";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -174,6 +175,9 @@ function Router() {
       
       {/* Knowledge Ingestion Route - Ingest historical LLM conversations */}
       <Route path="/knowledge" component={KnowledgeIngestionPage} />
+
+      {/* Markdown Playground Route - Demo of enhanced markdown features */}
+      <Route path="/markdown" component={MarkdownPlaygroundPage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything

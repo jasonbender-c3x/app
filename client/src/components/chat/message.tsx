@@ -53,13 +53,17 @@ import remarkGfm from "remark-gfm";
 /**
  * Lucide Icons for action buttons
  * - Copy: Copy message to clipboard
- * - ThumbsUp/Down: Feedback buttons
  * - RefreshCw: Regenerate response
  * - File/FileCode: File operation indicators
  * - Wrench: Tool execution indicator
  * - CheckCircle/XCircle: Success/error status
  */
-import { Copy, ThumbsUp, ThumbsDown, RefreshCw, File, FileCode, Wrench, CheckCircle2, XCircle, Loader2, Terminal, Mail, Calendar } from "lucide-react";
+import { Copy, RefreshCw, File, FileCode, Wrench, CheckCircle2, XCircle, Loader2, Terminal, Mail, Calendar } from "lucide-react";
+
+/**
+ * FeedbackPanel - Expandable feedback component for AI responses
+ */
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 
 /**
  * Button component from shadcn/ui
@@ -120,6 +124,9 @@ interface MessageMetadata {
  * @property {string} content - The message text (supports markdown for AI)
  * @property {boolean} [isThinking] - Whether to show thinking animation (AI only)
  * @property {MessageMetadata} [metadata] - Optional structured metadata for AI responses
+ * @property {string} [id] - Message ID for feedback linking
+ * @property {string} [chatId] - Chat ID for feedback linking
+ * @property {string} [promptSnapshot] - The user's prompt that triggered this AI response
  */
 interface MessageProps {
   role: "user" | "ai";
@@ -127,6 +134,9 @@ interface MessageProps {
   isThinking?: boolean;
   metadata?: MessageMetadata;
   createdAt?: Date | string;
+  id?: string;
+  chatId?: string;
+  promptSnapshot?: string;
 }
 
 // ============================================================================
@@ -257,7 +267,7 @@ function formatTimestamp(date: Date | string | undefined): string {
   return `${dayName}, ${monthName} ${dayNum} ${year}  ${hh}.${min}.${ss}`;
 }
 
-export function ChatMessage({ role, content, isThinking, metadata, createdAt }: MessageProps) {
+export function ChatMessage({ role, content, isThinking, metadata, createdAt, id, chatId, promptSnapshot }: MessageProps) {
   const hasToolResults = !!(metadata?.toolResults?.length);
   const hasFileOps = !!(metadata?.filesCreated?.length) || !!(metadata?.filesModified?.length);
   const hasErrors = !!(metadata?.errors?.length);
@@ -507,29 +517,29 @@ export function ChatMessage({ role, content, isThinking, metadata, createdAt }: 
          * Provides interaction options for the AI response
          */}
         {role === "ai" && !isThinking && (
-          <div className="flex gap-2 mt-4 pt-2">
-            {/* Copy to Clipboard Button */}
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-              <Copy className="h-4 w-4" />
-            </Button>
+          <div className="flex flex-col gap-3 mt-4 pt-2">
+            {/* Top row: Copy and Regenerate buttons */}
+            <div className="flex gap-2">
+              {/* Copy to Clipboard Button */}
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                <Copy className="h-4 w-4" />
+              </Button>
+              
+              {/* Regenerate Response Button */}
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
             
-            {/* Regenerate Response Button */}
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            
-            {/* Spacer to push feedback buttons to right */}
-            <div className="flex-1" />
-            
-            {/* Thumbs Up - Positive Feedback */}
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-              <ThumbsUp className="h-4 w-4" />
-            </Button>
-            
-            {/* Thumbs Down - Negative Feedback */}
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-              <ThumbsDown className="h-4 w-4" />
-            </Button>
+            {/* Feedback Panel - Expandable form for user feedback */}
+            {id && (
+              <FeedbackPanel 
+                messageId={id}
+                chatId={chatId}
+                promptSnapshot={promptSnapshot}
+                responseSnapshot={content}
+              />
+            )}
           </div>
         )}
       </div>

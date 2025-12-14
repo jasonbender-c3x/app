@@ -48,6 +48,8 @@ import {
   type InsertGoogleOAuthTokens,
   type User,
   type UpsertUser,
+  type Feedback,
+  type InsertFeedback,
   chats,
   messages,
   attachments,
@@ -56,7 +58,8 @@ import {
   executionLogs,
   documentChunks,
   googleOAuthTokens,
-  users
+  users,
+  feedback
 } from "@shared/schema";
 import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq, desc, and } from "drizzle-orm";
@@ -247,6 +250,14 @@ export interface IStorage {
   
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+
+  // =========================================================================
+  // FEEDBACK OPERATIONS
+  // =========================================================================
+  
+  createFeedback(data: InsertFeedback): Promise<Feedback>;
+  getFeedback(limit?: number): Promise<Feedback[]>;
+  getFeedbackStats(): Promise<{ total: number; positive: number; negative: number; withComments: number }>;
 
   // =========================================================================
   // TRANSACTION SUPPORT
@@ -886,6 +897,33 @@ export class DrizzleStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  // =========================================================================
+  // FEEDBACK OPERATIONS IMPLEMENTATION
+  // =========================================================================
+
+  async createFeedback(data: InsertFeedback): Promise<Feedback> {
+    const [newFeedback] = await this.getDb().insert(feedback).values(data).returning();
+    return newFeedback;
+  }
+
+  async getFeedback(limit: number = 50): Promise<Feedback[]> {
+    return await this.getDb()
+      .select()
+      .from(feedback)
+      .orderBy(desc(feedback.createdAt))
+      .limit(limit);
+  }
+
+  async getFeedbackStats(): Promise<{ total: number; positive: number; negative: number; withComments: number }> {
+    const allFeedback = await this.getDb().select().from(feedback);
+    return {
+      total: allFeedback.length,
+      positive: allFeedback.filter(f => f.rating === "positive").length,
+      negative: allFeedback.filter(f => f.rating === "negative").length,
+      withComments: allFeedback.filter(f => f.freeformText).length,
+    };
   }
 }
 
