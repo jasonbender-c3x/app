@@ -51,6 +51,16 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 /**
+ * EnhancedMarkdown - Rich markdown renderer with:
+ * - Callout boxes (info, warning, success, error, tip)
+ * - Collapsible sections
+ * - Confidence badges
+ * - Code blocks with copy buttons
+ * - Emoji shortcode conversion
+ */
+import { EnhancedMarkdown } from "@/components/ui/enhanced-markdown";
+
+/**
  * Lucide Icons for action buttons
  * - Copy: Copy message to clipboard
  * - RefreshCw: Regenerate response
@@ -369,23 +379,30 @@ export function ChatMessage({ role, content, isThinking, metadata, createdAt, id
               className="w-2 h-2 bg-primary/40 rounded-full"
             />
           </div>
+        ) : role === "ai" ? (
+          // =================================================================
+          // AI MESSAGE CONTENT - Enhanced Markdown with rich features
+          // =================================================================
+          <div className="relative">
+            {/* Subtle gradient accent bar on left */}
+            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary/40 via-purple-400/30 to-transparent rounded-full" />
+            
+            <div className="pl-4 prose prose-neutral dark:prose-invert max-w-none markdown-content text-base leading-7 text-foreground/90">
+              <EnhancedMarkdown 
+                content={stripToolCalls(content)}
+                className="ai-response"
+              />
+            </div>
+          </div>
         ) : (
           // =================================================================
-          // MARKDOWN CONTENT
-          // Renders the message with full markdown support
+          // USER MESSAGE CONTENT - Plain markdown
           // =================================================================
           <div className="prose prose-neutral dark:prose-invert max-w-none markdown-content text-base leading-7 text-foreground/90">
-            {/* 
-             * ReactMarkdown with GitHub Flavored Markdown
-             * Supports: headings, lists, code blocks, tables, links, etc.
-             * Custom components override p to preserve newlines as <br/> elements
-             */}
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
               components={{
-                // Preserve newlines within paragraphs by converting \n to <br/>
                 p: ({ children }) => {
-                  // Process children to convert string content with newlines
                   const processedChildren = Array.isArray(children) 
                     ? children.flatMap((child, idx) => {
                         if (typeof child === 'string' && child.includes('\n')) {
@@ -404,7 +421,7 @@ export function ChatMessage({ role, content, isThinking, metadata, createdAt, id
                 }
               }}
             >
-              {stripToolCalls(content)}
+              {content}
             </ReactMarkdown>
           </div>
         )}

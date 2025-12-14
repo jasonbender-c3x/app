@@ -546,10 +546,21 @@ export function EnhancedMarkdown({ content, className }: EnhancedMarkdownProps) 
               // Pre block wrapper
               pre: ({ children }) => <>{children}</>,
               
-              // Parse inline elements in paragraphs
+              // Parse inline elements in paragraphs with newline preservation
               p: ({ children }) => {
-                const processedChildren = React.Children.map(children, (child) => {
+                let keyCounter = 0;
+                const processedChildren = React.Children.toArray(children).flatMap((child, idx) => {
                   if (typeof child === 'string') {
+                    // First preserve newlines by splitting and inserting <br/>
+                    if (child.includes('\n')) {
+                      return child.split('\n').flatMap((part, i, arr) => {
+                        const inlineElements = parseInlineElements(part);
+                        if (i < arr.length - 1) {
+                          return [...(Array.isArray(inlineElements) ? inlineElements : [inlineElements]), <br key={`br-${idx}-${i}-${keyCounter++}`} />];
+                        }
+                        return Array.isArray(inlineElements) ? inlineElements : [inlineElements];
+                      });
+                    }
                     return parseInlineElements(child);
                   }
                   return child;
