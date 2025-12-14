@@ -102,6 +102,27 @@ The application uses two main tables:
 - API routes in `server/routes/image.ts`
 - Frontend page at `/image`
 
+**Evolution Engine (Self-Improvement System)**
+- Analyzes user feedback patterns to identify issues
+- Uses AI to generate improvement suggestions
+- Creates GitHub PRs with analysis documents for human review
+- Service: `server/services/evolution-engine.ts`
+- API routes: `server/routes/evolution.ts`
+- Frontend page at `/evolution`
+- Features:
+  - Feedback pattern detection (category scores, disliked aspects, user comments)
+  - AI-powered suggestion generation (prompt improvements, formatting, behavior)
+  - Severity weighting (high/medium/low)
+  - GitHub integration for branch/file/PR creation
+- Design: Human-in-the-loop approach - suggestions require human approval
+
+**Feedback System**
+- User feedback on AI responses (thumbs up/down, ratings, comments)
+- Database table: `feedback` with messageId, rating, categories, aspects, freeformText
+- Component: `client/src/components/ui/feedback-panel.tsx`
+- API routes: `server/routes/feedback.ts`
+- Backbone for the evolution system
+
 **Knowledge Ingestion (Multimodal Pipeline)**
 - Robust multimodal ingestion pipeline supporting text, images, audio, documents, emails, and conversations
 - Seven-stage processing: Source Discovery → Ingest → Parse → Classify → Analyze → Store → Index
