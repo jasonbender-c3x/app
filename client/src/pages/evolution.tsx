@@ -27,7 +27,8 @@ import {
   Activity
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { MainLayout } from "@/components/layout/main-layout";
+import { Link } from "wouter";
+import { ArrowLeft } from "lucide-react";
 
 interface FeedbackPattern {
   category: string;
@@ -171,18 +172,25 @@ export default function EvolutionPage() {
   };
 
   return (
-    <MainLayout>
-      <div className="flex-1 overflow-auto p-6">
+    <div className="min-h-screen bg-background">
+      <div className="p-6">
         <div className="max-w-6xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3" data-testid="text-page-title">
-                <Brain className="h-8 w-8 text-purple-500" />
-                Evolution Engine
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                Analyze feedback patterns and generate AI-driven improvements
-              </p>
+            <div className="flex items-center gap-4">
+              <Link href="/">
+                <Button variant="ghost" size="icon" data-testid="button-back">
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              </Link>
+              <div>
+                <h1 className="text-3xl font-bold flex items-center gap-3" data-testid="text-page-title">
+                  <Brain className="h-8 w-8 text-purple-500" />
+                  Evolution Engine
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  Analyze feedback patterns and generate AI-driven improvements
+                </p>
+              </div>
             </div>
             <Button 
               onClick={() => analyzeMutation.mutate()}
@@ -436,6 +444,6 @@ export default function EvolutionPage() {
           )}
         </div>
       </div>
-    </MainLayout>
+    </div>
   );
 }
