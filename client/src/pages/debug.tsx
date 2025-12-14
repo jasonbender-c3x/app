@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Bug, Database, Terminal, RefreshCw, Trash2, ChevronLeft, ChevronRight, Table2, Brain, Clock, Wrench, Eye, Code } from "lucide-react";
+import { ArrowLeft, Bug, Database, Terminal, RefreshCw, Trash2, ChevronLeft, ChevronRight, Table2, Brain, Clock, Wrench, Eye, Code, MessageSquare, Settings, FileText, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Link } from "wouter";
 
 interface LogEntry {
@@ -61,6 +62,28 @@ export default function DebugPage() {
 
   const [selectedLLM, setSelectedLLM] = useState<LLMInteraction | null>(null);
   const [llmViewMode, setLLMViewMode] = useState<"beautified" | "raw">("beautified");
+  const [llmDetailTab, setLLMDetailTab] = useState<"prompt" | "system" | "output">("prompt");
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    userMessage: true,
+    systemPrompt: true,
+    history: false,
+    response: true,
+    rawResponse: false,
+    toolCalls: false,
+    toolResults: false,
+    attachments: false
+  });
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const copyToClipboard = async (text: string, id: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   useEffect(() => {
     loadLogs();
@@ -551,13 +574,13 @@ export default function DebugPage() {
 
       {/* LLM Interaction Detail Modal */}
       <Dialog open={!!selectedLLM} onOpenChange={(open) => !open && setSelectedLLM(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-5xl max-h-[95vh] flex flex-col">
+          <DialogHeader className="pb-2">
             <DialogTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Brain className="h-5 w-5 text-primary" />
-                LLM Interaction
-                <span className="text-sm font-normal text-muted-foreground ml-2">
+                <span>LLM Interaction</span>
+                <span className="text-sm font-normal text-muted-foreground">
                   {selectedLLM && formatLogTime(selectedLLM.timestamp)}
                 </span>
               </div>
@@ -584,163 +607,303 @@ export default function DebugPage() {
             </DialogTitle>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 h-[70vh]">
-            {selectedLLM && llmViewMode === "raw" ? (
-              <pre className="p-4 bg-[#1e1e1e] rounded-lg text-xs text-[#d4d4d4] font-mono whitespace-pre-wrap overflow-x-auto">
-                {JSON.stringify(selectedLLM, null, 2)}
-              </pre>
-            ) : selectedLLM && (
-              <div className="space-y-6 p-2">
-                {/* Metadata */}
-                <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-secondary/20 border border-border">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Model</p>
-                    <p className="font-mono text-sm">{selectedLLM.model}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Duration</p>
-                    <p className="font-mono text-sm">{formatDuration(selectedLLM.durationMs)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Chat ID</p>
-                    <p className="font-mono text-xs truncate">{selectedLLM.chatId}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Message ID</p>
-                    <p className="font-mono text-xs truncate">{selectedLLM.messageId}</p>
-                  </div>
-                </div>
-
-                {/* User Message */}
-                <div>
-                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-xs">USER</span>
-                    Message
-                  </h3>
-                  <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border">
-                    <p className="text-sm whitespace-pre-wrap text-[#e0e0e0]">
-                      {selectedLLM.userMessage || <span className="text-[#666] italic">(No user message)</span>}
-                    </p>
-                  </div>
-                </div>
-
-                {/* System Prompt */}
-                <div>
-                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-xs">SYSTEM</span>
-                    Prompt
-                  </h3>
-                  <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border max-h-[300px] overflow-y-auto">
-                    <pre className="text-sm font-mono whitespace-pre-wrap text-[#c5c5c5] leading-relaxed">{selectedLLM.systemPrompt}</pre>
-                  </div>
-                </div>
-
-                {/* Conversation History */}
-                {selectedLLM.conversationHistory.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2">
-                      Conversation History ({selectedLLM.conversationHistory.length} messages)
-                    </h3>
-                    <div className="space-y-2 max-h-[200px] overflow-y-auto p-2 rounded-lg bg-secondary/10 border border-border">
-                      {selectedLLM.conversationHistory.map((msg, idx) => (
-                        <div key={idx} className="p-2 rounded bg-[#1e1e1e] text-sm">
-                          <span className={`font-semibold ${msg.role === 'user' ? 'text-blue-400' : 'text-green-400'}`}>
-                            {msg.role.toUpperCase()}:
-                          </span>
-                          <span className="ml-2 text-[#c5c5c5]">{truncateText(msg.content, 200)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* AI Response */}
-                <div>
-                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-green-500/20 text-green-400 text-xs">AI</span>
-                    Response (Clean)
-                  </h3>
-                  <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border max-h-[300px] overflow-y-auto">
-                    <p className="text-sm whitespace-pre-wrap text-[#e0e0e0] leading-relaxed">
-                      {selectedLLM.cleanContent || <span className="text-[#666] italic">(empty)</span>}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Raw Response */}
-                <div>
-                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 text-xs">RAW</span>
-                    Response
-                  </h3>
-                  <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border max-h-[200px] overflow-y-auto">
-                    <pre className="text-sm font-mono whitespace-pre-wrap text-[#b0b0b0] leading-relaxed">{selectedLLM.rawResponse}</pre>
-                  </div>
-                </div>
-
-                {/* Tool Calls */}
-                {selectedLLM.parsedToolCalls.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                      <Wrench className="h-4 w-4 text-amber-400" />
-                      Parsed Tool Calls ({selectedLLM.parsedToolCalls.length})
-                    </h3>
-                    <div className="p-4 rounded-lg bg-[#1e1e1e] border border-border max-h-[200px] overflow-y-auto">
-                      <pre className="text-xs font-mono whitespace-pre-wrap text-amber-200">
-                        {JSON.stringify(selectedLLM.parsedToolCalls, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tool Results */}
-                {selectedLLM.toolResults.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                      <Wrench className="h-4 w-4 text-amber-400" />
-                      Tool Results ({selectedLLM.toolResults.length})
-                    </h3>
-                    <div className="space-y-2">
-                      {selectedLLM.toolResults.map((result, idx) => (
-                        <div key={idx} className={`p-3 rounded-lg border ${result.success ? 'bg-green-500/5 border-green-500/30' : 'bg-red-500/5 border-red-500/30'}`}>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-mono text-xs">{result.type}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded ${result.success ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                              {result.success ? 'SUCCESS' : 'FAILED'}
-                            </span>
-                          </div>
-                          {result.error && (
-                            <p className="text-xs text-red-400 mb-2">{result.error}</p>
-                          )}
-                          {result.result && (
-                            <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap max-h-[100px] overflow-y-auto">
-                              {typeof result.result === 'string' ? result.result : JSON.stringify(result.result, null, 2)}
-                            </pre>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Attachments */}
-                {selectedLLM.attachments.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2">
-                      Attachments ({selectedLLM.attachments.length})
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedLLM.attachments.map((att, idx) => (
-                        <span key={idx} className="px-3 py-1 rounded-full bg-secondary text-xs">
-                          {att.filename || att.type} ({att.mimeType})
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+          {selectedLLM && llmViewMode === "raw" ? (
+            <ScrollArea className="flex-1 h-[80vh]">
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2 z-10"
+                  onClick={() => copyToClipboard(JSON.stringify(selectedLLM, null, 2), 'raw-json')}
+                  data-testid="button-copy-raw"
+                >
+                  {copiedId === 'raw-json' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+                <pre className="p-4 bg-[#1e1e1e] rounded-lg text-xs text-[#d4d4d4] font-mono whitespace-pre-wrap overflow-x-auto">
+                  {JSON.stringify(selectedLLM, null, 2)}
+                </pre>
               </div>
-            )}
-          </ScrollArea>
+            </ScrollArea>
+          ) : selectedLLM && (
+            <div className="flex flex-col flex-1 min-h-0">
+              {/* Metadata Bar */}
+              <div className="grid grid-cols-4 gap-3 p-3 rounded-lg bg-secondary/20 border border-border mb-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Model</p>
+                  <p className="font-mono text-sm text-primary">{selectedLLM.model}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Duration</p>
+                  <p className="font-mono text-sm">{formatDuration(selectedLLM.durationMs)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Chat ID</p>
+                  <p className="font-mono text-xs truncate" title={selectedLLM.chatId}>{selectedLLM.chatId.slice(0, 8)}...</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Message ID</p>
+                  <p className="font-mono text-xs truncate" title={selectedLLM.messageId}>{selectedLLM.messageId.slice(0, 8)}...</p>
+                </div>
+              </div>
+
+              {/* Tab Navigation */}
+              <Tabs value={llmDetailTab} onValueChange={(v) => setLLMDetailTab(v as typeof llmDetailTab)} className="flex-1 flex flex-col min-h-0">
+                <TabsList className="grid w-full grid-cols-3 mb-4">
+                  <TabsTrigger value="prompt" className="flex items-center gap-2" data-testid="tab-llm-prompt">
+                    <MessageSquare className="h-4 w-4" />
+                    Prompt
+                  </TabsTrigger>
+                  <TabsTrigger value="system" className="flex items-center gap-2" data-testid="tab-llm-system">
+                    <Settings className="h-4 w-4" />
+                    System
+                  </TabsTrigger>
+                  <TabsTrigger value="output" className="flex items-center gap-2" data-testid="tab-llm-output">
+                    <FileText className="h-4 w-4" />
+                    Output
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Prompt Tab */}
+                <TabsContent value="prompt" className="flex-1 min-h-0 mt-0">
+                  <ScrollArea className="h-[55vh]">
+                    <div className="space-y-4 pr-4">
+                      {/* User Message - Full */}
+                      <Collapsible open={expandedSections.userMessage} onOpenChange={() => toggleSection('userMessage')}>
+                        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/15 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-xs font-semibold">USER</span>
+                            <span className="text-sm font-medium">Message</span>
+                            <span className="text-xs text-muted-foreground">({selectedLLM.userMessage?.length || 0} chars)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={(e) => { e.stopPropagation(); copyToClipboard(selectedLLM.userMessage || '', 'user-msg'); }}
+                            >
+                              {copiedId === 'user-msg' ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                            </Button>
+                            {expandedSections.userMessage ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="p-4 mt-2 rounded-lg bg-[#1e1e1e] border border-border">
+                            <pre className="text-sm whitespace-pre-wrap text-[#e0e0e0] font-mono leading-relaxed">
+                              {selectedLLM.userMessage || <span className="text-[#666] italic">(No user message)</span>}
+                            </pre>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+
+                      {/* Conversation History - Full */}
+                      {selectedLLM.conversationHistory.length > 0 && (
+                        <Collapsible open={expandedSections.history} onOpenChange={() => toggleSection('history')}>
+                          <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-secondary/30 border border-border hover:bg-secondary/40 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">Conversation History</span>
+                              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs">{selectedLLM.conversationHistory.length} messages</span>
+                            </div>
+                            {expandedSections.history ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="space-y-2 mt-2 p-3 rounded-lg bg-secondary/10 border border-border">
+                              {selectedLLM.conversationHistory.map((msg, idx) => (
+                                <div key={idx} className="p-3 rounded bg-[#1e1e1e] border border-[#333]">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${msg.role === 'user' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
+                                      {msg.role.toUpperCase()}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">{msg.content.length} chars</span>
+                                  </div>
+                                  <pre className="text-sm text-[#c5c5c5] whitespace-pre-wrap font-mono leading-relaxed">{msg.content}</pre>
+                                </div>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      )}
+
+                      {/* Attachments */}
+                      {selectedLLM.attachments.length > 0 && (
+                        <Collapsible open={expandedSections.attachments} onOpenChange={() => toggleSection('attachments')}>
+                          <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-secondary/30 border border-border hover:bg-secondary/40 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">Attachments</span>
+                              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs">{selectedLLM.attachments.length}</span>
+                            </div>
+                            {expandedSections.attachments ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="flex flex-wrap gap-2 mt-2 p-3">
+                              {selectedLLM.attachments.map((att, idx) => (
+                                <span key={idx} className="px-3 py-1.5 rounded-full bg-secondary border border-border text-xs">
+                                  {att.filename || att.type} ({att.mimeType})
+                                </span>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                {/* System Tab */}
+                <TabsContent value="system" className="flex-1 min-h-0 mt-0">
+                  <ScrollArea className="h-[55vh]">
+                    <div className="space-y-4 pr-4">
+                      <Collapsible open={expandedSections.systemPrompt} onOpenChange={() => toggleSection('systemPrompt')}>
+                        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/15 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-xs font-semibold">SYSTEM</span>
+                            <span className="text-sm font-medium">Prompt</span>
+                            <span className="text-xs text-muted-foreground">({selectedLLM.systemPrompt?.length || 0} chars)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={(e) => { e.stopPropagation(); copyToClipboard(selectedLLM.systemPrompt || '', 'system-prompt'); }}
+                            >
+                              {copiedId === 'system-prompt' ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                            </Button>
+                            {expandedSections.systemPrompt ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="p-4 mt-2 rounded-lg bg-[#1e1e1e] border border-border">
+                            <pre className="text-sm font-mono whitespace-pre-wrap text-[#c5c5c5] leading-relaxed">{selectedLLM.systemPrompt}</pre>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                {/* Output Tab */}
+                <TabsContent value="output" className="flex-1 min-h-0 mt-0">
+                  <ScrollArea className="h-[55vh]">
+                    <div className="space-y-4 pr-4">
+                      {/* Clean Response */}
+                      <Collapsible open={expandedSections.response} onOpenChange={() => toggleSection('response')}>
+                        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-green-500/10 border border-green-500/30 hover:bg-green-500/15 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded bg-green-500/20 text-green-400 text-xs font-semibold">AI</span>
+                            <span className="text-sm font-medium">Response (Clean)</span>
+                            <span className="text-xs text-muted-foreground">({selectedLLM.cleanContent?.length || 0} chars)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={(e) => { e.stopPropagation(); copyToClipboard(selectedLLM.cleanContent || '', 'clean-response'); }}
+                            >
+                              {copiedId === 'clean-response' ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                            </Button>
+                            {expandedSections.response ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="p-4 mt-2 rounded-lg bg-[#1e1e1e] border border-border">
+                            <pre className="text-sm whitespace-pre-wrap text-[#e0e0e0] font-mono leading-relaxed">
+                              {selectedLLM.cleanContent || <span className="text-[#666] italic">(empty)</span>}
+                            </pre>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+
+                      {/* Raw Response */}
+                      <Collapsible open={expandedSections.rawResponse} onOpenChange={() => toggleSection('rawResponse')}>
+                        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-500/10 border border-gray-500/30 hover:bg-gray-500/15 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 text-xs font-semibold">RAW</span>
+                            <span className="text-sm font-medium">Response</span>
+                            <span className="text-xs text-muted-foreground">({selectedLLM.rawResponse?.length || 0} chars)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={(e) => { e.stopPropagation(); copyToClipboard(selectedLLM.rawResponse || '', 'raw-response'); }}
+                            >
+                              {copiedId === 'raw-response' ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                            </Button>
+                            {expandedSections.rawResponse ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="p-4 mt-2 rounded-lg bg-[#1e1e1e] border border-border">
+                            <pre className="text-sm font-mono whitespace-pre-wrap text-[#b0b0b0] leading-relaxed">{selectedLLM.rawResponse}</pre>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+
+                      {/* Tool Calls */}
+                      {selectedLLM.parsedToolCalls.length > 0 && (
+                        <Collapsible open={expandedSections.toolCalls} onOpenChange={() => toggleSection('toolCalls')}>
+                          <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/15 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <Wrench className="h-4 w-4 text-amber-400" />
+                              <span className="text-sm font-medium">Parsed Tool Calls</span>
+                              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-xs">{selectedLLM.parsedToolCalls.length}</span>
+                            </div>
+                            {expandedSections.toolCalls ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="p-4 mt-2 rounded-lg bg-[#1e1e1e] border border-border">
+                              <pre className="text-xs font-mono whitespace-pre-wrap text-amber-200">
+                                {JSON.stringify(selectedLLM.parsedToolCalls, null, 2)}
+                              </pre>
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      )}
+
+                      {/* Tool Results */}
+                      {selectedLLM.toolResults.length > 0 && (
+                        <Collapsible open={expandedSections.toolResults} onOpenChange={() => toggleSection('toolResults')}>
+                          <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/15 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <Wrench className="h-4 w-4 text-amber-400" />
+                              <span className="text-sm font-medium">Tool Results</span>
+                              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-xs">{selectedLLM.toolResults.length}</span>
+                            </div>
+                            {expandedSections.toolResults ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="space-y-2 mt-2">
+                              {selectedLLM.toolResults.map((result, idx) => (
+                                <div key={idx} className={`p-3 rounded-lg border ${result.success ? 'bg-green-500/5 border-green-500/30' : 'bg-red-500/5 border-red-500/30'}`}>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="font-mono text-xs">{result.type}</span>
+                                    <span className={`text-xs px-2 py-0.5 rounded ${result.success ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                      {result.success ? 'SUCCESS' : 'FAILED'}
+                                    </span>
+                                  </div>
+                                  {result.error && (
+                                    <p className="text-xs text-red-400 mb-2">{result.error}</p>
+                                  )}
+                                  {result.result && (
+                                    <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap">
+                                      {typeof result.result === 'string' ? result.result : JSON.stringify(result.result as object, null, 2)}
+                                    </pre>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
