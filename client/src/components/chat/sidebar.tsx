@@ -87,7 +87,8 @@ import {
   TestTube,
   Globe,
   Radio,
-  RefreshCw
+  RefreshCw,
+  Brain
 } from "lucide-react";
 
 import { useAppSession } from "@/hooks/use-app-session";
@@ -621,6 +622,23 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
             >
               <Bug className="h-4 w-4" />
               {!isCollapsed && "Debug"}
+            </Button>
+          </Link>
+          
+          {/* Evolution Engine Button */}
+          <Link href="/evolution">
+            <Button 
+              variant="ghost" 
+              className={cn(
+                "font-normal text-muted-foreground hover:text-foreground",
+                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                location === "/evolution" && "bg-secondary/50 text-foreground"
+              )}
+              title={isCollapsed ? "Evolution Engine" : undefined}
+              data-testid="button-evolution"
+            >
+              <Brain className="h-4 w-4" />
+              {!isCollapsed && "Evolution Engine"}
             </Button>
           </Link>
           

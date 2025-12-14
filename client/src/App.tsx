@@ -93,6 +93,7 @@ import PlaywrightTestingPage from "@/pages/playwright-testing";
 import WebSearchPage from "@/pages/web-search";
 import KnowledgeIngestionPage from "@/pages/knowledge-ingestion";
 import MarkdownPlaygroundPage from "@/pages/markdown-playground";
+import EvolutionPage from "@/pages/evolution";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -178,6 +179,9 @@ function Router() {
 
       {/* Markdown Playground Route - Demo of enhanced markdown features */}
       <Route path="/markdown" component={MarkdownPlaygroundPage} />
+      
+      {/* Evolution Engine Route - Feedback analysis and PR generation */}
+      <Route path="/evolution" component={EvolutionPage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything

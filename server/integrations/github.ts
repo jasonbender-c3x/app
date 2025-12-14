@@ -489,6 +489,103 @@ export async function getDefaultBranch(owner: string, repo: string) {
   return data.default_branch;
 }
 
+export async function createBranch(owner: string, repo: string, branchName: string, fromBranch?: string) {
+  const octokit = await getUncachableGitHubClient();
+  const baseBranch = fromBranch || await getDefaultBranch(owner, repo);
+  const { data: ref } = await octokit.git.getRef({
+    owner,
+    repo,
+    ref: `heads/${baseBranch}`
+  });
+  
+  await octokit.git.createRef({
+    owner,
+    repo,
+    ref: `refs/heads/${branchName}`,
+    sha: ref.object.sha
+  });
+  
+  return { name: branchName, sha: ref.object.sha, baseBranch };
+}
+
+export async function createOrUpdateFile(
+  owner: string, 
+  repo: string, 
+  path: string, 
+  content: string, 
+  message: string,
+  branch: string,
+  sha?: string
+) {
+  const octokit = await getUncachableGitHubClient();
+  
+  let existingSha = sha;
+  if (!existingSha) {
+    try {
+      const { data } = await octokit.repos.getContent({ owner, repo, path, ref: branch });
+      if (!Array.isArray(data) && 'sha' in data) {
+        existingSha = data.sha;
+      }
+    } catch (e: any) {
+      if (e.status !== 404) throw e;
+    }
+  }
+  
+  const { data } = await octokit.repos.createOrUpdateFileContents({
+    owner,
+    repo,
+    path,
+    message,
+    content: Buffer.from(content).toString('base64'),
+    branch,
+    sha: existingSha
+  });
+  
+  return {
+    path: data.content?.path,
+    sha: data.content?.sha,
+    htmlUrl: data.content?.html_url,
+    commitSha: data.commit.sha,
+    commitUrl: data.commit.html_url
+  };
+}
+
+export async function createPullRequest(
+  owner: string,
+  repo: string,
+  title: string,
+  body: string,
+  head: string,
+  base?: string,
+  draft = false
+) {
+  const octokit = await getUncachableGitHubClient();
+  const baseBranch = base || await getDefaultBranch(owner, repo);
+  
+  const { data: pr } = await octokit.pulls.create({
+    owner,
+    repo,
+    title,
+    body,
+    head,
+    base: baseBranch,
+    draft
+  });
+  
+  return {
+    id: pr.id,
+    number: pr.number,
+    title: pr.title,
+    body: pr.body,
+    state: pr.state,
+    htmlUrl: pr.html_url,
+    head: pr.head.ref,
+    base: pr.base.ref,
+    draft: pr.draft,
+    createdAt: pr.created_at
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // USER OPERATIONS
 // ═══════════════════════════════════════════════════════════════════════════

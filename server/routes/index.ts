@@ -17,6 +17,7 @@ import webScraperRouter from "./web-scraper";
 import knowledgeIngestionRouter from "./knowledge-ingestion";
 import statusRouter from "./status";
 import feedbackRouter from "./feedback";
+import evolutionRouter from "./evolution";
 import { errorHandler } from "./middleware";
 
 export function createApiRouter(): Router {
@@ -41,6 +42,7 @@ export function createApiRouter(): Router {
   router.use("/knowledge", knowledgeIngestionRouter);
   router.use("/status", statusRouter);
   router.use("/feedback", feedbackRouter);
+  router.use("/evolution", evolutionRouter);
 
   router.use(errorHandler);
 
