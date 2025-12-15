@@ -244,6 +244,12 @@ export function ChatInputArea({ onSend, isLoading, promptHistory = [] }: InputAr
   const cursorPositionRef = useRef<number | null>(null);
 
   /**
+   * Track the last transcript length we've already inserted
+   * This prevents re-inserting the entire accumulated transcript
+   */
+  const lastTranscriptLengthRef = useRef<number>(0);
+
+  /**
    * Voice-to-text hook for speech recognition
    */
   const { 
@@ -285,23 +291,31 @@ export function ChatInputArea({ onSend, isLoading, promptHistory = [] }: InputAr
 
   /**
    * Effect: Update input with voice transcript
-   * Inserts the recognized speech at the saved cursor position
+   * Only inserts the NEW portion of the transcript (delta since last update)
+   * This prevents duplication when the transcript accumulates
    */
   useEffect(() => {
-    if (transcript) {
+    if (transcript && transcript.length > lastTranscriptLengthRef.current) {
+      // Extract only the new portion we haven't inserted yet
+      const newText = transcript.slice(lastTranscriptLengthRef.current);
+      
       setInput(prev => {
         const pos = cursorPositionRef.current;
         if (pos !== null && pos <= prev.length) {
           // Insert at cursor position
-          return prev.slice(0, pos) + transcript + prev.slice(pos);
+          return prev.slice(0, pos) + newText + prev.slice(pos);
         }
         // Fallback: append to end
-        return prev + transcript;
+        return prev + newText;
       });
+      
       // Update cursor position to end of inserted text
       if (cursorPositionRef.current !== null) {
-        cursorPositionRef.current += transcript.length;
+        cursorPositionRef.current += newText.length;
       }
+      
+      // Update the tracked length
+      lastTranscriptLengthRef.current = transcript.length;
     }
   }, [transcript]);
 
@@ -566,10 +580,15 @@ export function ChatInputArea({ onSend, isLoading, promptHistory = [] }: InputAr
     if (isListening) {
       stopListening();
       cursorPositionRef.current = null;
+      // Reset transcript tracker for next session
+      lastTranscriptLengthRef.current = 0;
     } else {
       // Save cursor position before starting
       const cursorPos = textareaRef.current?.selectionStart ?? input.length;
       cursorPositionRef.current = cursorPos;
+      
+      // Reset transcript tracker for fresh session
+      lastTranscriptLengthRef.current = 0;
       
       // Use append mode to preserve existing transcript in hook
       const hasExistingText = input.trim().length > 0;
