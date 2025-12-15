@@ -24,11 +24,29 @@ import {
   ExternalLink,
   CheckCircle,
   XCircle,
-  Activity
+  Activity,
+  MessageSquare,
+  Scan
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 import { ArrowLeft } from "lucide-react";
+
+interface MessageFeedback {
+  messageId: string;
+  content: string;
+  sentiment: "positive" | "negative" | "neutral";
+  feedbackText: string;
+  confidence: number;
+}
+
+interface ScanResult {
+  success: boolean;
+  messagesScanned: number;
+  feedbackFound: MessageFeedback[];
+  prsCreated?: { prNumber: number; prUrl: string }[];
+  error?: string;
+}
 
 interface FeedbackPattern {
   category: string;
@@ -146,7 +164,36 @@ export default function EvolutionPage() {
     }
   });
 
+  const scanMessagesMutation = useMutation({
+    mutationFn: async (repo: { owner: string; repo: string }) => {
+      const res = await apiRequest("POST", "/api/evolution/scan-messages", repo);
+      return res.json();
+    },
+    onSuccess: (data: ScanResult) => {
+      if (data.success) {
+        toast({
+          title: "Message Scan Complete",
+          description: `Scanned ${data.messagesScanned} messages. Found ${data.feedbackFound.length} feedback items.${data.prsCreated?.length ? ` Created ${data.prsCreated.length} PR(s).` : ''}`
+        });
+      } else {
+        toast({
+          title: "Scan Failed",
+          description: data.error,
+          variant: "destructive"
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Scan Failed",
+        description: error.message || "Could not scan messages",
+        variant: "destructive"
+      });
+    }
+  });
+
   const report = analyzeMutation.data?.report as EvolutionReport | undefined;
+  const scanResult = scanMessagesMutation.data as ScanResult | undefined;
   const repos = reposData?.repos as Repo[] | undefined;
   const stats = statsData?.stats;
 
@@ -157,6 +204,15 @@ export default function EvolutionPage() {
     }
     const [owner, repo] = selectedRepo.split("/");
     createPRMutation.mutate({ owner, repo });
+  };
+
+  const handleScanMessages = () => {
+    if (!selectedRepo) {
+      toast({ title: "Select a repository first", variant: "destructive" });
+      return;
+    }
+    const [owner, repo] = selectedRepo.split("/");
+    scanMessagesMutation.mutate({ owner, repo });
   };
 
   const getSeverityColor = (severity: string) => {
@@ -258,6 +314,123 @@ export default function EvolutionPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Scan Messages Section - Always visible */}
+          <Card className="border-purple-500/30 bg-purple-500/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-purple-500" />
+                Scan Messages for Feedback
+              </CardTitle>
+              <CardDescription>
+                Analyze the last 10 messages for embedded feedback and create PRs for approval
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-end gap-4">
+                <div className="flex-1 space-y-2">
+                  <label className="text-sm font-medium">Target Repository</label>
+                  <Select
+                    value={selectedRepo}
+                    onValueChange={setSelectedRepo}
+                    disabled={reposLoading}
+                  >
+                    <SelectTrigger data-testid="select-repo-scan">
+                      <SelectValue placeholder="Select a repository..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {repos?.map((repo) => (
+                        <SelectItem key={repo.fullName} value={repo.fullName}>
+                          {repo.fullName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  onClick={handleScanMessages}
+                  disabled={!selectedRepo || scanMessagesMutation.isPending}
+                  className="gap-2 bg-purple-600 hover:bg-purple-700"
+                  data-testid="button-scan-messages"
+                >
+                  {scanMessagesMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Scanning...
+                    </>
+                  ) : (
+                    <>
+                      <Scan className="h-4 w-4" />
+                      Scan Last 10 Messages
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Scan Results */}
+              {scanResult && scanResult.success && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    Scanned {scanResult.messagesScanned} messages, found {scanResult.feedbackFound.length} feedback items
+                  </div>
+                  
+                  {scanResult.feedbackFound.length > 0 && (
+                    <ScrollArea className="h-48">
+                      <div className="space-y-2">
+                        {scanResult.feedbackFound.map((feedback, idx) => (
+                          <div 
+                            key={idx}
+                            className={`p-3 rounded-lg border ${
+                              feedback.sentiment === 'positive' 
+                                ? 'border-green-500/30 bg-green-500/10' 
+                                : feedback.sentiment === 'negative'
+                                  ? 'border-red-500/30 bg-red-500/10'
+                                  : 'border-gray-500/30 bg-gray-500/10'
+                            }`}
+                            data-testid={`feedback-item-${idx}`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <Badge variant={feedback.sentiment === 'positive' ? 'default' : feedback.sentiment === 'negative' ? 'destructive' : 'secondary'}>
+                                {feedback.sentiment}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {Math.round(feedback.confidence * 100)}% confidence
+                              </span>
+                            </div>
+                            <p className="text-sm">{feedback.feedbackText}</p>
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              From: "{feedback.content.substring(0, 100)}..."
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+
+                  {scanResult.prsCreated && scanResult.prsCreated.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-sm font-medium">PRs Created:</p>
+                      {scanResult.prsCreated.map((pr, idx) => (
+                        <div key={idx} className="flex items-center gap-2 p-2 bg-green-500/10 rounded-lg">
+                          <GitPullRequest className="h-4 w-4 text-green-500" />
+                          <span className="text-sm">PR #{pr.prNumber}</span>
+                          <a 
+                            href={pr.prUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-auto flex items-center gap-1 text-blue-500 hover:underline text-sm"
+                          >
+                            View <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {report && (
             <>

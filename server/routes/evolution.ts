@@ -9,9 +9,11 @@ import {
   analyzeFeedbackPatterns,
   generateEvolutionReport,
   createEvolutionPR,
-  EvolutionReport
+  EvolutionReport,
+  scanMessagesForFeedback
 } from "../services/evolution-engine";
 import * as github from "../integrations/github";
+import { storage } from "../storage";
 
 const router = Router();
 
@@ -129,6 +131,46 @@ router.get("/report", async (req: Request, res: Response) => {
     res.json({ success: true, report: cachedReport });
   } else {
     res.json({ success: true, report: null, message: "No report cached. Run /analyze first." });
+  }
+});
+
+/**
+ * POST /api/evolution/scan-messages
+ * Scan the last 10 messages for embedded feedback and create PRs
+ */
+router.post("/scan-messages", async (req: Request, res: Response) => {
+  try {
+    const { owner, repo } = req.body;
+
+    if (!owner || !repo) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing owner or repo"
+      });
+    }
+
+    // Get the last 10 user messages from the database
+    const messages = await storage.getRecentUserMessages(10);
+    
+    if (messages.length === 0) {
+      return res.json({
+        success: true,
+        messagesScanned: 0,
+        feedbackFound: [],
+        message: "No messages found to scan"
+      });
+    }
+
+    // Use AI to analyze messages for feedback
+    const result = await scanMessagesForFeedback(messages, { owner, repo });
+    
+    res.json(result);
+  } catch (error: any) {
+    console.error("Error scanning messages:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to scan messages"
+    });
   }
 });
 

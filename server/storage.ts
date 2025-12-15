@@ -169,6 +169,13 @@ export interface IStorage {
    * @returns Array of messages, sorted by createdAt ascending (oldest first)
    */
   getMessagesByChatId(chatId: string): Promise<Message[]>;
+  
+  /**
+   * Retrieves the most recent user messages across all chats
+   * @param limit - Maximum number of messages to retrieve
+   * @returns Array of user messages, sorted by createdAt descending (newest first)
+   */
+  getRecentUserMessages(limit: number): Promise<Message[]>;
 
   /**
    * Updates the metadata field of a message
@@ -531,6 +538,19 @@ export class DrizzleStorage implements IStorage {
   async getMessageById(id: string): Promise<Message | undefined> {
     const [message] = await this.getDb().select().from(messages).where(eq(messages.id, id));
     return message;
+  }
+
+  /**
+   * Retrieves the most recent user messages across all chats
+   * Used for scanning messages for embedded feedback
+   */
+  async getRecentUserMessages(limit: number): Promise<Message[]> {
+    return await this.getDb()
+      .select()
+      .from(messages)
+      .where(eq(messages.role, "user"))
+      .orderBy(desc(messages.createdAt))
+      .limit(limit);
   }
 
   // =========================================================================
