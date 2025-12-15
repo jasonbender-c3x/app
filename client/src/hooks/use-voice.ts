@@ -170,7 +170,7 @@ export function useVoice(options: VoiceOptions = {}): UseVoiceReturn {
   // ===========================================================================
   
   /** Reference to SpeechRecognition instance */
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<any>(null);
   
   /** Reference to SpeechSynthesisUtterance instance */
   const synthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -228,7 +228,7 @@ export function useVoice(options: VoiceOptions = {}): UseVoiceReturn {
      * Handle recognition errors
      * @param {SpeechRecognitionErrorEvent} event - Error event
      */
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: any) => {
       setError(event.error);
       setIsListening(false);
     };
@@ -238,7 +238,7 @@ export function useVoice(options: VoiceOptions = {}): UseVoiceReturn {
      * Called when the service returns a result
      * @param {SpeechRecognitionEvent} event - Result event
      */
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: any) => {
       let finalTranscript = '';
       let interim = '';
 
@@ -425,7 +425,7 @@ export function getVoices(): Promise<SpeechSynthesisVoice[]> {
  */
 declare global {
   interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
   }
 }
