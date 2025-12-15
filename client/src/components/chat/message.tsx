@@ -68,7 +68,9 @@ import { EnhancedMarkdown } from "@/components/ui/enhanced-markdown";
  * - Wrench: Tool execution indicator
  * - CheckCircle/XCircle: Success/error status
  */
-import { Copy, RefreshCw, File, FileCode, Wrench, CheckCircle2, XCircle, Loader2, Terminal, Mail, Calendar } from "lucide-react";
+import { Copy, RefreshCw, File, FileCode, Wrench, CheckCircle2, XCircle, Loader2, Terminal, Mail, Calendar, Brain, ChevronDown, ChevronRight } from "lucide-react";
+
+import { useState } from "react";
 
 /**
  * FeedbackPanel - Expandable feedback component for AI responses
@@ -152,6 +154,42 @@ interface MessageProps {
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Extract the "thinking" portion from message content
+ * The backend format is: [JSON tool calls]\n\n✂️🐱\n\nmarkdown content
+ * This function extracts everything BEFORE the delimiter as the thinking/reasoning.
+ */
+function extractThinking(content: string): string | null {
+  const delimiterIndex = content.indexOf('✂️🐱');
+  if (delimiterIndex === -1) return null;
+  
+  const thinking = content.substring(0, delimiterIndex).trim();
+  if (!thinking || thinking.length < 10) return null;
+  
+  // Try to parse and format the JSON tool calls nicely
+  try {
+    // Check if it starts with [ and contains JSON
+    if (thinking.startsWith('[') || thinking.includes('"type"')) {
+      const jsonMatch = thinking.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((call: any) => {
+            const type = call.type || 'unknown';
+            const operation = call.operation || '';
+            const params = call.parameters ? JSON.stringify(call.parameters, null, 2) : '';
+            return `🔧 ${type}${operation ? `: ${operation}` : ''}\n${params ? `   Parameters: ${params}` : ''}`;
+          }).join('\n\n');
+        }
+      }
+    }
+  } catch {
+    // If parsing fails, just return the raw text
+  }
+  
+  return thinking;
+}
 
 /**
  * Strip tool call blocks from message content
@@ -278,9 +316,14 @@ function formatTimestamp(date: Date | string | undefined): string {
 }
 
 export function ChatMessage({ role, content, isThinking, metadata, createdAt, id, chatId, promptSnapshot }: MessageProps) {
+  const [showThinking, setShowThinking] = useState(false);
+  
   const hasToolResults = !!(metadata?.toolResults?.length);
   const hasFileOps = !!(metadata?.filesCreated?.length) || !!(metadata?.filesModified?.length);
   const hasErrors = !!(metadata?.errors?.length);
+  
+  // Extract thinking/reasoning from content (before the ✂️🐱 delimiter)
+  const thinkingContent = role === "ai" ? extractThinking(content) : null;
   
   return (
     // Animated container with fade-in and slide-up effect
@@ -383,15 +426,48 @@ export function ChatMessage({ role, content, isThinking, metadata, createdAt, id
           // =================================================================
           // AI MESSAGE CONTENT - Enhanced Markdown with rich features
           // =================================================================
-          <div className="relative">
-            {/* Subtle gradient accent bar on left */}
-            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary/40 via-purple-400/30 to-transparent rounded-full" />
+          <div className="space-y-3">
+            {/* Stream of Thought - Collapsible reasoning section */}
+            {thinkingContent && (
+              <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 overflow-hidden" data-testid="stream-of-thought">
+                <button
+                  onClick={() => setShowThinking(!showThinking)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-400 hover:bg-purple-500/10 transition-colors"
+                  data-testid="toggle-thinking"
+                >
+                  <Brain className="h-4 w-4" />
+                  <span>Stream of Thought</span>
+                  {showThinking ? (
+                    <ChevronDown className="h-4 w-4 ml-auto" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 ml-auto" />
+                  )}
+                </button>
+                {showThinking && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="px-3 pb-3 border-t border-purple-500/20"
+                  >
+                    <pre className="mt-2 text-xs font-mono text-purple-300/80 whitespace-pre-wrap overflow-x-auto max-h-64 overflow-y-auto">
+                      {thinkingContent}
+                    </pre>
+                  </motion.div>
+                )}
+              </div>
+            )}
             
-            <div className="pl-4 prose prose-neutral dark:prose-invert max-w-none markdown-content text-base leading-7 text-foreground/90">
-              <EnhancedMarkdown 
-                content={stripToolCalls(content)}
-                className="ai-response"
-              />
+            <div className="relative">
+              {/* Subtle gradient accent bar on left */}
+              <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary/40 via-purple-400/30 to-transparent rounded-full" />
+              
+              <div className="pl-4 prose prose-neutral dark:prose-invert max-w-none markdown-content text-base leading-7 text-foreground/90">
+                <EnhancedMarkdown 
+                  content={stripToolCalls(content)}
+                  className="ai-response"
+                />
+              </div>
             </div>
           </div>
         ) : (
