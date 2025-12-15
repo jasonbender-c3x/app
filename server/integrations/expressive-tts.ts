@@ -52,25 +52,49 @@ async function convertPcmToMp3(pcmBase64: string, sampleRate: number = 24000): P
 
     const chunks: Buffer[] = [];
     const outputStream = new PassThrough();
+    let resolved = false;
+    
+    const finish = () => {
+      if (!resolved) {
+        resolved = true;
+        const mp3Buffer = Buffer.concat(chunks);
+        if (mp3Buffer.length > 0) {
+          resolve(mp3Buffer.toString("base64"));
+        } else {
+          reject(new Error("FFmpeg produced no output"));
+        }
+      }
+    };
     
     outputStream.on("data", (chunk: Buffer) => chunks.push(chunk));
-    outputStream.on("end", () => {
-      const mp3Buffer = Buffer.concat(chunks);
-      resolve(mp3Buffer.toString("base64"));
+    outputStream.on("end", finish);
+    outputStream.on("close", finish);
+    outputStream.on("error", (err) => {
+      if (!resolved) {
+        resolved = true;
+        reject(err);
+      }
     });
-    outputStream.on("error", reject);
 
-    ffmpeg(inputStream)
+    const command = ffmpeg(inputStream)
       .inputFormat("s16le")
       .inputOptions([`-ar ${sampleRate}`, "-ac 1"])
       .audioCodec("libmp3lame")
       .audioBitrate("128k")
       .format("mp3")
+      .on("end", () => {
+        console.log("[TTS] FFmpeg conversion complete");
+        finish();
+      })
       .on("error", (err: Error) => {
         console.error("[TTS] FFmpeg conversion error:", err);
-        reject(err);
-      })
-      .pipe(outputStream, { end: true });
+        if (!resolved) {
+          resolved = true;
+          reject(err);
+        }
+      });
+    
+    command.pipe(outputStream, { end: true });
   });
 }
 
