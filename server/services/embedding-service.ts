@@ -58,6 +58,15 @@ export class EmbeddingService {
       };
     } catch (error) {
       console.error("Embedding error:", error);
+      
+      // Log to error buffer
+      const { logLLMError } = await import("./llm-error-buffer");
+      logLLMError("embedding", "embed", error, {
+        textLength: text.length
+      }, {
+        model: EMBEDDING_MODEL
+      });
+      
       throw error;
     }
   }

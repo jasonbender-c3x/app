@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Bug, Database, Terminal, RefreshCw, Trash2, ChevronLeft, ChevronRight, Table2, Brain, Clock, Wrench, Eye, Code, MessageSquare, Settings, FileText, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
+import { ArrowLeft, Bug, Database, Terminal, RefreshCw, Trash2, ChevronLeft, ChevronRight, Table2, Brain, Clock, Wrench, Eye, Code, MessageSquare, Settings, FileText, ChevronDown, ChevronUp, Copy, Check, AlertTriangle, Sparkles, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Link } from "wouter";
 
@@ -47,6 +47,21 @@ interface LLMInteraction {
   };
 }
 
+interface LLMError {
+  id: string;
+  timestamp: string;
+  service: string;
+  operation: string;
+  errorMessage: string;
+  errorStack?: string;
+  context?: Record<string, unknown>;
+  request?: {
+    model?: string;
+    prompt?: string;
+    inputLength?: number;
+  };
+}
+
 export default function DebugPage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
@@ -63,6 +78,11 @@ export default function DebugPage() {
   const [selectedLLM, setSelectedLLM] = useState<LLMInteraction | null>(null);
   const [llmViewMode, setLLMViewMode] = useState<"beautified" | "raw">("beautified");
   const [llmDetailTab, setLLMDetailTab] = useState<"prompt" | "system" | "output">("prompt");
+  
+  const [llmErrors, setLLMErrors] = useState<LLMError[]>([]);
+  const [errorAnalysis, setErrorAnalysis] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [selectedError, setSelectedError] = useState<LLMError | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     userMessage: true,
     systemPrompt: true,
@@ -89,6 +109,7 @@ export default function DebugPage() {
     loadLogs();
     loadDatabaseInfo();
     loadLLMInteractions();
+    loadLLMErrors();
   }, []);
 
   useEffect(() => {
@@ -149,6 +170,61 @@ export default function DebugPage() {
       setLLMInteractions([]);
     } catch (error) {
       console.error('Failed to clear LLM interactions:', error);
+    }
+  };
+
+  const loadLLMErrors = async () => {
+    try {
+      const response = await fetch('/api/debug/errors');
+      if (response.ok) {
+        const data = await response.json();
+        setLLMErrors(data);
+      }
+    } catch (error) {
+      console.error('Failed to load LLM errors:', error);
+      setLLMErrors([]);
+    }
+  };
+
+  const clearLLMErrors = async () => {
+    try {
+      await fetch('/api/debug/errors', { method: 'DELETE' });
+      setLLMErrors([]);
+      setErrorAnalysis(null);
+    } catch (error) {
+      console.error('Failed to clear LLM errors:', error);
+    }
+  };
+
+  const analyzeErrors = async () => {
+    setIsAnalyzing(true);
+    setErrorAnalysis(null);
+    try {
+      const response = await fetch('/api/debug/errors/analyze', { method: 'POST' });
+      if (response.ok) {
+        const data = await response.json();
+        setErrorAnalysis(data.analysis);
+      } else {
+        setErrorAnalysis('Failed to analyze errors. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to analyze errors:', error);
+      setErrorAnalysis('Failed to analyze errors. Please try again.');
+    }
+    setIsAnalyzing(false);
+  };
+
+  const getServiceColor = (service: string) => {
+    switch (service) {
+      case 'chat': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 'tts': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+      case 'image': return 'bg-pink-500/20 text-pink-400 border-pink-500/30';
+      case 'embedding': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'transcription': return 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30';
+      case 'music': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+      case 'live': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      case 'evolution': return 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30';
+      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
   };
 
@@ -257,7 +333,7 @@ export default function DebugPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="logs" className="flex items-center gap-2" data-testid="tab-logs">
               <Terminal className="h-4 w-4" />
               Logs
@@ -269,6 +345,13 @@ export default function DebugPage() {
             <TabsTrigger value="llm" className="flex items-center gap-2" data-testid="tab-llm">
               <Brain className="h-4 w-4" />
               LLM Prompts
+            </TabsTrigger>
+            <TabsTrigger value="errors" className="flex items-center gap-2" data-testid="tab-errors">
+              <AlertTriangle className="h-4 w-4" />
+              Errors
+              {llmErrors.length > 0 && (
+                <span className="px-1.5 py-0.5 text-xs rounded-full bg-red-500/20 text-red-400">{llmErrors.length}</span>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -471,6 +554,143 @@ export default function DebugPage() {
                   </button>
                 ))
               )}
+            </div>
+          </TabsContent>
+
+          {/* Errors Tab */}
+          <TabsContent value="errors" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <p className="text-muted-foreground">LLM-related errors from all services</p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadLLMErrors}
+                  disabled={isLoading}
+                  data-testid="button-refresh-errors"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={analyzeErrors}
+                  disabled={isAnalyzing || llmErrors.length === 0}
+                  data-testid="button-analyze-errors"
+                >
+                  {isAnalyzing ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 mr-2" />
+                  )}
+                  Analyze with AI
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearLLMErrors}
+                  disabled={llmErrors.length === 0}
+                  data-testid="button-clear-errors"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear
+                </Button>
+              </div>
+            </div>
+
+            {/* AI Analysis Panel */}
+            {errorAnalysis && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">AI Analysis</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto h-7"
+                    onClick={() => setErrorAnalysis(null)}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+                <div className="prose prose-sm prose-invert max-w-none">
+                  <pre className="whitespace-pre-wrap text-sm bg-[#1e1e1e] p-4 rounded-lg overflow-auto max-h-[300px]">
+                    {errorAnalysis}
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {/* Error List */}
+            <div className="rounded-lg border border-border bg-[#1e1e1e] overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2 bg-[#2d2d2d] border-b border-[#3d3d3d]">
+                <AlertTriangle className="h-4 w-4 text-red-400" />
+                <span className="text-[#888] text-xs font-mono">error log ({llmErrors.length} errors)</span>
+              </div>
+              <ScrollArea className="h-[400px]">
+                <div className="p-2">
+                  {llmErrors.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No LLM errors logged</p>
+                      <p className="text-xs mt-1">Errors from chat, TTS, image generation, and other AI services will appear here</p>
+                    </div>
+                  ) : (
+                    llmErrors.map((error) => (
+                      <button
+                        key={error.id}
+                        type="button"
+                        className="w-full text-left p-3 rounded-lg border border-border/50 mb-2 hover:bg-[#2a2a2a] transition-colors"
+                        onClick={() => setSelectedError(selectedError?.id === error.id ? null : error)}
+                        data-testid={`error-entry-${error.id}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`px-2 py-0.5 text-xs rounded border ${getServiceColor(error.service)}`}>
+                                {error.service}
+                              </span>
+                              <span className="text-xs text-muted-foreground font-mono">
+                                {error.operation}
+                              </span>
+                            </div>
+                            <p className="text-sm text-red-400 truncate">{error.errorMessage}</p>
+                            {selectedError?.id === error.id && (
+                              <div className="mt-3 space-y-2">
+                                {error.request?.model && (
+                                  <div className="text-xs text-muted-foreground">
+                                    <span className="font-semibold">Model:</span> {error.request.model}
+                                  </div>
+                                )}
+                                {error.context && (
+                                  <div className="text-xs text-muted-foreground">
+                                    <span className="font-semibold">Context:</span>
+                                    <pre className="mt-1 text-xs bg-[#1a1a1a] p-2 rounded overflow-auto max-h-[100px]">
+                                      {JSON.stringify(error.context, null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
+                                {error.errorStack && (
+                                  <div className="text-xs text-muted-foreground">
+                                    <span className="font-semibold">Stack trace:</span>
+                                    <pre className="mt-1 text-xs bg-[#1a1a1a] p-2 rounded overflow-auto max-h-[150px] text-red-300">
+                                      {error.errorStack}
+                                    </pre>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground shrink-0">
+                            {new Date(error.timestamp).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
             </div>
           </TabsContent>
         </Tabs>

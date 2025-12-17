@@ -84,6 +84,17 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Ge
     };
   } catch (error) {
     console.error("Image generation error:", error);
+    
+    // Log to error buffer
+    const { logLLMError } = await import("../services/llm-error-buffer");
+    logLLMError("image", "generateImage", error, {
+      promptLength: prompt.length,
+      style,
+      aspectRatio
+    }, {
+      model: "gemini-2.0-flash-preview-image-generation"
+    });
+    
     throw new Error(`Failed to generate image: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
@@ -149,6 +160,16 @@ export async function editImageWithPrompt(
     };
   } catch (error) {
     console.error("Image edit error:", error);
+    
+    // Log to error buffer
+    const { logLLMError } = await import("../services/llm-error-buffer");
+    logLLMError("image", "editImageWithPrompt", error, {
+      promptLength: editPrompt.length,
+      imageMimeType: mimeType
+    }, {
+      model: "gemini-2.0-flash-preview-image-generation"
+    });
+    
     throw new Error(`Failed to edit image: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

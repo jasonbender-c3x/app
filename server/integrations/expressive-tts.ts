@@ -199,6 +199,15 @@ export async function generateMultiSpeakerAudio(request: TTSRequest): Promise<TT
     
     const errorMessage = error.message || String(error);
     
+    // Log to error buffer
+    const { logLLMError } = await import("../services/llm-error-buffer");
+    logLLMError("tts", "generateMultiSpeakerAudio", error, {
+      speakerCount: request.speakers.length,
+      textLength: request.text.length
+    }, {
+      model: request.model === "pro" ? "gemini-2.5-pro-preview-tts" : "gemini-2.5-flash-preview-tts"
+    });
+    
     if (errorMessage.includes("not found") || errorMessage.includes("404")) {
       return {
         success: false,

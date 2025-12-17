@@ -819,6 +819,100 @@ export async function registerRoutes(
     }
   });
 
+  // LLM Error Log endpoints
+  app.get("/api/debug/errors", async (req, res) => {
+    try {
+      const { llmErrorBuffer } = await import("./services/llm-error-buffer");
+      const limit = parseInt(req.query.limit as string) || 50;
+      const service = req.query.service as string | undefined;
+      
+      if (service) {
+        const errors = llmErrorBuffer.getByService(service as any, limit);
+        res.json(errors);
+      } else {
+        const errors = llmErrorBuffer.getAll(limit);
+        res.json(errors);
+      }
+    } catch (error) {
+      console.error("Error fetching LLM errors:", error);
+      res.status(500).json({ error: "Failed to fetch LLM errors" });
+    }
+  });
+
+  app.get("/api/debug/errors/summary", async (_req, res) => {
+    try {
+      const { llmErrorBuffer } = await import("./services/llm-error-buffer");
+      const summary = llmErrorBuffer.getSummaryForAnalysis();
+      res.json({ summary, count: llmErrorBuffer.getCount() });
+    } catch (error) {
+      console.error("Error fetching error summary:", error);
+      res.status(500).json({ error: "Failed to fetch error summary" });
+    }
+  });
+
+  app.post("/api/debug/errors/analyze", async (req, res) => {
+    try {
+      const { llmErrorBuffer } = await import("./services/llm-error-buffer");
+      const { GoogleGenAI } = await import("@google/genai");
+      
+      const summary = llmErrorBuffer.getSummaryForAnalysis();
+      
+      if (llmErrorBuffer.getCount() === 0) {
+        return res.json({ 
+          analysis: "No errors to analyze. The error log is empty.",
+          errorCount: 0
+        });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "GEMINI_API_KEY not configured" });
+      }
+
+      const genAI = new GoogleGenAI({ apiKey });
+      
+      const response = await genAI.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: [{
+          role: "user",
+          parts: [{
+            text: `You are a debugging assistant. Analyze these LLM-related errors and provide:
+1. A summary of the most common issues
+2. Potential root causes
+3. Suggested fixes or workarounds
+4. Priority ranking (which errors to fix first)
+
+Be concise but thorough. Format your response in markdown.
+
+${summary}`
+          }]
+        }]
+      });
+
+      const analysis = response.text || "Unable to generate analysis";
+      
+      res.json({ 
+        analysis,
+        errorCount: llmErrorBuffer.getCount(),
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error analyzing errors:", error);
+      res.status(500).json({ error: "Failed to analyze errors" });
+    }
+  });
+
+  app.delete("/api/debug/errors", async (_req, res) => {
+    try {
+      const { llmErrorBuffer } = await import("./services/llm-error-buffer");
+      llmErrorBuffer.clear();
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error clearing LLM errors:", error);
+      res.status(500).json({ error: "Failed to clear LLM errors" });
+    }
+  });
+
   // ═════════════════════════════════════════════════════════════════════════
   // MODULAR API ROUTERS
   // The following routes are organized into separate modules:
