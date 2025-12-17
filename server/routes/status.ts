@@ -60,6 +60,12 @@ router.get("/", async (req, res) => {
     checkConnectorHealth("github")
   ]);
 
+  let errorCount = 0;
+  try {
+    const { llmErrorBuffer } = await import("../services/llm-error-buffer");
+    errorCount = llmErrorBuffer.getCount();
+  } catch {}
+
   res.json({
     liveMode: isDeployed || isProduction,
     buildRevision: BUILD_REVISION,
@@ -70,6 +76,7 @@ router.get("/", async (req, res) => {
       google: googleHealth,
       github: githubHealth
     },
+    errorCount,
     timestamp: new Date().toISOString()
   });
 });

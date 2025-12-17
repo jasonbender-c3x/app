@@ -67,7 +67,12 @@ export default function DebugPage() {
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [llmInteractions, setLLMInteractions] = useState<LLMInteraction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("logs");
+  
+  const getInitialTab = () => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("tab") || "logs";
+  };
+  const [activeTab, setActiveTab] = useState(getInitialTab);
   
   const [selectedTable, setSelectedTable] = useState<TableInfo | null>(null);
   const [tableData, setTableData] = useState<TableData | null>(null);

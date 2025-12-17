@@ -174,4 +174,112 @@ router.post("/scan-messages", async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/evolution/create-feedback-pr
+ * Create a GitHub PR from selected feedback IDs
+ */
+router.post("/create-feedback-pr", async (req: Request, res: Response) => {
+  try {
+    const { owner, repo, feedbackIds } = req.body;
+
+    if (!owner || !repo) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing owner or repo"
+      });
+    }
+
+    if (!feedbackIds || !Array.isArray(feedbackIds) || feedbackIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No feedback items selected"
+      });
+    }
+
+    // Fetch the selected feedback items
+    const allFeedback = await storage.getFeedback(100);
+    const selectedFeedback = allFeedback.filter(f => feedbackIds.includes(f.id));
+
+    if (selectedFeedback.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No valid feedback items found"
+      });
+    }
+
+    // Create markdown content for the PR
+    const branchName = `feedback-${Date.now()}`;
+    const timestamp = new Date().toISOString().split('T')[0];
+    
+    let prBody = `# User Feedback Report\n\n`;
+    prBody += `**Date:** ${timestamp}\n`;
+    prBody += `**Feedback Items:** ${selectedFeedback.length}\n\n`;
+    prBody += `---\n\n`;
+
+    for (const item of selectedFeedback) {
+      const rating = item.rating || "neutral";
+      const emoji = rating === "positive" ? "👍" : "👎";
+      prBody += `## ${emoji} ${rating.charAt(0).toUpperCase() + rating.slice(1)} Feedback\n\n`;
+      if (item.freeformText) {
+        prBody += `> ${item.freeformText}\n\n`;
+      }
+      prBody += `*Submitted: ${new Date(item.createdAt).toLocaleDateString()}*\n\n`;
+      prBody += `---\n\n`;
+    }
+
+    // Create the PR using GitHub integration
+    try {
+      // Get default branch
+      const defaultBranch = await github.getDefaultBranch(owner, repo);
+
+      // Create a new branch (this internally gets the base SHA)
+      await github.createBranch(owner, repo, branchName, defaultBranch);
+
+      // Create or update the feedback file
+      const filePath = `docs/feedback/${timestamp}-feedback.md`;
+      await github.createOrUpdateFile(
+        owner,
+        repo,
+        filePath,
+        prBody,
+        `Add user feedback report - ${timestamp}`,
+        branchName
+      );
+
+      // Create the pull request
+      // Signature: createPullRequest(owner, repo, title, body, head, base?, draft?)
+      const pr = await github.createPullRequest(
+        owner,
+        repo,
+        `User Feedback Report - ${timestamp}`,
+        prBody,
+        branchName,
+        defaultBranch
+      );
+
+      // Mark feedback as submitted so it doesn't show up in pending list
+      const feedbackIdsToMark = selectedFeedback.map(f => f.id);
+      await storage.markFeedbackSubmitted(feedbackIdsToMark);
+
+      res.json({
+        success: true,
+        prUrl: pr.htmlUrl,
+        prNumber: pr.number
+      });
+    } catch (gitError: any) {
+      console.error("GitHub error:", gitError);
+      res.status(500).json({
+        success: false,
+        error: gitError.message || "Failed to create GitHub PR"
+      });
+    }
+  } catch (error: any) {
+    console.error("Error creating feedback PR:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to create feedback PR"
+    });
+  }
+});
+
 export default router;

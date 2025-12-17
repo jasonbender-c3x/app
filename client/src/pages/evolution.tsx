@@ -1,78 +1,43 @@
 /**
- * Evolution Engine Page
+ * Feedback Page (Simplified)
  * 
- * Provides interface for analyzing feedback patterns and generating
- * GitHub PRs with AI-driven improvement suggestions.
+ * Simple interface for:
+ * 1. Submitting feedback with comment + thumbs up/down
+ * 2. Viewing pending feedback
+ * 3. Creating GitHub PRs from feedback
  */
 
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Brain, 
+  ThumbsUp, 
+  ThumbsDown, 
   GitPullRequest, 
-  AlertTriangle, 
-  TrendingUp, 
   Loader2, 
-  RefreshCw,
   ExternalLink,
   CheckCircle,
-  XCircle,
-  Activity,
   MessageSquare,
-  Scan
+  Send,
+  ArrowLeft
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
-import { ArrowLeft } from "lucide-react";
 
-interface MessageFeedback {
-  messageId: string;
-  content: string;
-  sentiment: "positive" | "negative" | "neutral";
-  feedbackText: string;
-  confidence: number;
-}
-
-interface ScanResult {
-  success: boolean;
-  messagesScanned: number;
-  feedbackFound: MessageFeedback[];
-  prsCreated?: { prNumber: number; prUrl: string }[];
-  error?: string;
-}
-
-interface FeedbackPattern {
-  category: string;
-  issue: string;
-  frequency: number;
-  severity: "low" | "medium" | "high";
-  examples: Array<{ prompt: string; response: string; feedback: string }>;
-}
-
-interface ImprovementSuggestion {
-  title: string;
-  description: string;
-  category: string;
-  targetFile?: string;
-  proposedChanges?: string;
-  rationale: string;
-  priority: number;
-}
-
-interface EvolutionReport {
+interface Feedback {
   id: string;
-  analyzedAt: string;
-  feedbackCount: number;
-  patterns: FeedbackPattern[];
-  suggestions: ImprovementSuggestion[];
-  summary: string;
+  messageId: string;
+  rating: "positive" | "negative";
+  freeformText?: string;
+  createdAt: string;
+  submittedAt?: string;
 }
 
 interface Repo {
@@ -84,7 +49,20 @@ interface Repo {
 
 export default function EvolutionPage() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const [comment, setComment] = useState("");
+  const [rating, setRating] = useState<"positive" | "negative" | null>(null);
   const [selectedRepo, setSelectedRepo] = useState<string>("");
+  const [selectedFeedback, setSelectedFeedback] = useState<Set<string>>(new Set());
+
+  const { data: feedbackData, isLoading: feedbackLoading } = useQuery({
+    queryKey: ["/api/feedback"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/feedback?limit=50");
+      return res.json();
+    }
+  });
 
   const { data: statsData } = useQuery({
     queryKey: ["/api/feedback/stats"],
@@ -102,31 +80,29 @@ export default function EvolutionPage() {
     }
   });
 
-  const analyzeMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("GET", "/api/evolution/analyze");
+  const submitFeedbackMutation = useMutation({
+    mutationFn: async (data: { rating: string; freeformText: string }) => {
+      const res = await apiRequest("POST", "/api/feedback", {
+        ...data,
+        messageId: `manual-${Date.now()}`
+      });
       return res.json();
     },
-    onSuccess: (data) => {
-      if (data.success && data.report) {
-        toast({
-          title: "Analysis Complete",
-          description: `Found ${data.report.patterns.length} patterns and ${data.report.suggestions.length} suggestions.`
-        });
-      }
+    onSuccess: () => {
+      toast({ title: "Feedback submitted!", description: "Thank you for your feedback." });
+      setComment("");
+      setRating(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/feedback"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feedback/stats"] });
     },
-    onError: (error: any) => {
-      toast({
-        title: "Analysis Failed",
-        description: error.message || "Could not analyze feedback",
-        variant: "destructive"
-      });
+    onError: (error: Error) => {
+      toast({ title: "Failed to submit", description: error.message, variant: "destructive" });
     }
   });
 
   const createPRMutation = useMutation({
-    mutationFn: async (repo: { owner: string; repo: string }) => {
-      const res = await apiRequest("POST", "/api/evolution/create-pr", repo);
+    mutationFn: async (data: { owner: string; repo: string; feedbackIds: string[] }) => {
+      const res = await apiRequest("POST", "/api/evolution/create-feedback-pr", data);
       return res.json();
     },
     onSuccess: (data) => {
@@ -136,197 +112,176 @@ export default function EvolutionPage() {
           description: (
             <div className="flex items-center gap-2">
               <span>Pull request #{data.prNumber} created.</span>
-              <a 
-                href={data.prUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-500 underline"
-              >
+              <a href={data.prUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
                 View PR
               </a>
             </div>
           )
         });
+        setSelectedFeedback(new Set());
       } else {
-        toast({
-          title: "PR Creation Failed",
-          description: data.error,
-          variant: "destructive"
-        });
+        toast({ title: "Failed", description: data.error, variant: "destructive" });
       }
     },
-    onError: (error: any) => {
-      toast({
-        title: "PR Creation Failed",
-        description: error.message || "Could not create pull request",
-        variant: "destructive"
-      });
+    onError: (error: Error) => {
+      toast({ title: "Failed to create PR", description: error.message, variant: "destructive" });
     }
   });
 
-  const scanMessagesMutation = useMutation({
-    mutationFn: async (repo: { owner: string; repo: string }) => {
-      const res = await apiRequest("POST", "/api/evolution/scan-messages", repo);
-      return res.json();
-    },
-    onSuccess: (data: ScanResult) => {
-      if (data.success) {
-        toast({
-          title: "Message Scan Complete",
-          description: `Scanned ${data.messagesScanned} messages. Found ${data.feedbackFound.length} feedback items.${data.prsCreated?.length ? ` Created ${data.prsCreated.length} PR(s).` : ''}`
-        });
-      } else {
-        toast({
-          title: "Scan Failed",
-          description: data.error,
-          variant: "destructive"
-        });
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Scan Failed",
-        description: error.message || "Could not scan messages",
-        variant: "destructive"
-      });
+  const handleSubmitFeedback = () => {
+    if (!rating) {
+      toast({ title: "Select a rating", description: "Please use thumbs up or down", variant: "destructive" });
+      return;
     }
-  });
-
-  const report = analyzeMutation.data?.report as EvolutionReport | undefined;
-  const scanResult = scanMessagesMutation.data as ScanResult | undefined;
-  const repos = reposData?.repos as Repo[] | undefined;
-  const stats = statsData?.stats;
+    if (!comment.trim()) {
+      toast({ title: "Add a comment", description: "Please describe your feedback", variant: "destructive" });
+      return;
+    }
+    submitFeedbackMutation.mutate({ rating, freeformText: comment.trim() });
+  };
 
   const handleCreatePR = () => {
     if (!selectedRepo) {
       toast({ title: "Select a repository", variant: "destructive" });
       return;
     }
-    const [owner, repo] = selectedRepo.split("/");
-    createPRMutation.mutate({ owner, repo });
-  };
-
-  const handleScanMessages = () => {
-    if (!selectedRepo) {
-      toast({ title: "Select a repository first", variant: "destructive" });
+    if (selectedFeedback.size === 0) {
+      toast({ title: "Select feedback items", description: "Check at least one feedback item", variant: "destructive" });
       return;
     }
     const [owner, repo] = selectedRepo.split("/");
-    scanMessagesMutation.mutate({ owner, repo });
+    createPRMutation.mutate({ owner, repo, feedbackIds: Array.from(selectedFeedback) });
   };
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case "high": return "destructive";
-      case "medium": return "secondary";
-      default: return "outline";
+  const toggleFeedbackSelection = (id: string) => {
+    const newSet = new Set(selectedFeedback);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
     }
+    setSelectedFeedback(newSet);
   };
 
-  const getPriorityStars = (priority: number) => {
-    return "★".repeat(priority) + "☆".repeat(5 - priority);
-  };
+  const feedback = feedbackData?.feedback as Feedback[] | undefined;
+  const repos = reposData?.repos as Repo[] | undefined;
+  const stats = statsData?.stats;
 
   return (
     <div className="min-h-screen bg-background">
       <div className="p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/">
-                <Button variant="ghost" size="icon" data-testid="button-back">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-3xl font-bold flex items-center gap-3" data-testid="text-page-title">
-                  <Brain className="h-8 w-8 text-purple-500" />
-                  Evolution Engine
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                  Analyze feedback patterns and generate AI-driven improvements
-                </p>
-              </div>
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Header */}
+          <div className="flex items-center gap-4">
+            <Link href="/">
+              <Button variant="ghost" size="icon" data-testid="button-back">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-3" data-testid="text-page-title">
+                <MessageSquare className="h-8 w-8 text-purple-500" />
+                Feedback
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Share your thoughts and help improve Meowstic
+              </p>
             </div>
-            <Button 
-              onClick={() => analyzeMutation.mutate()}
-              disabled={analyzeMutation.isPending}
-              size="lg"
-              data-testid="button-analyze"
-            >
-              {analyzeMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Analyze Feedback
-                </>
-              )}
-            </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Stats Summary */}
+          <div className="grid grid-cols-3 gap-4">
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Total Feedback</p>
-                    <p className="text-2xl font-bold" data-testid="text-total-feedback">{stats?.total || 0}</p>
-                  </div>
-                  <Activity className="h-8 w-8 text-blue-500" />
+              <CardContent className="pt-4 pb-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold" data-testid="text-total">{stats?.total || 0}</p>
+                  <p className="text-sm text-muted-foreground">Total</p>
                 </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Positive</p>
-                    <p className="text-2xl font-bold text-green-600" data-testid="text-positive">{stats?.positive || 0}</p>
-                  </div>
-                  <CheckCircle className="h-8 w-8 text-green-500" />
+              <CardContent className="pt-4 pb-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-600" data-testid="text-positive">{stats?.positive || 0}</p>
+                  <p className="text-sm text-muted-foreground">Positive</p>
                 </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Negative</p>
-                    <p className="text-2xl font-bold text-red-600" data-testid="text-negative">{stats?.negative || 0}</p>
-                  </div>
-                  <XCircle className="h-8 w-8 text-red-500" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">With Comments</p>
-                    <p className="text-2xl font-bold" data-testid="text-with-comments">{stats?.withComments || 0}</p>
-                  </div>
-                  <TrendingUp className="h-8 w-8 text-purple-500" />
+              <CardContent className="pt-4 pb-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-red-600" data-testid="text-negative">{stats?.negative || 0}</p>
+                  <p className="text-sm text-muted-foreground">Negative</p>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Scan Messages Section - Always visible */}
-          <Card className="border-purple-500/30 bg-purple-500/5">
+          {/* Submit Feedback Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Submit Feedback</CardTitle>
+              <CardDescription>Share what's working or what could be better</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-4 justify-center">
+                <Button
+                  variant={rating === "positive" ? "default" : "outline"}
+                  size="lg"
+                  onClick={() => setRating("positive")}
+                  className={`gap-2 ${rating === "positive" ? "bg-green-600 hover:bg-green-700" : ""}`}
+                  data-testid="button-thumbs-up"
+                >
+                  <ThumbsUp className="h-5 w-5" />
+                  Thumbs Up
+                </Button>
+                <Button
+                  variant={rating === "negative" ? "default" : "outline"}
+                  size="lg"
+                  onClick={() => setRating("negative")}
+                  className={`gap-2 ${rating === "negative" ? "bg-red-600 hover:bg-red-700" : ""}`}
+                  data-testid="button-thumbs-down"
+                >
+                  <ThumbsDown className="h-5 w-5" />
+                  Thumbs Down
+                </Button>
+              </div>
+              <Textarea
+                placeholder="Tell us what you think... What's working well? What could be improved?"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                rows={4}
+                data-testid="input-comment"
+              />
+              <Button
+                onClick={handleSubmitFeedback}
+                disabled={submitFeedbackMutation.isPending || !rating || !comment.trim()}
+                className="w-full gap-2"
+                data-testid="button-submit-feedback"
+              >
+                {submitFeedbackMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Submit Feedback
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Feedback List + PR Creation */}
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-purple-500" />
-                Scan Messages for Feedback
+                <GitPullRequest className="h-5 w-5 text-blue-500" />
+                Create GitHub PR
               </CardTitle>
               <CardDescription>
-                Analyze the last 10 messages for embedded feedback and create PRs for approval
+                Select feedback items to bundle into a pull request for review
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {/* Repo Selection */}
               <div className="flex items-end gap-4">
                 <div className="flex-1 space-y-2">
                   <label className="text-sm font-medium">Target Repository</label>
@@ -335,7 +290,7 @@ export default function EvolutionPage() {
                     onValueChange={setSelectedRepo}
                     disabled={reposLoading}
                   >
-                    <SelectTrigger data-testid="select-repo-scan">
+                    <SelectTrigger data-testid="select-repo">
                       <SelectValue placeholder="Select a repository..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -347,274 +302,89 @@ export default function EvolutionPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button 
-                  onClick={handleScanMessages}
-                  disabled={!selectedRepo || scanMessagesMutation.isPending}
-                  className="gap-2 bg-purple-600 hover:bg-purple-700"
-                  data-testid="button-scan-messages"
+                <Button
+                  onClick={handleCreatePR}
+                  disabled={!selectedRepo || selectedFeedback.size === 0 || createPRMutation.isPending}
+                  className="gap-2"
+                  data-testid="button-create-pr"
                 >
-                  {scanMessagesMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Scanning...
-                    </>
+                  {createPRMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <>
-                      <Scan className="h-4 w-4" />
-                      Scan Last 10 Messages
-                    </>
+                    <GitPullRequest className="h-4 w-4" />
                   )}
+                  Create PR ({selectedFeedback.size})
                 </Button>
               </div>
 
-              {/* Scan Results */}
-              {scanResult && scanResult.success && (
-                <div className="mt-4 space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    Scanned {scanResult.messagesScanned} messages, found {scanResult.feedbackFound.length} feedback items
+              {/* Feedback List */}
+              <ScrollArea className="h-64 rounded-md border">
+                {feedbackLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="h-6 w-6 animate-spin" />
                   </div>
-                  
-                  {scanResult.feedbackFound.length > 0 && (
-                    <ScrollArea className="h-48">
-                      <div className="space-y-2">
-                        {scanResult.feedbackFound.map((feedback, idx) => (
-                          <div 
-                            key={idx}
-                            className={`p-3 rounded-lg border ${
-                              feedback.sentiment === 'positive' 
-                                ? 'border-green-500/30 bg-green-500/10' 
-                                : feedback.sentiment === 'negative'
-                                  ? 'border-red-500/30 bg-red-500/10'
-                                  : 'border-gray-500/30 bg-gray-500/10'
-                            }`}
-                            data-testid={`feedback-item-${idx}`}
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <Badge variant={feedback.sentiment === 'positive' ? 'default' : feedback.sentiment === 'negative' ? 'destructive' : 'secondary'}>
-                                {feedback.sentiment}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {Math.round(feedback.confidence * 100)}% confidence
-                              </span>
-                            </div>
-                            <p className="text-sm">{feedback.feedbackText}</p>
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              From: "{feedback.content.substring(0, 100)}..."
-                            </p>
+                ) : !feedback?.length ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    No feedback yet
+                  </div>
+                ) : (
+                  <div className="p-3 space-y-2">
+                    {feedback.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                          selectedFeedback.has(item.id) ? "bg-primary/10 border-primary" : "hover:bg-muted/50"
+                        }`}
+                        onClick={() => toggleFeedbackSelection(item.id)}
+                        data-testid={`feedback-item-${item.id}`}
+                      >
+                        <Checkbox
+                          checked={selectedFeedback.has(item.id)}
+                          onCheckedChange={() => toggleFeedbackSelection(item.id)}
+                          data-testid={`checkbox-feedback-${item.id}`}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant={item.rating === "positive" ? "default" : "destructive"}>
+                              {item.rating === "positive" ? (
+                                <ThumbsUp className="h-3 w-3 mr-1" />
+                              ) : (
+                                <ThumbsDown className="h-3 w-3 mr-1" />
+                              )}
+                              {item.rating}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(item.createdAt).toLocaleDateString()}
+                            </span>
                           </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  )}
-
-                  {scanResult.prsCreated && scanResult.prsCreated.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      <p className="text-sm font-medium">PRs Created:</p>
-                      {scanResult.prsCreated.map((pr, idx) => (
-                        <div key={idx} className="flex items-center gap-2 p-2 bg-green-500/10 rounded-lg">
-                          <GitPullRequest className="h-4 w-4 text-green-500" />
-                          <span className="text-sm">PR #{pr.prNumber}</span>
-                          <a 
-                            href={pr.prUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="ml-auto flex items-center gap-1 text-blue-500 hover:underline text-sm"
-                          >
-                            View <ExternalLink className="h-3 w-3" />
-                          </a>
+                          {item.freeformText && (
+                            <p className="text-sm line-clamp-2">{item.freeformText}</p>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+
+              {/* PR Success */}
+              {createPRMutation.data?.prUrl && (
+                <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <span className="text-green-700 dark:text-green-300">PR created successfully!</span>
+                  <a
+                    href={createPRMutation.data.prUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-auto flex items-center gap-1 text-blue-600 hover:underline"
+                    data-testid="link-pr"
+                  >
+                    View PR <ExternalLink className="h-3 w-3" />
+                  </a>
                 </div>
               )}
             </CardContent>
           </Card>
-
-          {report && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-amber-500" />
-                    Detected Patterns
-                  </CardTitle>
-                  <CardDescription>{report.summary}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {report.patterns.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-4">
-                      No significant patterns detected. Collect more feedback.
-                    </p>
-                  ) : (
-                    <ScrollArea className="h-64">
-                      <div className="space-y-3">
-                        {report.patterns.map((pattern, idx) => (
-                          <div 
-                            key={idx} 
-                            className="p-3 rounded-lg border bg-card"
-                            data-testid={`pattern-${idx}`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">{pattern.issue}</span>
-                              <div className="flex items-center gap-2">
-                                <Badge variant={getSeverityColor(pattern.severity) as any}>
-                                  {pattern.severity}
-                                </Badge>
-                                <Badge variant="outline">{pattern.frequency}x</Badge>
-                              </div>
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Category: {pattern.category}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-green-500" />
-                    Improvement Suggestions
-                  </CardTitle>
-                  <CardDescription>
-                    AI-generated recommendations based on feedback analysis
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {report.suggestions.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-4">
-                      No suggestions generated. More feedback data may be needed.
-                    </p>
-                  ) : (
-                    <div className="space-y-4">
-                      {report.suggestions.map((suggestion, idx) => (
-                        <div 
-                          key={idx}
-                          className="p-4 rounded-lg border bg-card"
-                          data-testid={`suggestion-${idx}`}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h4 className="font-semibold">{suggestion.title}</h4>
-                              <Badge variant="secondary" className="mt-1">
-                                {suggestion.category}
-                              </Badge>
-                            </div>
-                            <span className="text-amber-500 font-mono text-sm">
-                              {getPriorityStars(suggestion.priority)}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            {suggestion.description}
-                          </p>
-                          {suggestion.targetFile && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Target: <code>{suggestion.targetFile}</code>
-                            </p>
-                          )}
-                          <Separator className="my-2" />
-                          <p className="text-xs text-muted-foreground">
-                            <strong>Rationale:</strong> {suggestion.rationale}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {report.suggestions.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <GitPullRequest className="h-5 w-5 text-blue-500" />
-                      Create Evolution PR
-                    </CardTitle>
-                    <CardDescription>
-                      Generate a pull request with the improvement suggestions for human review
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-end gap-4">
-                      <div className="flex-1 space-y-2">
-                        <label className="text-sm font-medium">Target Repository</label>
-                        <Select
-                          value={selectedRepo}
-                          onValueChange={setSelectedRepo}
-                          disabled={reposLoading}
-                        >
-                          <SelectTrigger data-testid="select-repo">
-                            <SelectValue placeholder="Select a repository..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {repos?.map((repo) => (
-                              <SelectItem key={repo.fullName} value={repo.fullName}>
-                                {repo.fullName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button 
-                        onClick={handleCreatePR}
-                        disabled={!selectedRepo || createPRMutation.isPending}
-                        className="gap-2"
-                        data-testid="button-create-pr"
-                      >
-                        {createPRMutation.isPending ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Creating...
-                          </>
-                        ) : (
-                          <>
-                            <GitPullRequest className="h-4 w-4" />
-                            Create PR
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                    {createPRMutation.data?.prUrl && (
-                      <div className="mt-4 p-3 bg-green-50 dark:bg-green-950 rounded-lg flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                        <span className="text-green-700 dark:text-green-300">
-                          PR created successfully!
-                        </span>
-                        <a 
-                          href={createPRMutation.data.prUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ml-auto flex items-center gap-1 text-blue-600 hover:underline"
-                          data-testid="link-pr"
-                        >
-                          View PR <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-            </>
-          )}
-
-          {!report && !analyzeMutation.isPending && (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Brain className="h-16 w-16 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold">No Analysis Yet</h3>
-                <p className="text-muted-foreground text-center max-w-md mt-2">
-                  Click "Analyze Feedback" to scan your feedback data for patterns
-                  and generate improvement suggestions.
-                </p>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </div>

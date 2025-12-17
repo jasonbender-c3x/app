@@ -385,6 +385,10 @@ Here are your recent files in Google Drive...
 - Use queries to filter large Drive contents
 - Combine with drive_read to get file contents
 - Note the mimeType to understand file types
+- **ALWAYS display files as clickable hyperlinks** using the `webViewLink` field:
+  ```markdown
+  - 📄 [Document Name](webViewLink)
+  ```
 
 ---
 

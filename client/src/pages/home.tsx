@@ -60,7 +60,8 @@ import { Button } from "@/components/ui/button";
  * - Lightbulb: Icon for brainstorming prompt
  * - Code2: Icon for coding/debug prompt
  */
-import { Menu, Sparkles, Compass, Lightbulb, Code2, Volume2, VolumeX, ChevronLeft, ChevronRight, PawPrint, Moon, Fish, Heart, Zap, BookOpen, Radio } from "lucide-react";
+import { Menu, Sparkles, Compass, Lightbulb, Code2, Volume2, VolumeX, ChevronLeft, ChevronRight, PawPrint, Moon, Fish, Heart, Zap, BookOpen, Radio, AlertTriangle } from "lucide-react";
+import { useLocation } from "wouter";
 
 /**
  * Framer Motion - Animation library
@@ -186,6 +187,12 @@ export default function Home() {
   const [isLiveMode, setIsLiveMode] = useState(false);
   
   /**
+   * Error count from LLM error buffer - lights up indicator when > 0
+   */
+  const [errorCount, setErrorCount] = useState(0);
+  const [, navigate] = useLocation();
+  
+  /**
    * Live Audio hook for real-time streaming audio via Gemini Live API
    */
   const liveAudio = useLiveAudio({
@@ -243,6 +250,25 @@ export default function Home() {
       scrollRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isLoading]);
+
+  /**
+   * Effect: Poll for error count to light up error indicator
+   * Checks status endpoint every 30 seconds
+   */
+  useEffect(() => {
+    const checkErrors = async () => {
+      try {
+        const res = await fetch("/api/status");
+        if (res.ok) {
+          const data = await res.json();
+          setErrorCount(data.errorCount || 0);
+        }
+      } catch {}
+    };
+    checkErrors();
+    const interval = setInterval(checkErrors, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // ===========================================================================
   // DATA FETCHING FUNCTIONS
@@ -628,6 +654,19 @@ export default function Home() {
             <span className="ml-3 font-display font-semibold text-lg">Meowstic</span>
           </div>
           <div className="flex items-center gap-1">
+            {/* Mobile Error Indicator - shows when there are API errors */}
+            {errorCount > 0 && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => navigate("/debug?tab=errors")}
+                className="rounded-full h-11 w-11 ring-2 ring-red-400 shadow-[0_0_12px_rgba(248,113,113,0.6)]"
+                data-testid="button-error-indicator-mobile"
+                title={`${errorCount} API error(s) - click to view`}
+              >
+                <AlertTriangle className="h-6 w-6 text-red-400" />
+              </Button>
+            )}
             {/* Mobile Live Mode Toggle */}
             <Button 
               variant="ghost" 
@@ -668,6 +707,19 @@ export default function Home() {
          * Contains TTS toggle and user avatar
          */}
         <div className="hidden lg:flex absolute top-4 right-4 z-30 gap-2 items-center">
+            {/* Error Indicator - shows when there are API errors */}
+            {errorCount > 0 && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => navigate("/debug?tab=errors")}
+                className="rounded-full h-11 w-11 ring-2 ring-red-400 shadow-[0_0_12px_rgba(248,113,113,0.6)]"
+                data-testid="button-error-indicator"
+                title={`${errorCount} API error(s) - click to view`}
+              >
+                <AlertTriangle className="h-6 w-6 text-red-400" />
+              </Button>
+            )}
             {/* Live Mode Toggle Button */}
             <Button 
               variant="ghost" 

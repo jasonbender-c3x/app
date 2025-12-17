@@ -76,7 +76,7 @@ import {
   executorState
 } from "@shared/schema";
 import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
-import { eq, desc, and, lte, or, sql, isNull, inArray, arrayContains } from "drizzle-orm";
+import { eq, desc, and, lte, or, sql, isNull, isNotNull, inArray, arrayContains } from "drizzle-orm";
 import { Pool } from "pg";
 
 /**
@@ -277,8 +277,9 @@ export interface IStorage {
   // =========================================================================
   
   createFeedback(data: InsertFeedback): Promise<Feedback>;
-  getFeedback(limit?: number): Promise<Feedback[]>;
+  getFeedback(limit?: number, status?: 'all' | 'pending' | 'submitted'): Promise<Feedback[]>;
   getFeedbackStats(): Promise<{ total: number; positive: number; negative: number; withComments: number }>;
+  markFeedbackSubmitted(ids: string[]): Promise<void>;
 
   // =========================================================================
   // QUEUED TASK OPERATIONS (AI batch processing queue)
@@ -999,12 +1000,20 @@ export class DrizzleStorage implements IStorage {
     return newFeedback;
   }
 
-  async getFeedback(limit: number = 50): Promise<Feedback[]> {
-    return await this.getDb()
+  async getFeedback(limit: number = 50, status: 'all' | 'pending' | 'submitted' = 'all'): Promise<Feedback[]> {
+    let query = this.getDb()
       .select()
       .from(feedback)
       .orderBy(desc(feedback.createdAt))
       .limit(limit);
+    
+    if (status === 'pending') {
+      query = query.where(isNull(feedback.submittedAt)) as typeof query;
+    } else if (status === 'submitted') {
+      query = query.where(isNotNull(feedback.submittedAt)) as typeof query;
+    }
+    
+    return await query;
   }
 
   async getFeedbackStats(): Promise<{ total: number; positive: number; negative: number; withComments: number }> {
@@ -1015,6 +1024,14 @@ export class DrizzleStorage implements IStorage {
       negative: allFeedback.filter(f => f.rating === "negative").length,
       withComments: allFeedback.filter(f => f.freeformText).length,
     };
+  }
+
+  async markFeedbackSubmitted(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await this.getDb()
+      .update(feedback)
+      .set({ submittedAt: new Date() })
+      .where(inArray(feedback.id, ids));
   }
 
   // =========================================================================

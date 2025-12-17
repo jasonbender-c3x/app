@@ -431,11 +431,13 @@ export const feedback = pgTable("feedback", {
   responseSnapshot: text("response_snapshot"), // Full AI response
   kernelId: varchar("kernel_id"), // Reference to kernel version used
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  submittedAt: timestamp("submitted_at"), // Set when feedback is submitted to GitHub PR
 });
 
 export const insertFeedbackSchema = createInsertSchema(feedback).omit({
   id: true,
   createdAt: true,
+  submittedAt: true,
 });
 export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 export type Feedback = typeof feedback.$inferSelect;

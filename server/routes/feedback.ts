@@ -31,12 +31,16 @@ router.post("/", async (req: Request, res: Response) => {
 
 /**
  * GET /api/feedback
- * Get all feedback entries (for analysis)
+ * Get feedback entries (for analysis)
+ * Query params:
+ *   - limit: max entries to return (default 50)
+ *   - status: 'all' | 'pending' | 'submitted' (default 'pending')
  */
 router.get("/", async (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string) || 50;
-    const feedbackEntries = await storage.getFeedback(limit);
+    const status = (req.query.status as 'all' | 'pending' | 'submitted') || 'pending';
+    const feedbackEntries = await storage.getFeedback(limit, status);
     res.json({ success: true, feedback: feedbackEntries });
   } catch (error: any) {
     console.error("Error fetching feedback:", error);
