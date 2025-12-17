@@ -192,16 +192,38 @@ export class DelimiterParser {
   /**
    * Parse JSON tool calls from the section before the delimiter.
    * STRICT: Only accepts JSON arrays, not single objects.
+   * Strips markdown code fences if present (e.g., ```json ... ```)
    */
   private parseToolCallsJson(content: string): { toolCalls: ToolCall[]; errors: string[] } {
     const toolCalls: ToolCall[] = [];
     const errors: string[] = [];
     
     try {
-      const trimmed = content.trim();
+      let trimmed = content.trim();
       if (!trimmed) {
         return { toolCalls, errors };
       }
+      
+      // Strip markdown code fences if present (```json or ``` at start/end)
+      const codeFencePattern = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/;
+      const codeFenceMatch = trimmed.match(codeFencePattern);
+      if (codeFenceMatch) {
+        trimmed = codeFenceMatch[1].trim();
+      }
+      
+      // Also handle case where code fence is only at the start (incomplete fence)
+      if (trimmed.startsWith("```json")) {
+        trimmed = trimmed.replace(/^```json\s*\n?/, "");
+      } else if (trimmed.startsWith("```")) {
+        trimmed = trimmed.replace(/^```\s*\n?/, "");
+      }
+      
+      // Remove trailing fence if present
+      if (trimmed.endsWith("```")) {
+        trimmed = trimmed.replace(/\n?```$/, "");
+      }
+      
+      trimmed = trimmed.trim();
       
       const jsonStart = trimmed.indexOf("[");
       const jsonEnd = trimmed.lastIndexOf("]");
