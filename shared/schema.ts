@@ -39,7 +39,7 @@
  */
 
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, jsonb, bigint, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, jsonb, bigint, index, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1432,6 +1432,20 @@ export const queuedTasks = pgTable("queued_tasks", {
   output: jsonb("output"), // Result after execution
   error: text("error"), // Error message if failed
   
+  // Execution mode and flow control
+  executionMode: text("execution_mode").default("sequential").notNull(), // sequential, parallel
+  condition: text("condition"), // Natural language condition for if/then logic
+  conditionResult: boolean("condition_result"), // Result of condition evaluation
+  dependencies: text("dependencies").array(), // Array of task IDs that must complete first
+  
+  // Operator interaction
+  waitingForInput: boolean("waiting_for_input").default(false).notNull(),
+  inputPrompt: text("input_prompt"), // What to ask the operator
+  operatorInput: text("operator_input"), // Response from operator
+  
+  // Workflow reference
+  workflowId: varchar("workflow_id"), // Links to a workflow definition
+  
   // Metadata
   estimatedDuration: integer("estimated_duration"), // Estimated seconds to complete
   actualDuration: integer("actual_duration"), // Actual seconds taken
@@ -1475,9 +1489,197 @@ export type TaskType = typeof TaskTypes[keyof typeof TaskTypes];
 export const TaskStatuses = {
   PENDING: "pending",
   RUNNING: "running",
+  PAUSED: "paused",
+  WAITING_INPUT: "waiting_input",
+  WAITING_DEPENDENCY: "waiting_dependency",
   COMPLETED: "completed",
   FAILED: "failed",
   CANCELLED: "cancelled",
 } as const;
 
 export type TaskStatus = typeof TaskStatuses[keyof typeof TaskStatuses];
+
+/**
+ * Execution mode constants
+ */
+export const ExecutionModes = {
+  SEQUENTIAL: "sequential",
+  PARALLEL: "parallel",
+} as const;
+
+export type ExecutionMode = typeof ExecutionModes[keyof typeof ExecutionModes];
+
+// ============================================================================
+// SCHEDULES - Cron jobs and scheduled task execution
+// ============================================================================
+
+export const schedules = pgTable("schedules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Schedule identity
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Cron expression (e.g., "0 9 * * 1" = every Monday at 9am)
+  cronExpression: text("cron_expression").notNull(),
+  timezone: text("timezone").default("UTC").notNull(),
+  
+  // What to execute
+  taskTemplate: jsonb("task_template").notNull(), // Task definition to create when triggered
+  workflowId: varchar("workflow_id"), // Or link to a workflow
+  
+  // State
+  enabled: boolean("enabled").default(true).notNull(),
+  lastRunAt: timestamp("last_run_at"),
+  nextRunAt: timestamp("next_run_at"),
+  runCount: integer("run_count").default(0).notNull(),
+  
+  // Error handling
+  lastError: text("last_error"),
+  consecutiveFailures: integer("consecutive_failures").default(0),
+  maxConsecutiveFailures: integer("max_consecutive_failures").default(3),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertScheduleSchema = createInsertSchema(schedules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastRunAt: true,
+  nextRunAt: true,
+  runCount: true,
+  consecutiveFailures: true,
+  lastError: true,
+});
+export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
+export type Schedule = typeof schedules.$inferSelect;
+
+// ============================================================================
+// TRIGGERS - Event-driven task execution
+// ============================================================================
+
+export const triggers = pgTable("triggers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Trigger identity
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Trigger type and configuration
+  triggerType: text("trigger_type").notNull(), // email, sms, prompt_keyword, webhook, manual
+  
+  // Pattern matching (depends on trigger type)
+  pattern: text("pattern"), // Regex or keyword pattern
+  senderFilter: text("sender_filter"), // For email/SMS: filter by sender
+  subjectFilter: text("subject_filter"), // For email: filter by subject
+  
+  // What to execute
+  taskTemplate: jsonb("task_template"), // Task definition to create when triggered
+  workflowId: varchar("workflow_id"), // Or link to a workflow
+  priority: integer("priority").default(5).notNull(), // Priority for triggered tasks
+  
+  // Webhook-specific
+  webhookSecret: text("webhook_secret"), // For validating webhook calls
+  
+  // State
+  enabled: boolean("enabled").default(true).notNull(),
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  triggerCount: integer("trigger_count").default(0).notNull(),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertTriggerSchema = createInsertSchema(triggers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastTriggeredAt: true,
+  triggerCount: true,
+});
+export type InsertTrigger = z.infer<typeof insertTriggerSchema>;
+export type Trigger = typeof triggers.$inferSelect;
+
+/**
+ * Trigger type constants
+ */
+export const TriggerTypes = {
+  EMAIL: "email",           // Triggered by incoming email
+  SMS: "sms",               // Triggered by incoming SMS (Twilio)
+  PROMPT_KEYWORD: "prompt_keyword", // Triggered by keyword in user prompt
+  WEBHOOK: "webhook",       // Triggered by external HTTP request
+  MANUAL: "manual",         // Triggered manually by user
+} as const;
+
+export type TriggerType = typeof TriggerTypes[keyof typeof TriggerTypes];
+
+// ============================================================================
+// WORKFLOWS - Reusable workflow definitions
+// ============================================================================
+
+export const workflows = pgTable("workflows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Workflow identity
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Workflow definition
+  steps: jsonb("steps").notNull(), // Array of step definitions
+  
+  // Execution settings
+  defaultExecutionMode: text("default_execution_mode").default("sequential").notNull(),
+  maxParallelTasks: integer("max_parallel_tasks").default(3),
+  timeoutSeconds: integer("timeout_seconds").default(3600), // 1 hour default
+  
+  // State
+  enabled: boolean("enabled").default(true).notNull(),
+  version: integer("version").default(1).notNull(),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertWorkflowSchema = createInsertSchema(workflows).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  version: true,
+});
+export type InsertWorkflow = z.infer<typeof insertWorkflowSchema>;
+export type Workflow = typeof workflows.$inferSelect;
+
+// ============================================================================
+// EXECUTOR STATE - Track executor status
+// ============================================================================
+
+export const executorState = pgTable("executor_state", {
+  id: varchar("id").primaryKey().default("singleton"), // Only one row
+  
+  // Executor status
+  status: text("status").default("stopped").notNull(), // running, stopped, paused
+  
+  // Current execution
+  currentTaskId: varchar("current_task_id"),
+  runningTaskIds: text("running_task_ids").array(), // For parallel execution
+  
+  // Statistics
+  tasksProcessed: integer("tasks_processed").default(0).notNull(),
+  tasksFailed: integer("tasks_failed").default(0).notNull(),
+  lastActivityAt: timestamp("last_activity_at"),
+  
+  // Settings
+  maxParallelTasks: integer("max_parallel_tasks").default(3),
+  pollIntervalMs: integer("poll_interval_ms").default(5000),
+  
+  // Timestamps
+  startedAt: timestamp("started_at"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type ExecutorState = typeof executorState.$inferSelect;
