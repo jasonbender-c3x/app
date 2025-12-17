@@ -94,6 +94,7 @@ import WebSearchPage from "@/pages/web-search";
 import KnowledgeIngestionPage from "@/pages/knowledge-ingestion";
 import MarkdownPlaygroundPage from "@/pages/markdown-playground";
 import EvolutionPage from "@/pages/evolution";
+import TaskQueuePage from "@/pages/task-queue";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -182,6 +183,9 @@ function Router() {
       
       {/* Evolution Engine Route - Feedback analysis and PR generation */}
       <Route path="/evolution" component={EvolutionPage} />
+      
+      {/* Task Queue Route - AI batch processing queue */}
+      <Route path="/queue" component={TaskQueuePage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything
