@@ -422,9 +422,9 @@ export default function SchedulesPage() {
                 {executorStatus && (
                   <>
                     <div className="text-sm text-muted-foreground">
-                      <span className="font-medium">{executorStatus.stats.pending}</span> pending
+                      <span className="font-medium">{executorStatus.stats?.pending ?? 0}</span> pending
                       <span className="mx-2">|</span>
-                      <span className="font-medium">{executorStatus.stats.running}</span> running
+                      <span className="font-medium">{executorStatus.stats?.running ?? 0}</span> running
                     </div>
                     <Button
                       variant={executorStatus.isPaused ? "default" : "outline"}
@@ -478,9 +478,9 @@ export default function SchedulesPage() {
                   </span>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  <span className="font-medium text-green-600">{executorStatus.stats.completed}</span> completed
+                  <span className="font-medium text-green-600">{executorStatus.stats?.completed ?? 0}</span> completed
                   <span className="mx-2">|</span>
-                  <span className="font-medium text-red-600">{executorStatus.stats.failed}</span> failed
+                  <span className="font-medium text-red-600">{executorStatus.stats?.failed ?? 0}</span> failed
                 </div>
               </div>
             )}
