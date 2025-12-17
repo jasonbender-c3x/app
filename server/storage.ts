@@ -50,6 +50,8 @@ import {
   type UpsertUser,
   type Feedback,
   type InsertFeedback,
+  type QueuedTask,
+  type InsertQueuedTask,
   chats,
   messages,
   attachments,
@@ -59,7 +61,8 @@ import {
   documentChunks,
   googleOAuthTokens,
   users,
-  feedback
+  feedback,
+  queuedTasks
 } from "@shared/schema";
 import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq, desc, and } from "drizzle-orm";
@@ -265,6 +268,20 @@ export interface IStorage {
   createFeedback(data: InsertFeedback): Promise<Feedback>;
   getFeedback(limit?: number): Promise<Feedback[]>;
   getFeedbackStats(): Promise<{ total: number; positive: number; negative: number; withComments: number }>;
+
+  // =========================================================================
+  // QUEUED TASK OPERATIONS (AI batch processing queue)
+  // =========================================================================
+  
+  createQueuedTask(task: InsertQueuedTask): Promise<QueuedTask>;
+  createQueuedTasks(tasks: InsertQueuedTask[]): Promise<QueuedTask[]>;
+  getQueuedTasks(options?: { status?: string; chatId?: string; limit?: number }): Promise<QueuedTask[]>;
+  getQueuedTaskById(id: string): Promise<QueuedTask | undefined>;
+  getQueuedTasksByParentId(parentId: string): Promise<QueuedTask[]>;
+  updateQueuedTask(id: string, updates: Partial<InsertQueuedTask> & { status?: string; output?: unknown; error?: string; startedAt?: Date; completedAt?: Date; actualDuration?: number }): Promise<QueuedTask>;
+  deleteQueuedTask(id: string): Promise<void>;
+  getNextPendingTask(): Promise<QueuedTask | undefined>;
+  getQueueStats(): Promise<{ pending: number; running: number; completed: number; failed: number }>;
 
   // =========================================================================
   // TRANSACTION SUPPORT
@@ -943,6 +960,100 @@ export class DrizzleStorage implements IStorage {
       positive: allFeedback.filter(f => f.rating === "positive").length,
       negative: allFeedback.filter(f => f.rating === "negative").length,
       withComments: allFeedback.filter(f => f.freeformText).length,
+    };
+  }
+
+  // =========================================================================
+  // QUEUED TASK OPERATIONS IMPLEMENTATION
+  // =========================================================================
+
+  async createQueuedTask(task: InsertQueuedTask): Promise<QueuedTask> {
+    const [newTask] = await this.getDb().insert(queuedTasks).values(task).returning();
+    return newTask;
+  }
+
+  async createQueuedTasks(tasks: InsertQueuedTask[]): Promise<QueuedTask[]> {
+    if (tasks.length === 0) return [];
+    return await this.getDb().insert(queuedTasks).values(tasks).returning();
+  }
+
+  async getQueuedTasks(options?: { status?: string; chatId?: string; limit?: number }): Promise<QueuedTask[]> {
+    let query = this.getDb().select().from(queuedTasks);
+    
+    const conditions = [];
+    if (options?.status) {
+      conditions.push(eq(queuedTasks.status, options.status));
+    }
+    if (options?.chatId) {
+      conditions.push(eq(queuedTasks.chatId, options.chatId));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
+    }
+    
+    query = query.orderBy(desc(queuedTasks.priority), queuedTasks.createdAt) as typeof query;
+    
+    if (options?.limit) {
+      query = query.limit(options.limit) as typeof query;
+    }
+    
+    return await query;
+  }
+
+  async getQueuedTaskById(id: string): Promise<QueuedTask | undefined> {
+    const [task] = await this.getDb().select().from(queuedTasks).where(eq(queuedTasks.id, id));
+    return task;
+  }
+
+  async getQueuedTasksByParentId(parentId: string): Promise<QueuedTask[]> {
+    return await this.getDb()
+      .select()
+      .from(queuedTasks)
+      .where(eq(queuedTasks.parentId, parentId))
+      .orderBy(queuedTasks.priority, queuedTasks.createdAt);
+  }
+
+  async updateQueuedTask(
+    id: string, 
+    updates: Partial<InsertQueuedTask> & { 
+      status?: string; 
+      output?: unknown; 
+      error?: string; 
+      startedAt?: Date; 
+      completedAt?: Date;
+      actualDuration?: number;
+    }
+  ): Promise<QueuedTask> {
+    const [updatedTask] = await this.getDb()
+      .update(queuedTasks)
+      .set(updates)
+      .where(eq(queuedTasks.id, id))
+      .returning();
+    return updatedTask;
+  }
+
+  async deleteQueuedTask(id: string): Promise<void> {
+    await this.getDb().delete(queuedTasks).where(eq(queuedTasks.id, id));
+  }
+
+  async getNextPendingTask(): Promise<QueuedTask | undefined> {
+    const [task] = await this.getDb()
+      .select()
+      .from(queuedTasks)
+      .where(eq(queuedTasks.status, "pending"))
+      .orderBy(desc(queuedTasks.priority), queuedTasks.createdAt)
+      .limit(1);
+    return task;
+  }
+
+  async getQueueStats(): Promise<{ pending: number; running: number; completed: number; failed: number }> {
+    const allTasks = await this.getDb().select().from(queuedTasks);
+    return {
+      pending: allTasks.filter(t => t.status === "pending").length,
+      running: allTasks.filter(t => t.status === "running").length,
+      completed: allTasks.filter(t => t.status === "completed").length,
+      failed: allTasks.filter(t => t.status === "failed").length,
     };
   }
 }
