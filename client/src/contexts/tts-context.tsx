@@ -138,21 +138,29 @@ export function TTSProvider({ children }: { children: ReactNode }) {
         return;
       }
       
+      console.log("[TTS] Creating audio from base64, mimeType:", data.mimeType);
       const audio = new Audio(`data:${data.mimeType || "audio/mp3"};base64,${data.audioBase64}`);
       audioRef.current = audio;
       
       audio.onended = () => {
+        console.log("[TTS] Audio playback ended");
         setIsSpeaking(false);
         audioRef.current = null;
       };
       
-      audio.onerror = () => {
-        console.error("Audio playback error");
+      audio.onerror = (e) => {
+        console.error("[TTS] Audio playback error:", e);
         setIsSpeaking(false);
         audioRef.current = null;
       };
       
-      await audio.play();
+      try {
+        await audio.play();
+        console.log("[TTS] Audio playback started successfully");
+      } catch (playError) {
+        console.error("[TTS] Failed to play audio:", playError);
+        speakWithBrowserTTS(cleanText);
+      }
     } catch (error) {
       console.warn("TTS API error, using browser TTS:", error);
       speakWithBrowserTTS(cleanText);
