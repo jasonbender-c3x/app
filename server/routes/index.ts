@@ -19,6 +19,7 @@ import statusRouter from "./status";
 import feedbackRouter from "./feedback";
 import evolutionRouter from "./evolution";
 import queueRouter from "./queue";
+import orchestrationRouter from "./orchestration";
 import { errorHandler } from "./middleware";
 
 export function createApiRouter(): Router {
@@ -45,6 +46,7 @@ export function createApiRouter(): Router {
   router.use("/feedback", feedbackRouter);
   router.use("/evolution", evolutionRouter);
   router.use("/queue", queueRouter);
+  router.use("/orchestration", orchestrationRouter);
 
   router.use(errorHandler);
 

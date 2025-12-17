@@ -52,6 +52,13 @@ import {
   type InsertFeedback,
   type QueuedTask,
   type InsertQueuedTask,
+  type Schedule,
+  type InsertSchedule,
+  type Trigger,
+  type InsertTrigger,
+  type Workflow,
+  type InsertWorkflow,
+  type ExecutorState,
   chats,
   messages,
   attachments,
@@ -62,10 +69,14 @@ import {
   googleOAuthTokens,
   users,
   feedback,
-  queuedTasks
+  queuedTasks,
+  schedules,
+  triggers,
+  workflows,
+  executorState
 } from "@shared/schema";
 import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, lte, or, sql, isNull, inArray, arrayContains } from "drizzle-orm";
 import { Pool } from "pg";
 
 /**
@@ -282,6 +293,49 @@ export interface IStorage {
   deleteQueuedTask(id: string): Promise<void>;
   getNextPendingTask(): Promise<QueuedTask | undefined>;
   getQueueStats(): Promise<{ pending: number; running: number; completed: number; failed: number }>;
+  getTasksWaitingForInput(): Promise<QueuedTask[]>;
+  getTasksByDependency(dependencyId: string): Promise<QueuedTask[]>;
+  getReadyTasks(limit?: number): Promise<QueuedTask[]>;
+
+  // =========================================================================
+  // SCHEDULE OPERATIONS (Cron jobs)
+  // =========================================================================
+  
+  createSchedule(schedule: InsertSchedule): Promise<Schedule>;
+  getSchedules(options?: { enabled?: boolean }): Promise<Schedule[]>;
+  getScheduleById(id: string): Promise<Schedule | undefined>;
+  updateSchedule(id: string, updates: Partial<InsertSchedule> & { lastRunAt?: Date; nextRunAt?: Date; runCount?: number; lastError?: string; consecutiveFailures?: number }): Promise<Schedule>;
+  deleteSchedule(id: string): Promise<void>;
+  getDueSchedules(): Promise<Schedule[]>;
+
+  // =========================================================================
+  // TRIGGER OPERATIONS (Event-driven execution)
+  // =========================================================================
+  
+  createTrigger(trigger: InsertTrigger): Promise<Trigger>;
+  getTriggers(options?: { enabled?: boolean; triggerType?: string }): Promise<Trigger[]>;
+  getTriggerById(id: string): Promise<Trigger | undefined>;
+  getTriggersByType(type: string): Promise<Trigger[]>;
+  updateTrigger(id: string, updates: Partial<InsertTrigger> & { lastTriggeredAt?: Date; triggerCount?: number }): Promise<Trigger>;
+  deleteTrigger(id: string): Promise<void>;
+
+  // =========================================================================
+  // WORKFLOW OPERATIONS (Reusable workflow definitions)
+  // =========================================================================
+  
+  createWorkflow(workflow: InsertWorkflow): Promise<Workflow>;
+  getWorkflows(options?: { enabled?: boolean }): Promise<Workflow[]>;
+  getWorkflowById(id: string): Promise<Workflow | undefined>;
+  updateWorkflow(id: string, updates: Partial<InsertWorkflow>): Promise<Workflow>;
+  deleteWorkflow(id: string): Promise<void>;
+
+  // =========================================================================
+  // EXECUTOR STATE OPERATIONS
+  // =========================================================================
+  
+  getExecutorState(): Promise<ExecutorState | undefined>;
+  updateExecutorState(updates: Partial<ExecutorState>): Promise<ExecutorState>;
+  initializeExecutorState(): Promise<ExecutorState>;
 
   // =========================================================================
   // TRANSACTION SUPPORT
@@ -1055,6 +1109,213 @@ export class DrizzleStorage implements IStorage {
       completed: allTasks.filter(t => t.status === "completed").length,
       failed: allTasks.filter(t => t.status === "failed").length,
     };
+  }
+
+  async getTasksWaitingForInput(): Promise<QueuedTask[]> {
+    return this.getDb()
+      .select()
+      .from(queuedTasks)
+      .where(eq(queuedTasks.waitingForInput, true));
+  }
+
+  async getTasksByDependency(dependencyId: string): Promise<QueuedTask[]> {
+    return this.getDb()
+      .select()
+      .from(queuedTasks)
+      .where(arrayContains(queuedTasks.dependencies, [dependencyId]));
+  }
+
+  async getReadyTasks(limit: number = 10): Promise<QueuedTask[]> {
+    const pending = await this.getDb()
+      .select()
+      .from(queuedTasks)
+      .where(
+        and(
+          eq(queuedTasks.status, "pending"),
+          eq(queuedTasks.waitingForInput, false),
+          or(
+            isNull(queuedTasks.dependencies),
+            sql`array_length(${queuedTasks.dependencies}, 1) IS NULL OR array_length(${queuedTasks.dependencies}, 1) = 0`
+          )
+        )
+      )
+      .orderBy(desc(queuedTasks.priority), queuedTasks.createdAt)
+      .limit(limit);
+    
+    return pending;
+  }
+
+  // =========================================================================
+  // SCHEDULE OPERATIONS
+  // =========================================================================
+
+  async createSchedule(schedule: InsertSchedule): Promise<Schedule> {
+    const [created] = await this.getDb().insert(schedules).values(schedule).returning();
+    return created;
+  }
+
+  async getSchedules(options?: { enabled?: boolean }): Promise<Schedule[]> {
+    let query = this.getDb().select().from(schedules);
+    if (options?.enabled !== undefined) {
+      query = query.where(eq(schedules.enabled, options.enabled)) as typeof query;
+    }
+    return query.orderBy(schedules.name);
+  }
+
+  async getScheduleById(id: string): Promise<Schedule | undefined> {
+    const [schedule] = await this.getDb()
+      .select()
+      .from(schedules)
+      .where(eq(schedules.id, id));
+    return schedule;
+  }
+
+  async updateSchedule(id: string, updates: Partial<InsertSchedule> & { lastRunAt?: Date; nextRunAt?: Date; runCount?: number; lastError?: string; consecutiveFailures?: number }): Promise<Schedule> {
+    const [updated] = await this.getDb()
+      .update(schedules)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schedules.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSchedule(id: string): Promise<void> {
+    await this.getDb().delete(schedules).where(eq(schedules.id, id));
+  }
+
+  async getDueSchedules(): Promise<Schedule[]> {
+    return this.getDb()
+      .select()
+      .from(schedules)
+      .where(
+        and(
+          eq(schedules.enabled, true),
+          lte(schedules.nextRunAt, new Date())
+        )
+      );
+  }
+
+  // =========================================================================
+  // TRIGGER OPERATIONS
+  // =========================================================================
+
+  async createTrigger(trigger: InsertTrigger): Promise<Trigger> {
+    const [created] = await this.getDb().insert(triggers).values(trigger).returning();
+    return created;
+  }
+
+  async getTriggers(options?: { enabled?: boolean; triggerType?: string }): Promise<Trigger[]> {
+    const conditions = [];
+    if (options?.enabled !== undefined) {
+      conditions.push(eq(triggers.enabled, options.enabled));
+    }
+    if (options?.triggerType) {
+      conditions.push(eq(triggers.triggerType, options.triggerType));
+    }
+    
+    let query = this.getDb().select().from(triggers);
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
+    }
+    return query.orderBy(triggers.name);
+  }
+
+  async getTriggerById(id: string): Promise<Trigger | undefined> {
+    const [trigger] = await this.getDb()
+      .select()
+      .from(triggers)
+      .where(eq(triggers.id, id));
+    return trigger;
+  }
+
+  async getTriggersByType(type: string): Promise<Trigger[]> {
+    return this.getDb()
+      .select()
+      .from(triggers)
+      .where(and(eq(triggers.triggerType, type), eq(triggers.enabled, true)));
+  }
+
+  async updateTrigger(id: string, updates: Partial<InsertTrigger> & { lastTriggeredAt?: Date; triggerCount?: number }): Promise<Trigger> {
+    const [updated] = await this.getDb()
+      .update(triggers)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(triggers.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTrigger(id: string): Promise<void> {
+    await this.getDb().delete(triggers).where(eq(triggers.id, id));
+  }
+
+  // =========================================================================
+  // WORKFLOW OPERATIONS
+  // =========================================================================
+
+  async createWorkflow(workflow: InsertWorkflow): Promise<Workflow> {
+    const [created] = await this.getDb().insert(workflows).values(workflow).returning();
+    return created;
+  }
+
+  async getWorkflows(options?: { enabled?: boolean }): Promise<Workflow[]> {
+    let query = this.getDb().select().from(workflows);
+    if (options?.enabled !== undefined) {
+      query = query.where(eq(workflows.enabled, options.enabled)) as typeof query;
+    }
+    return query.orderBy(workflows.name);
+  }
+
+  async getWorkflowById(id: string): Promise<Workflow | undefined> {
+    const [workflow] = await this.getDb()
+      .select()
+      .from(workflows)
+      .where(eq(workflows.id, id));
+    return workflow;
+  }
+
+  async updateWorkflow(id: string, updates: Partial<InsertWorkflow>): Promise<Workflow> {
+    const [updated] = await this.getDb()
+      .update(workflows)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(workflows.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteWorkflow(id: string): Promise<void> {
+    await this.getDb().delete(workflows).where(eq(workflows.id, id));
+  }
+
+  // =========================================================================
+  // EXECUTOR STATE OPERATIONS
+  // =========================================================================
+
+  async getExecutorState(): Promise<ExecutorState | undefined> {
+    const [state] = await this.getDb()
+      .select()
+      .from(executorState)
+      .where(eq(executorState.id, "singleton"));
+    return state;
+  }
+
+  async updateExecutorState(updates: Partial<ExecutorState>): Promise<ExecutorState> {
+    const [updated] = await this.getDb()
+      .update(executorState)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(executorState.id, "singleton"))
+      .returning();
+    return updated;
+  }
+
+  async initializeExecutorState(): Promise<ExecutorState> {
+    const existing = await this.getExecutorState();
+    if (existing) return existing;
+    
+    const [created] = await this.getDb()
+      .insert(executorState)
+      .values({ id: "singleton" })
+      .returning();
+    return created;
   }
 }
 
