@@ -119,6 +119,8 @@ export default function EvolutionPage() {
           )
         });
         setSelectedFeedback(new Set());
+        queryClient.invalidateQueries({ queryKey: ["/api/feedback"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/feedback/stats"] });
       } else {
         toast({ title: "Failed", description: data.error, variant: "destructive" });
       }
