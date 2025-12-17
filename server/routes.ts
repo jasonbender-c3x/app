@@ -418,13 +418,17 @@ export async function registerRoutes(
       // Fetch all previous messages in this chat
       const chatMessages = await storage.getMessagesByChatId(req.params.id);
       
+      // IMPORTANT: Exclude the current message we just saved, since we'll add it separately
+      // This prevents the user's message from being sent to the AI twice
+      const previousMessages = chatMessages.filter(msg => msg.id !== savedMessage.id);
+      
       // Transform to Gemini API format:
       // - "user" role stays as "user"
       // - "ai" role becomes "model" (Gemini terminology)
       // - For model messages, use stored geminiContent (with thought_signature) if available
       //   This preserves the model's reasoning state for multi-turn function calling
       //   See: https://cloud.google.com/vertex-ai/generative-ai/docs/thought-signatures
-      const history = chatMessages.map(msg => {
+      const history = previousMessages.map(msg => {
         if (msg.role === "ai" && msg.geminiContent) {
           // Use preserved Gemini content with thought_signature
           return msg.geminiContent as { role: string; parts: any[] };
