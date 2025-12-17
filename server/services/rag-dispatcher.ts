@@ -438,6 +438,9 @@ export class RAGDispatcher {
         case "browserbase_action":
           result = await this.executeBrowserbaseAction(toolCall);
           break;
+        case "debug_echo":
+          result = await this.executeDebugEcho(toolCall);
+          break;
         default:
           result = { message: `Custom tool type: ${toolCall.type}` };
       }
@@ -1243,6 +1246,59 @@ export class RAGDispatcher {
       results: result.results,
       sessionId: result.sessionId,
       replayUrl: browserbase.getSessionReplayUrl(result.sessionId),
+    };
+  }
+
+  /**
+   * Debug Echo Tool - Returns all context the LLM received
+   * Useful for debugging what information is being passed to the AI
+   */
+  private async executeDebugEcho(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as {
+      include_system?: boolean;
+      include_history?: boolean;
+      include_tools?: boolean;
+      raw_input?: string;
+      conversation_context?: unknown;
+    };
+
+    // Gather debug information
+    const debugInfo: Record<string, unknown> = {
+      timestamp: new Date().toISOString(),
+      toolCall: {
+        id: toolCall.id,
+        type: toolCall.type,
+        operation: toolCall.operation,
+        parameters: toolCall.parameters,
+      },
+    };
+
+    // Include raw input if provided
+    if (params.raw_input) {
+      debugInfo.raw_input = params.raw_input;
+    }
+
+    // Include conversation context if provided
+    if (params.conversation_context) {
+      debugInfo.conversation_context = params.conversation_context;
+    }
+
+    // Get last stored debug buffer if available
+    try {
+      const debugBuffer = await import('./llm-debug-buffer');
+      if (debugBuffer.llmDebugBuffer) {
+        debugInfo.lastPrompt = debugBuffer.llmDebugBuffer.getLastPrompt();
+        debugInfo.lastSystemInstruction = debugBuffer.llmDebugBuffer.getLastSystemInstruction();
+        debugInfo.lastMessages = debugBuffer.llmDebugBuffer.getLastMessages();
+      }
+    } catch {
+      debugInfo.debugBufferError = "Debug buffer not available";
+    }
+
+    return {
+      type: "debug_echo",
+      message: "Debug information retrieved successfully",
+      debug: debugInfo,
     };
   }
 }

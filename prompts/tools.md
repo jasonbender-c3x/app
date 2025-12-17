@@ -2581,6 +2581,54 @@ Getting your GitHub profile information...
 
 ---
 
+# Debug Tools
+
+## debug_echo
+
+### Purpose
+**Creator Debug Tool** - Echo back all context the LLM has received. Use this when the Creator wants to inspect what information is being passed to the AI system. Returns the last system prompt, user message, conversation history, and tool call details.
+
+### When to Use
+- When the Creator says "echo", "debug", "show me what you received", or similar
+- When debugging tool execution issues
+- When verifying context is being passed correctly
+- When the Creator invokes "sudo" and wants to inspect the system state
+
+### Parameters
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| raw_input | string | No | The raw user input to echo back |
+| conversation_context | object | No | Additional context to include in output |
+
+### Example Usage
+```json
+[
+  {
+    "type": "debug_echo",
+    "id": "dbg_001",
+    "operation": "echo all received context",
+    "parameters": {
+      "raw_input": "The original user message"
+    }
+  }
+]
+
+✂️🐱
+
+**Debug Echo Output:**
+
+Here is everything I received in this request...
+```
+
+### Returns
+- `timestamp` - When the debug was executed
+- `toolCall` - The tool call parameters
+- `lastPrompt` - The last user message sent to the LLM
+- `lastSystemInstruction` - The system prompt/instructions
+- `lastMessages` - Recent conversation history
+
+---
+
 # General Best Practices
 
 1. **Always use the output format** - JSON array, emoji delimiter, then markdown

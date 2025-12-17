@@ -86,6 +86,38 @@ class LLMDebugBuffer {
   getCount(): number {
     return this.interactions.length;
   }
+
+  /**
+   * Get the last system prompt/instruction sent to the LLM
+   */
+  getLastSystemInstruction(): string | null {
+    if (this.interactions.length === 0) return null;
+    return this.interactions[0].systemPrompt;
+  }
+
+  /**
+   * Get the last user message (prompt) sent to the LLM
+   */
+  getLastPrompt(): string | null {
+    if (this.interactions.length === 0) return null;
+    return this.interactions[0].userMessage;
+  }
+
+  /**
+   * Get the last conversation history sent to the LLM
+   */
+  getLastMessages(): Array<{ role: string; content: string }> | null {
+    if (this.interactions.length === 0) return null;
+    return this.interactions[0].conversationHistory;
+  }
+
+  /**
+   * Get the most recent interaction
+   */
+  getLastInteraction(): LLMInteraction | null {
+    if (this.interactions.length === 0) return null;
+    return this.interactions[0];
+  }
 }
 
 export const llmDebugBuffer = new LLMDebugBuffer();

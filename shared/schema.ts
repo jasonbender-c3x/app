@@ -541,6 +541,9 @@ export const ToolTypes = {
   GITHUB_PULL_GET: "github_pull_get",
   GITHUB_COMMITS: "github_commits",
   GITHUB_USER: "github_user",
+  
+  // Debug operations
+  DEBUG_ECHO: "debug_echo",
 } as const;
 
 export type ToolType = typeof ToolTypes[keyof typeof ToolTypes];
@@ -581,6 +584,8 @@ export const toolCallSchema = z.object({
     "github_file_read", "github_code_search", "github_issues", "github_issue_get",
     "github_issue_create", "github_issue_update", "github_issue_comment",
     "github_pulls", "github_pull_get", "github_commits", "github_user",
+    // Debug
+    "debug_echo",
   ]),
   operation: z.string(),
   parameters: z.record(z.unknown()),
