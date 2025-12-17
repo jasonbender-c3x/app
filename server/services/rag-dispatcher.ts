@@ -441,6 +441,18 @@ export class RAGDispatcher {
         case "debug_echo":
           result = await this.executeDebugEcho(toolCall);
           break;
+        case "queue_create":
+          result = await this.executeQueueCreate(toolCall);
+          break;
+        case "queue_batch":
+          result = await this.executeQueueBatch(toolCall);
+          break;
+        case "queue_list":
+          result = await this.executeQueueList(toolCall);
+          break;
+        case "queue_start":
+          result = await this.executeQueueStart(toolCall);
+          break;
         default:
           result = { message: `Custom tool type: ${toolCall.type}` };
       }
@@ -1299,6 +1311,151 @@ export class RAGDispatcher {
       type: "debug_echo",
       message: "Debug information retrieved successfully",
       debug: debugInfo,
+    };
+  }
+
+  // =========================================================================
+  // QUEUE TOOLS - AI batch processing queue
+  // =========================================================================
+
+  /**
+   * Create a single task in the queue
+   */
+  private async executeQueueCreate(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as {
+      title: string;
+      description?: string;
+      taskType: string;
+      priority?: number;
+      input?: Record<string, unknown>;
+      estimatedDuration?: number;
+      parentId?: string;
+      chatId?: string;
+    };
+
+    if (!params.title || !params.taskType) {
+      throw new Error("Task title and taskType are required");
+    }
+
+    const task = await storage.createQueuedTask({
+      title: params.title,
+      description: params.description || null,
+      taskType: params.taskType,
+      priority: params.priority || 0,
+      input: params.input || null,
+      estimatedDuration: params.estimatedDuration || null,
+      parentId: params.parentId || null,
+      chatId: params.chatId || null,
+    });
+
+    return {
+      type: "queue_create",
+      message: `Task "${params.title}" created successfully`,
+      task,
+    };
+  }
+
+  /**
+   * Create multiple tasks in the queue at once
+   */
+  private async executeQueueBatch(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as {
+      tasks: Array<{
+        title: string;
+        description?: string;
+        taskType: string;
+        priority?: number;
+        input?: Record<string, unknown>;
+        estimatedDuration?: number;
+        parentId?: string;
+      }>;
+      chatId?: string;
+    };
+
+    if (!params.tasks || !Array.isArray(params.tasks) || params.tasks.length === 0) {
+      throw new Error("tasks array is required and must not be empty");
+    }
+
+    const tasksToCreate = params.tasks.map((t, idx) => ({
+      title: t.title,
+      description: t.description || null,
+      taskType: t.taskType || "action",
+      priority: t.priority ?? (params.tasks.length - idx), // Higher priority for earlier tasks
+      input: t.input || null,
+      estimatedDuration: t.estimatedDuration || null,
+      parentId: t.parentId || null,
+      chatId: params.chatId || null,
+    }));
+
+    const createdTasks = await storage.createQueuedTasks(tasksToCreate);
+
+    return {
+      type: "queue_batch",
+      message: `${createdTasks.length} tasks created successfully`,
+      tasks: createdTasks,
+    };
+  }
+
+  /**
+   * List tasks in the queue
+   */
+  private async executeQueueList(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as {
+      status?: string;
+      chatId?: string;
+      limit?: number;
+    };
+
+    const tasks = await storage.getQueuedTasks({
+      status: params.status,
+      chatId: params.chatId,
+      limit: params.limit || 20,
+    });
+
+    const stats = await storage.getQueueStats();
+
+    return {
+      type: "queue_list",
+      message: `Found ${tasks.length} tasks`,
+      tasks,
+      stats,
+    };
+  }
+
+  /**
+   * Start the next pending task in the queue
+   */
+  private async executeQueueStart(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as {
+      taskId?: string;
+    };
+
+    let task;
+    if (params.taskId) {
+      task = await storage.getQueuedTaskById(params.taskId);
+      if (!task) {
+        throw new Error(`Task ${params.taskId} not found`);
+      }
+    } else {
+      task = await storage.getNextPendingTask();
+      if (!task) {
+        return {
+          type: "queue_start",
+          message: "No pending tasks in the queue",
+          task: null,
+        };
+      }
+    }
+
+    const updatedTask = await storage.updateQueuedTask(task.id, {
+      status: "running",
+      startedAt: new Date(),
+    });
+
+    return {
+      type: "queue_start",
+      message: `Task "${task.title}" started`,
+      task: updatedTask,
     };
   }
 }

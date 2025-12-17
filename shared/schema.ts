@@ -542,6 +542,12 @@ export const ToolTypes = {
   GITHUB_COMMITS: "github_commits",
   GITHUB_USER: "github_user",
   
+  // Queue operations (AI batch processing)
+  QUEUE_CREATE: "queue_create",
+  QUEUE_BATCH: "queue_batch",
+  QUEUE_LIST: "queue_list",
+  QUEUE_START: "queue_start",
+  
   // Debug operations
   DEBUG_ECHO: "debug_echo",
 } as const;
@@ -584,6 +590,8 @@ export const toolCallSchema = z.object({
     "github_file_read", "github_code_search", "github_issues", "github_issue_get",
     "github_issue_create", "github_issue_update", "github_issue_comment",
     "github_pulls", "github_pull_get", "github_commits", "github_user",
+    // Queue (AI batch processing)
+    "queue_create", "queue_batch", "queue_list", "queue_start",
     // Debug
     "debug_echo",
   ]),

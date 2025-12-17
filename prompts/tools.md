@@ -2581,6 +2581,179 @@ Getting your GitHub profile information...
 
 ---
 
+# Task Queue Tools
+
+These tools allow you to create and manage a batch processing queue. When the user asks you to do complex research or multi-step work, use these tools to create a task list that can be processed systematically.
+
+## queue_create
+
+### Purpose
+Create a single task in the processing queue. Use this for individual tasks that need to be tracked and executed.
+
+### Parameters
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| title | string | Yes | Short title describing the task |
+| description | string | No | Detailed description of what needs to be done |
+| taskType | string | Yes | Type: 'research', 'action', 'analysis', 'synthesis', 'fetch', 'transform', 'validate', 'notify' |
+| priority | number | No | Priority level (higher = more urgent, default: 0) |
+| input | object | No | Additional context/parameters for the task |
+| estimatedDuration | number | No | Estimated time in seconds |
+
+### Example Usage
+```json
+[
+  {
+    "type": "queue_create",
+    "id": "queue_001",
+    "operation": "create research task",
+    "parameters": {
+      "title": "Research AI agent architectures",
+      "description": "Investigate modern AI agent patterns including ReAct, Chain-of-Thought, and tool-use patterns",
+      "taskType": "research",
+      "priority": 10,
+      "estimatedDuration": 300
+    }
+  }
+]
+
+✂️🐱
+
+I've added "Research AI agent architectures" to your task queue. You can view the queue at /queue.
+```
+
+---
+
+## queue_batch
+
+### Purpose
+Create multiple tasks at once. **This is the primary tool to use when decomposing complex requests into a structured task list.** The AI should use this when asked to "research X", "plan Y", or do any multi-step work.
+
+### Parameters
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| tasks | array | Yes | Array of task objects (see queue_create for task structure) |
+| chatId | string | No | Link all tasks to a specific chat |
+
+### Example Usage
+```json
+[
+  {
+    "type": "queue_batch",
+    "id": "queue_002",
+    "operation": "create research task list for AI agents",
+    "parameters": {
+      "tasks": [
+        {
+          "title": "Survey existing AI agent frameworks",
+          "description": "List and compare LangChain, AutoGPT, CrewAI, and similar frameworks",
+          "taskType": "research",
+          "priority": 5
+        },
+        {
+          "title": "Analyze memory architectures",
+          "description": "Compare short-term, long-term, and episodic memory patterns",
+          "taskType": "analysis",
+          "priority": 4
+        },
+        {
+          "title": "Identify tool-use patterns",
+          "description": "Document best practices for function calling and tool integration",
+          "taskType": "research",
+          "priority": 3
+        },
+        {
+          "title": "Synthesize findings into report",
+          "description": "Create a comprehensive summary with recommendations",
+          "taskType": "synthesis",
+          "priority": 1
+        }
+      ]
+    }
+  }
+]
+
+✂️🐱
+
+I've created a task queue with 4 items for researching AI agent architectures:
+
+1. **Survey existing AI agent frameworks** (Research)
+2. **Analyze memory architectures** (Analysis)
+3. **Identify tool-use patterns** (Research)
+4. **Synthesize findings into report** (Synthesis)
+
+You can view and manage these tasks at /queue. Would you like me to start processing them?
+```
+
+### Best Practices
+- When the user says "research X" or "deep dive on Y", create a structured task list
+- Break complex work into atomic, actionable tasks
+- Use appropriate task types for each step
+- Set priorities to control execution order (higher = first)
+- Include context in the description for when tasks are processed later
+
+---
+
+## queue_list
+
+### Purpose
+View the current task queue and statistics.
+
+### Parameters
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| status | string | No | Filter by status: 'pending', 'running', 'completed', 'failed' |
+| limit | number | No | Maximum tasks to return (default: 20) |
+
+### Example Usage
+```json
+[
+  {
+    "type": "queue_list",
+    "id": "queue_003",
+    "operation": "view pending tasks",
+    "parameters": {
+      "status": "pending",
+      "limit": 10
+    }
+  }
+]
+
+✂️🐱
+
+Here are your pending tasks...
+```
+
+---
+
+## queue_start
+
+### Purpose
+Start processing the next pending task (or a specific task by ID).
+
+### Parameters
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| taskId | string | No | Start a specific task, or omit to start the highest-priority pending task |
+
+### Example Usage
+```json
+[
+  {
+    "type": "queue_start",
+    "id": "queue_004",
+    "operation": "start next task",
+    "parameters": {}
+  }
+]
+
+✂️🐱
+
+Starting the next task in your queue...
+```
+
+---
+
 # Debug Tools
 
 ## debug_echo
