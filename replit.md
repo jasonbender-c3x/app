@@ -133,6 +133,7 @@ The application uses two main tables:
 - API routes in `server/routes/knowledge-ingestion.ts`
 - Frontend settings at `/settings`, dedicated page at `/knowledge`
 - Architecture documented in `docs/KNOWLEDGE_INGESTION_ARCHITECTURE.md`
+- RAG pipeline technical reference in `docs/RAG_PIPELINE.md`
 
 **Retrieval Orchestrator**
 - Hybrid search combining semantic vector search and keyword matching
