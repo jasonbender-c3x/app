@@ -1,10 +1,9 @@
 /**
  * =============================================================================
- * GEMINI 2.5 EXPRESSIVE TEXT-TO-SPEECH INTEGRATION
+ * GEMINI 2.5 TEXT-TO-SPEECH INTEGRATION
  * =============================================================================
  * 
- * Multi-speaker expressive TTS using Gemini 2.5 Flash/Pro TTS models.
- * Supports up to 2 speakers with full control over tone, emotion, and style.
+ * Single-speaker TTS using Gemini 2.5 Flash TTS model.
  * 
  * @see https://ai.google.dev/gemini-api/docs/speech-generation
  */
@@ -12,19 +11,6 @@
 import { GoogleGenAI } from "@google/genai";
 import ffmpeg from "fluent-ffmpeg";
 import { Readable, PassThrough } from "stream";
-import { promisify } from "util";
-
-export interface Speaker {
-  name: string;
-  voice: string;
-  style?: string;
-}
-
-export interface TTSRequest {
-  text: string;
-  speakers: Speaker[];
-  model?: "flash" | "pro";
-}
 
 export interface TTSResponse {
   success: boolean;
@@ -83,16 +69,11 @@ async function convertPcmToMp3(pcmBase64: string, sampleRate: number = 24000): P
       .audioBitrate("128k")
       .format("mp3")
       .outputOptions(["-timeout", "120"])
-      .on("start", (cmdLine) => {
-        console.log("[TTS] FFmpeg started:", cmdLine.slice(0, 100) + "...");
-      })
       .on("end", () => {
-        console.log("[TTS] FFmpeg conversion complete");
         finish();
       })
-      .on("error", (err: Error, stdout, stderr) => {
+      .on("error", (err: Error) => {
         console.error("[TTS] FFmpeg conversion error:", err.message);
-        if (stderr) console.error("[TTS] FFmpeg stderr:", stderr);
         if (!resolved) {
           resolved = true;
           reject(err);
@@ -103,7 +84,10 @@ async function convertPcmToMp3(pcmBase64: string, sampleRate: number = 24000): P
   });
 }
 
-export async function generateMultiSpeakerAudio(request: TTSRequest): Promise<TTSResponse> {
+export async function generateSingleSpeakerAudio(
+  text: string, 
+  voice: string = "Kore"
+): Promise<TTSResponse> {
   const apiKey = process.env.GEMINI_API_KEY;
   
   if (!apiKey) {
@@ -115,47 +99,25 @@ export async function generateMultiSpeakerAudio(request: TTSRequest): Promise<TT
 
   try {
     const client = new GoogleGenAI({ apiKey });
-    
-    const modelName = request.model === "pro" 
-      ? "gemini-2.5-pro-preview-tts" 
-      : "gemini-2.5-flash-preview-tts";
+    const modelName = "gemini-2.5-flash-preview-tts";
 
-    console.log(`[TTS] Generating audio with ${modelName} for ${request.speakers.length} speaker(s)`);
-
-    let speechConfig: any;
-    
-    if (request.speakers.length > 1) {
-      speechConfig = {
-        multiSpeakerVoiceConfig: {
-          speakerVoiceConfigs: request.speakers.map(speaker => ({
-            speaker: speaker.name,
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName: speaker.voice || "Kore"
-              }
-            }
-          }))
-        }
-      };
-    } else {
-      speechConfig = {
-        voiceConfig: {
-          prebuiltVoiceConfig: {
-            voiceName: request.speakers[0]?.voice || "Kore"
-          }
-        }
-      };
-    }
+    console.log(`[TTS] Generating audio with ${modelName}, voice: ${voice}`);
 
     const response = await client.models.generateContent({
       model: modelName,
       contents: [{
         role: "user",
-        parts: [{ text: `Read the following text aloud exactly as written:\n\n${request.text}` }]
+        parts: [{ text }]
       }],
       config: {
         responseModalities: ["AUDIO"],
-        speechConfig
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: voice
+            }
+          }
+        }
       }
     } as any);
 
@@ -163,11 +125,10 @@ export async function generateMultiSpeakerAudio(request: TTSRequest): Promise<TT
     const part = candidate?.content?.parts?.[0];
     
     if (part && 'inlineData' in part && part.inlineData?.data) {
-      console.log("[TTS] Audio generated successfully, converting to MP3...");
+      console.log("[TTS] Audio generated, converting to MP3...");
       
       try {
         const mp3Base64 = await convertPcmToMp3(part.inlineData.data);
-        console.log("[TTS] MP3 conversion complete");
         return {
           success: true,
           audioBase64: mp3Base64,
@@ -175,7 +136,7 @@ export async function generateMultiSpeakerAudio(request: TTSRequest): Promise<TT
           duration: 30
         };
       } catch (conversionError) {
-        console.warn("[TTS] MP3 conversion failed, returning original format:", conversionError);
+        console.warn("[TTS] MP3 conversion failed, returning raw audio");
         return {
           success: true,
           audioBase64: part.inlineData.data,
@@ -185,65 +146,31 @@ export async function generateMultiSpeakerAudio(request: TTSRequest): Promise<TT
       }
     }
 
-    const textContent = response.text;
-    if (textContent) {
-      console.log("[TTS] Model returned text instead of audio - TTS model may not be available");
-      return {
-        success: false,
-        error: "The TTS model returned text instead of audio. The Gemini 2.5 TTS preview may require specific API access. Please check: https://ai.google.dev/gemini-api/docs/speech-generation"
-      };
-    }
-
     return {
       success: false,
-      error: "No audio data in response. The TTS model may not be available for your API key."
+      error: "No audio data in response"
     };
 
   } catch (error: any) {
-    console.error("[TTS] Generation error:", error);
+    console.error("[TTS] Generation error:", error.message);
     
-    const errorMessage = error.message || String(error);
-    
-    // Log to error buffer
     const { logLLMError } = await import("../services/llm-error-buffer");
-    logLLMError("tts", "generateMultiSpeakerAudio", error, {
-      speakerCount: request.speakers.length,
-      textLength: request.text.length
+    logLLMError("tts", "generateSingleSpeakerAudio", error, {
+      textLength: text.length,
+      voice
     }, {
-      model: request.model === "pro" ? "gemini-2.5-pro-preview-tts" : "gemini-2.5-flash-preview-tts"
+      model: "gemini-2.5-flash-preview-tts"
     });
-    
-    if (errorMessage.includes("not found") || errorMessage.includes("404")) {
-      return {
-        success: false,
-        error: "TTS model not available. The Gemini 2.5 TTS preview models (gemini-2.5-flash-preview-tts) may require additional API access. Visit: https://ai.google.dev/gemini-api/docs/speech-generation"
-      };
-    }
-    
-    if (errorMessage.includes("INVALID_ARGUMENT") || errorMessage.includes("400")) {
-      return {
-        success: false,
-        error: `Invalid request to TTS API: ${errorMessage}. Ensure speaker names match dialogue format (e.g., "Speaker1: text").`
-      };
-    }
     
     return {
       success: false,
-      error: `TTS generation failed: ${errorMessage}`
+      error: `TTS generation failed: ${error.message}`
     };
   }
 }
 
-export async function generateSingleSpeakerAudio(
-  text: string, 
-  voice: string = "Kore",
-  style?: string
-): Promise<TTSResponse> {
-  const styledText = style ? `${style}: ${text}` : text;
-  
-  return generateMultiSpeakerAudio({
-    text: styledText,
-    speakers: [{ name: "Speaker", voice }],
-    model: "flash"
-  });
+// Legacy export for compatibility
+export async function generateMultiSpeakerAudio(request: { text: string; speakers: Array<{ voice?: string }>; model?: string }): Promise<TTSResponse> {
+  const voice = request.speakers[0]?.voice || "Kore";
+  return generateSingleSpeakerAudio(request.text, voice);
 }
