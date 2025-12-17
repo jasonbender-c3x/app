@@ -669,24 +669,25 @@ export default function DebugPage() {
                     <div className="space-y-4 pr-4">
                       {/* User Message - Full */}
                       <Collapsible open={expandedSections.userMessage} onOpenChange={() => toggleSection('userMessage')}>
-                        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/15 transition-colors">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between w-full p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/15 transition-colors">
+                          <CollapsibleTrigger className="flex items-center gap-2 flex-1">
                             <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-xs font-semibold">USER</span>
                             <span className="text-sm font-medium">Message</span>
                             <span className="text-xs text-muted-foreground">({selectedLLM.userMessage?.length || 0} chars)</span>
-                          </div>
+                          </CollapsibleTrigger>
                           <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0"
+                            <button
+                              type="button"
+                              className="h-7 w-7 p-0 flex items-center justify-center rounded-md hover:bg-blue-500/20 transition-colors"
                               onClick={(e) => { e.stopPropagation(); copyToClipboard(selectedLLM.userMessage || '', 'user-msg'); }}
                             >
                               {copiedId === 'user-msg' ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-                            </Button>
-                            {expandedSections.userMessage ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </button>
+                            <CollapsibleTrigger>
+                              {expandedSections.userMessage ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </CollapsibleTrigger>
                           </div>
-                        </CollapsibleTrigger>
+                        </div>
                         <CollapsibleContent>
                           <div className="p-4 mt-2 rounded-lg bg-[#1e1e1e] border border-border">
                             <pre className="text-sm whitespace-pre-wrap text-[#e0e0e0] font-mono leading-relaxed">
@@ -754,24 +755,25 @@ export default function DebugPage() {
                   <ScrollArea className="h-[55vh]">
                     <div className="space-y-4 pr-4">
                       <Collapsible open={expandedSections.systemPrompt} onOpenChange={() => toggleSection('systemPrompt')}>
-                        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/15 transition-colors">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between w-full p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/15 transition-colors">
+                          <CollapsibleTrigger className="flex items-center gap-2 flex-1">
                             <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-xs font-semibold">SYSTEM</span>
                             <span className="text-sm font-medium">Prompt</span>
                             <span className="text-xs text-muted-foreground">({selectedLLM.systemPrompt?.length || 0} chars)</span>
-                          </div>
+                          </CollapsibleTrigger>
                           <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0"
+                            <button
+                              type="button"
+                              className="h-7 w-7 p-0 flex items-center justify-center rounded-md hover:bg-purple-500/20 transition-colors"
                               onClick={(e) => { e.stopPropagation(); copyToClipboard(selectedLLM.systemPrompt || '', 'system-prompt'); }}
                             >
                               {copiedId === 'system-prompt' ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-                            </Button>
-                            {expandedSections.systemPrompt ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </button>
+                            <CollapsibleTrigger>
+                              {expandedSections.systemPrompt ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </CollapsibleTrigger>
                           </div>
-                        </CollapsibleTrigger>
+                        </div>
                         <CollapsibleContent>
                           <div className="p-4 mt-2 rounded-lg bg-[#1e1e1e] border border-border">
                             <pre className="text-sm font-mono whitespace-pre-wrap text-[#c5c5c5] leading-relaxed">{selectedLLM.systemPrompt}</pre>
@@ -788,24 +790,25 @@ export default function DebugPage() {
                     <div className="space-y-4 pr-4">
                       {/* Clean Response */}
                       <Collapsible open={expandedSections.response} onOpenChange={() => toggleSection('response')}>
-                        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-green-500/10 border border-green-500/30 hover:bg-green-500/15 transition-colors">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between w-full p-3 rounded-lg bg-green-500/10 border border-green-500/30 hover:bg-green-500/15 transition-colors">
+                          <CollapsibleTrigger className="flex items-center gap-2 flex-1">
                             <span className="px-2 py-0.5 rounded bg-green-500/20 text-green-400 text-xs font-semibold">AI</span>
                             <span className="text-sm font-medium">Response (Clean)</span>
                             <span className="text-xs text-muted-foreground">({selectedLLM.cleanContent?.length || 0} chars)</span>
-                          </div>
+                          </CollapsibleTrigger>
                           <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0"
+                            <button
+                              type="button"
+                              className="h-7 w-7 p-0 flex items-center justify-center rounded-md hover:bg-green-500/20 transition-colors"
                               onClick={(e) => { e.stopPropagation(); copyToClipboard(selectedLLM.cleanContent || '', 'clean-response'); }}
                             >
                               {copiedId === 'clean-response' ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-                            </Button>
-                            {expandedSections.response ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </button>
+                            <CollapsibleTrigger>
+                              {expandedSections.response ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </CollapsibleTrigger>
                           </div>
-                        </CollapsibleTrigger>
+                        </div>
                         <CollapsibleContent>
                           <div className="p-4 mt-2 rounded-lg bg-[#1e1e1e] border border-border">
                             <pre className="text-sm whitespace-pre-wrap text-[#e0e0e0] font-mono leading-relaxed">
@@ -817,24 +820,25 @@ export default function DebugPage() {
 
                       {/* Raw Response */}
                       <Collapsible open={expandedSections.rawResponse} onOpenChange={() => toggleSection('rawResponse')}>
-                        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-500/10 border border-gray-500/30 hover:bg-gray-500/15 transition-colors">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-500/10 border border-gray-500/30 hover:bg-gray-500/15 transition-colors">
+                          <CollapsibleTrigger className="flex items-center gap-2 flex-1">
                             <span className="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 text-xs font-semibold">RAW</span>
                             <span className="text-sm font-medium">Response</span>
                             <span className="text-xs text-muted-foreground">({selectedLLM.rawResponse?.length || 0} chars)</span>
-                          </div>
+                          </CollapsibleTrigger>
                           <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0"
+                            <button
+                              type="button"
+                              className="h-7 w-7 p-0 flex items-center justify-center rounded-md hover:bg-gray-500/20 transition-colors"
                               onClick={(e) => { e.stopPropagation(); copyToClipboard(selectedLLM.rawResponse || '', 'raw-response'); }}
                             >
                               {copiedId === 'raw-response' ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-                            </Button>
-                            {expandedSections.rawResponse ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </button>
+                            <CollapsibleTrigger>
+                              {expandedSections.rawResponse ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </CollapsibleTrigger>
                           </div>
-                        </CollapsibleTrigger>
+                        </div>
                         <CollapsibleContent>
                           <div className="p-4 mt-2 rounded-lg bg-[#1e1e1e] border border-border">
                             <pre className="text-sm font-mono whitespace-pre-wrap text-[#b0b0b0] leading-relaxed">{selectedLLM.rawResponse}</pre>

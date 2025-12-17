@@ -146,7 +146,7 @@ export async function generateMultiSpeakerAudio(request: TTSRequest): Promise<TT
       model: modelName,
       contents: [{
         role: "user",
-        parts: [{ text: request.text }]
+        parts: [{ text: `Read the following text aloud exactly as written:\n\n${request.text}` }]
       }],
       config: {
         responseModalities: ["AUDIO"],
