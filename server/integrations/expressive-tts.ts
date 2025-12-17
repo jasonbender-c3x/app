@@ -82,19 +82,24 @@ async function convertPcmToMp3(pcmBase64: string, sampleRate: number = 24000): P
       .audioCodec("libmp3lame")
       .audioBitrate("128k")
       .format("mp3")
+      .outputOptions(["-timeout", "120"])
+      .on("start", (cmdLine) => {
+        console.log("[TTS] FFmpeg started:", cmdLine.slice(0, 100) + "...");
+      })
       .on("end", () => {
         console.log("[TTS] FFmpeg conversion complete");
         finish();
       })
-      .on("error", (err: Error) => {
-        console.error("[TTS] FFmpeg conversion error:", err);
+      .on("error", (err: Error, stdout, stderr) => {
+        console.error("[TTS] FFmpeg conversion error:", err.message);
+        if (stderr) console.error("[TTS] FFmpeg stderr:", stderr);
         if (!resolved) {
           resolved = true;
           reject(err);
         }
       });
     
-    command.pipe(outputStream, { end: true });
+    command.pipe(outputStream, { end: false });
   });
 }
 

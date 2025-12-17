@@ -53,3 +53,19 @@ Preferred communication style: Simple, everyday language.
 - **Authentication:** OAuth2 via Replit Connectors for Google services and GitHub.
 - **Replit Platform Integration:** Vite plugins (cartographer, dev-banner, runtime-error-modal, meta images).
 - **PostgreSQL:** Primary database.
+
+## Pending Feature Reminders
+
+### Voice Input Integration (Priority)
+1. **Turn off pause before user speaks** - When voice input is paused, auto-disable pause mode before user says anything else
+2. **Speech-to-text → Input box integration** - Design software link between the LLM's speech-to-text input chain and the chat input box, using the submit button as the "okay to proceed" signal
+
+### GitHub Tools (Not yet documented in prompts)
+The server has these GitHub functions implemented but not exposed to the AI:
+- `createBranch` - Create a new branch
+- `createOrUpdateFile` - Create or update files in a repo
+- `createPullRequest` - Create a pull request
+- `listBranches` - List branches
+- `deleteBranch` - Delete a branch
+
+These need to be added to `prompts/tools.md` for the AI to use them.
