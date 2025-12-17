@@ -84,9 +84,62 @@ async function convertPcmToMp3(pcmBase64: string, sampleRate: number = 24000): P
   });
 }
 
+async function callTTSAPI(client: GoogleGenAI, text: string, voice: string): Promise<TTSResponse> {
+  const modelName = "gemini-2.5-flash-preview-tts";
+
+  const response = await client.models.generateContent({
+    model: modelName,
+    contents: [{
+      role: "user",
+      parts: [{ text }]
+    }],
+    config: {
+      responseModalities: ["AUDIO"],
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: voice
+          }
+        }
+      }
+    }
+  } as any);
+
+  const candidate = response.candidates?.[0];
+  const part = candidate?.content?.parts?.[0];
+  
+  if (part && 'inlineData' in part && part.inlineData?.data) {
+    console.log("[TTS] Audio generated, converting to MP3...");
+    
+    try {
+      const mp3Base64 = await convertPcmToMp3(part.inlineData.data);
+      return {
+        success: true,
+        audioBase64: mp3Base64,
+        mimeType: "audio/mpeg",
+        duration: 30
+      };
+    } catch (conversionError) {
+      console.warn("[TTS] MP3 conversion failed, returning raw audio");
+      return {
+        success: true,
+        audioBase64: part.inlineData.data,
+        mimeType: part.inlineData.mimeType || "audio/wav",
+        duration: 30
+      };
+    }
+  }
+
+  return {
+    success: false,
+    error: "No audio data in response"
+  };
+}
+
 export async function generateSingleSpeakerAudio(
   text: string, 
-  voice: string = "Kore"
+  voice: string = "Kore",
+  maxRetries: number = 2
 ): Promise<TTSResponse> {
   const apiKey = process.env.GEMINI_API_KEY;
   
@@ -97,76 +150,54 @@ export async function generateSingleSpeakerAudio(
     };
   }
 
-  try {
-    const client = new GoogleGenAI({ apiKey });
-    const modelName = "gemini-2.5-flash-preview-tts";
+  const client = new GoogleGenAI({ apiKey });
+  let lastError: any;
 
-    console.log(`[TTS] Generating audio with ${modelName}, voice: ${voice}`);
-
-    const response = await client.models.generateContent({
-      model: modelName,
-      contents: [{
-        role: "user",
-        parts: [{ text }]
-      }],
-      config: {
-        responseModalities: ["AUDIO"],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: {
-              voiceName: voice
-            }
-          }
-        }
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 0) {
+        console.log(`[TTS] Retry attempt ${attempt}/${maxRetries}`);
+        await new Promise(r => setTimeout(r, 500 * attempt));
       }
-    } as any);
 
-    const candidate = response.candidates?.[0];
-    const part = candidate?.content?.parts?.[0];
-    
-    if (part && 'inlineData' in part && part.inlineData?.data) {
-      console.log("[TTS] Audio generated, converting to MP3...");
+      console.log(`[TTS] Generating audio with gemini-2.5-flash-preview-tts, voice: ${voice}`);
+      return await callTTSAPI(client, text, voice);
+
+    } catch (error: any) {
+      lastError = error;
+      const errorStr = error.message || String(error);
       
-      try {
-        const mp3Base64 = await convertPcmToMp3(part.inlineData.data);
+      const isRetryable = errorStr.includes("500") || 
+                         errorStr.includes("INTERNAL") || 
+                         errorStr.includes("503") ||
+                         errorStr.includes("UNAVAILABLE");
+      
+      if (!isRetryable || attempt === maxRetries) {
+        console.error("[TTS] Generation error:", errorStr);
+        
+        const { logLLMError } = await import("../services/llm-error-buffer");
+        logLLMError("tts", "generateSingleSpeakerAudio", error, {
+          textLength: text.length,
+          voice,
+          attempt
+        }, {
+          model: "gemini-2.5-flash-preview-tts"
+        });
+        
         return {
-          success: true,
-          audioBase64: mp3Base64,
-          mimeType: "audio/mpeg",
-          duration: 30
-        };
-      } catch (conversionError) {
-        console.warn("[TTS] MP3 conversion failed, returning raw audio");
-        return {
-          success: true,
-          audioBase64: part.inlineData.data,
-          mimeType: part.inlineData.mimeType || "audio/wav",
-          duration: 30
+          success: false,
+          error: `TTS generation failed: ${errorStr}`
         };
       }
+      
+      console.warn(`[TTS] Transient error, will retry: ${errorStr}`);
     }
-
-    return {
-      success: false,
-      error: "No audio data in response"
-    };
-
-  } catch (error: any) {
-    console.error("[TTS] Generation error:", error.message);
-    
-    const { logLLMError } = await import("../services/llm-error-buffer");
-    logLLMError("tts", "generateSingleSpeakerAudio", error, {
-      textLength: text.length,
-      voice
-    }, {
-      model: "gemini-2.5-flash-preview-tts"
-    });
-    
-    return {
-      success: false,
-      error: `TTS generation failed: ${error.message}`
-    };
   }
+
+  return {
+    success: false,
+    error: `TTS generation failed after ${maxRetries + 1} attempts: ${lastError?.message}`
+  };
 }
 
 // Legacy export for compatibility
