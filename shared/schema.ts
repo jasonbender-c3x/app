@@ -1383,3 +1383,93 @@ export const insertKernelEvolutionSchema = createInsertSchema(kernelEvolutions).
 });
 export type InsertKernelEvolution = z.infer<typeof insertKernelEvolutionSchema>;
 export type KernelEvolution = typeof kernelEvolutions.$inferSelect;
+
+// =============================================================================
+// TASK QUEUE SYSTEM - AI batch processing queue
+// =============================================================================
+/**
+ * QUEUED TASKS TABLE
+ * ------------------
+ * Stores tasks that the AI has prepared for batch execution.
+ * 
+ * When a user requests complex work (like "research topic X"), the AI
+ * generates a list of subtasks that get queued here for processing.
+ * 
+ * Task lifecycle: pending -> running -> completed/failed/cancelled
+ * 
+ * Tasks can have parent-child relationships for hierarchical execution.
+ */
+export const queuedTasks = pgTable("queued_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Optional parent task for hierarchical task trees
+  parentId: varchar("parent_id").references((): any => queuedTasks.id, { onDelete: "cascade" }),
+  
+  // Link to chat where task was created
+  chatId: varchar("chat_id").references(() => chats.id, { onDelete: "cascade" }),
+  
+  // Task details
+  title: text("title").notNull(),
+  description: text("description"),
+  taskType: text("task_type").notNull(), // research, action, analysis, synthesis, etc.
+  
+  // Priority for queue ordering (higher = more urgent)
+  priority: integer("priority").default(0).notNull(),
+  
+  // Execution status
+  status: text("status").default("pending").notNull(), // pending, running, completed, failed, cancelled
+  
+  // Input/output data
+  input: jsonb("input"), // Task parameters and context
+  output: jsonb("output"), // Result after execution
+  error: text("error"), // Error message if failed
+  
+  // Metadata
+  estimatedDuration: integer("estimated_duration"), // Estimated seconds to complete
+  actualDuration: integer("actual_duration"), // Actual seconds taken
+  retryCount: integer("retry_count").default(0),
+  maxRetries: integer("max_retries").default(3),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertQueuedTaskSchema = createInsertSchema(queuedTasks).omit({
+  id: true,
+  createdAt: true,
+  startedAt: true,
+  completedAt: true,
+});
+export type InsertQueuedTask = z.infer<typeof insertQueuedTaskSchema>;
+export type QueuedTask = typeof queuedTasks.$inferSelect;
+
+/**
+ * Task type constants
+ */
+export const TaskTypes = {
+  RESEARCH: "research",      // Deep dive into a topic
+  ACTION: "action",          // Execute a specific action
+  ANALYSIS: "analysis",      // Analyze data or content
+  SYNTHESIS: "synthesis",    // Combine information into output
+  FETCH: "fetch",           // Retrieve data from a source
+  TRANSFORM: "transform",    // Convert data format
+  VALIDATE: "validate",      // Verify or check something
+  NOTIFY: "notify",          // Send notification or message
+} as const;
+
+export type TaskType = typeof TaskTypes[keyof typeof TaskTypes];
+
+/**
+ * Task status constants
+ */
+export const TaskStatuses = {
+  PENDING: "pending",
+  RUNNING: "running",
+  COMPLETED: "completed",
+  FAILED: "failed",
+  CANCELLED: "cancelled",
+} as const;
+
+export type TaskStatus = typeof TaskStatuses[keyof typeof TaskStatuses];
