@@ -95,6 +95,7 @@ import KnowledgeIngestionPage from "@/pages/knowledge-ingestion";
 import MarkdownPlaygroundPage from "@/pages/markdown-playground";
 import EvolutionPage from "@/pages/evolution";
 import TaskQueuePage from "@/pages/task-queue";
+import SchedulesPage from "@/pages/schedules";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -186,6 +187,9 @@ function Router() {
       
       {/* Task Queue Route - AI batch processing queue */}
       <Route path="/queue" component={TaskQueuePage} />
+      
+      {/* Schedules Route - Cron schedules and event triggers */}
+      <Route path="/schedules" component={SchedulesPage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything
