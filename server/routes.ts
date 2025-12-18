@@ -750,7 +750,20 @@ export async function registerRoutes(
     } catch (error) {
       // Log error for debugging
       console.error("Error in message streaming:", error);
-      res.status(500).json({ error: "Failed to process message" });
+      
+      // Check if headers were already sent (streaming started)
+      if (res.headersSent) {
+        // Send error via SSE and end stream gracefully
+        try {
+          res.write(`data: ${JSON.stringify({ error: "An error occurred while processing your message" })}\n\n`);
+          res.end();
+        } catch (e) {
+          // Stream may already be closed, just log and continue
+          console.error("Failed to send error via stream:", e);
+        }
+      } else {
+        res.status(500).json({ error: "Failed to process message" });
+      }
     }
   });
 
