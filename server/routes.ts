@@ -524,10 +524,16 @@ export async function registerRoutes(
       let cleanContentForStorage = "";
       const parser = new DelimiterParser();
       const toolResults: Array<{ toolId: string; type: string; success: boolean; result?: unknown; error?: string }> = [];
+      let usageMetadata: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
       
       for await (const chunk of result) {
         const text = chunk.text || "";
         fullResponse += text;
+        
+        // Capture usage metadata from the final chunk (Gemini provides this after streaming completes)
+        if (chunk.usageMetadata) {
+          usageMetadata = chunk.usageMetadata;
+        }
         
         // Note: We no longer try to preserve individual chunk content here
         // because each chunk only contains partial content. We build the
@@ -626,12 +632,25 @@ export async function registerRoutes(
         });
         
         // Stream the formatted response
+        let followUpUsage: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
         for await (const chunk of followUpResult) {
           const text = chunk.text || "";
           if (text) {
             cleanContentForStorage += text;
             res.write(`data: ${JSON.stringify({ text })}\n\n`);
           }
+          if (chunk.usageMetadata) {
+            followUpUsage = chunk.usageMetadata;
+          }
+        }
+        
+        // Accumulate follow-up usage to main usage
+        if (followUpUsage) {
+          usageMetadata = {
+            promptTokenCount: (usageMetadata?.promptTokenCount || 0) + (followUpUsage.promptTokenCount || 0),
+            candidatesTokenCount: (usageMetadata?.candidatesTokenCount || 0) + (followUpUsage.candidatesTokenCount || 0),
+            totalTokenCount: (usageMetadata?.totalTokenCount || 0) + (followUpUsage.totalTokenCount || 0),
+          };
         }
       }
 
@@ -700,6 +719,25 @@ export async function registerRoutes(
         });
       } catch (logError) {
         console.error("Failed to log LLM interaction:", logError);
+      }
+      
+      // Log LLM token usage to database
+      try {
+        if (usageMetadata && usageMetadata.promptTokenCount !== undefined) {
+          await storage.logLlmUsage({
+            chatId: req.params.id,
+            messageId: savedMessage.id,
+            model: "gemini-2.0-flash-exp",
+            promptTokens: usageMetadata.promptTokenCount || 0,
+            completionTokens: usageMetadata.candidatesTokenCount || 0,
+            totalTokens: usageMetadata.totalTokenCount || 0,
+            durationMs: endTime - startTime,
+            metadata: usageMetadata,
+          });
+          console.log(`[Token Usage] Chat ${req.params.id}: ${usageMetadata.promptTokenCount} in, ${usageMetadata.candidatesTokenCount} out, ${usageMetadata.totalTokenCount} total`);
+        }
+      } catch (usageError) {
+        console.error("Failed to log LLM token usage:", usageError);
       }
 
       // Send completion event with tool results summary and close the stream
@@ -820,6 +858,53 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error clearing LLM debug data:", error);
       res.status(500).json({ error: "Failed to clear LLM debug data" });
+    }
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // LLM TOKEN USAGE ENDPOINTS
+  // ═════════════════════════════════════════════════════════════════════════
+
+  /**
+   * GET /api/llm/usage
+   * Get LLM token usage statistics
+   */
+  app.get("/api/llm/usage", async (_req, res) => {
+    try {
+      const stats = await storage.getLlmUsageStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching LLM usage stats:", error);
+      res.status(500).json({ error: "Failed to fetch LLM usage statistics" });
+    }
+  });
+
+  /**
+   * GET /api/llm/usage/recent
+   * Get recent LLM usage records
+   */
+  app.get("/api/llm/usage/recent", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const usage = await storage.getRecentLlmUsage(limit);
+      res.json(usage);
+    } catch (error) {
+      console.error("Error fetching recent LLM usage:", error);
+      res.status(500).json({ error: "Failed to fetch recent LLM usage" });
+    }
+  });
+
+  /**
+   * GET /api/llm/usage/chat/:chatId
+   * Get LLM usage for a specific chat
+   */
+  app.get("/api/llm/usage/chat/:chatId", async (req, res) => {
+    try {
+      const usage = await storage.getLlmUsageByChat(req.params.chatId);
+      res.json(usage);
+    } catch (error) {
+      console.error("Error fetching chat LLM usage:", error);
+      res.status(500).json({ error: "Failed to fetch chat LLM usage" });
     }
   });
 
