@@ -31,9 +31,14 @@ Preferred communication style: Simple, everyday language.
 - **Evolution Engine:** AI-powered system analyzing user feedback, generating improvement suggestions, and creating GitHub PRs for human review.
 - **Feedback System:** User feedback mechanism for AI responses (ratings, comments).
 - **Knowledge Ingestion:** Multimodal pipeline (text, images, audio, documents) with seven stages (Source Discovery to Index) and domain routing to knowledge buckets (`PERSONAL_LIFE`, `CREATOR`, `PROJECTS`).
+  - **PDF Ingestion:** Built-in via `pdf-parse` library in `server/services/chunking-service.ts`
 - **Retrieval Orchestrator:** Hybrid search (vector + keyword), entity recognition, context window management, prompt injection formatting.
 - **Embedding Service:** Google Gemini text-embedding-004 model for vector embeddings and similarity calculations.
 - **Workflow Orchestration Engine:** Hierarchical task management with sequential/parallel execution, subtask spawning, AI-evaluated conditional logic, operator polling, cron scheduling, event triggers, and workflow interruption capabilities.
+- **LLM Token Usage Tracking:** All Gemini API calls logged with input/output token counts.
+  - Captured from streaming `usageMetadata`
+  - Stored in `llm_usage` table
+  - API endpoints: `/api/llm/usage`, `/api/llm/usage/recent`, `/api/llm/usage/chat/:chatId`
 
 ### System Status & Authorization
 - **Status Endpoint:** `GET /api/status` provides live mode, revision tracking, and connector health (Google, GitHub).

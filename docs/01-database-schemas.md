@@ -387,6 +387,50 @@ export const feedback = pgTable("feedback", {
 
 ---
 
+## 8. LLM Usage Table
+
+**Purpose**: Logs every LLM API call with token counts for monitoring and cost tracking.
+
+### Schema Definition
+
+```typescript
+export const llmUsage = pgTable("llm_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  chatId: varchar("chat_id").references(() => chats.id, { onDelete: "cascade" }),
+  messageId: varchar("message_id").references(() => messages.id, { onDelete: "cascade" }),
+  model: text("model").notNull(), // e.g., "gemini-2.0-flash-exp"
+  promptTokens: integer("prompt_tokens").notNull(), // Input tokens
+  completionTokens: integer("completion_tokens").notNull(), // Output tokens
+  totalTokens: integer("total_tokens").notNull(), // Total tokens
+  durationMs: integer("duration_ms"), // Request duration in milliseconds
+  metadata: jsonb("metadata"), // Additional metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+```
+
+### Columns
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | VARCHAR (UUID) | Primary key |
+| `chatId` | VARCHAR | Reference to the chat |
+| `messageId` | VARCHAR | Reference to the message |
+| `model` | TEXT | LLM model used (e.g., "gemini-2.0-flash-exp") |
+| `promptTokens` | INTEGER | Number of input tokens |
+| `completionTokens` | INTEGER | Number of output tokens |
+| `totalTokens` | INTEGER | Total tokens (input + output) |
+| `durationMs` | INTEGER | Request duration in milliseconds |
+| `metadata` | JSONB | Additional usage metadata from API |
+| `createdAt` | TIMESTAMP | When the usage was recorded |
+
+### API Endpoints
+
+- `GET /api/llm/usage` - Get aggregate usage statistics
+- `GET /api/llm/usage/recent` - Get recent usage records
+- `GET /api/llm/usage/chat/:chatId` - Get usage for a specific chat
+
+---
+
 ## Zod Validation Schemas
 
 Each table has corresponding Zod schemas for input validation:
