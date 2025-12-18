@@ -608,18 +608,17 @@ export async function registerRoutes(
           }
         }).join('\n\n');
         
-        const followUpPrompt = `The tool(s) have been executed. Here are the results:\n\n${toolResultsSummary}\n\nPlease provide a clear, human-readable summary of these results for the user. Do NOT use any tool call delimiters in your response - just write a natural response.`;
+        const followUpPrompt = `Tool results:\n${toolResultsSummary}\n\nSummarize for user. No tool delimiters.`;
         
-        // Send follow-up to LLM to format the results
+        // Send minimal follow-up to LLM to format the results (no history to save tokens)
         const followUpResult = await genAI.models.generateContentStream({
           model: "gemini-2.0-flash-exp",
           config: {
-            systemInstruction: "You are a helpful assistant. Format the tool results into a clear, readable response. Do not use any special delimiters or tool calls. Just provide a natural language summary.",
+            systemInstruction: "Format tool results clearly. No delimiters.",
           },
           contents: [
-            ...history,
             { role: "user", parts: userParts },
-            { role: "model", parts: [{ text: "I'll execute the requested tool now." }] },
+            { role: "model", parts: [{ text: "Executing tool..." }] },
             { role: "user", parts: [{ text: followUpPrompt }] }
           ],
         });
