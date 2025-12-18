@@ -425,20 +425,13 @@ export async function registerRoutes(
       // Transform to Gemini API format:
       // - "user" role stays as "user"
       // - "ai" role becomes "model" (Gemini terminology)
-      // - For model messages, use stored geminiContent (with thought_signature) if available
-      //   This preserves the model's reasoning state for multi-turn function calling
-      //   See: https://cloud.google.com/vertex-ai/generative-ai/docs/thought-signatures
-      const history = previousMessages.map(msg => {
-        if (msg.role === "ai" && msg.geminiContent) {
-          // Use preserved Gemini content with thought_signature
-          return msg.geminiContent as { role: string; parts: any[] };
-        }
-        // Fallback to reconstructed content for legacy messages or user messages
-        return {
-          role: msg.role === "user" ? "user" : "model",
-          parts: [{ text: msg.content }],
-        };
-      });
+      // - Use clean content (without tool JSON) to minimize token usage
+      // - Limit history to last 10 messages to stay within rate limits
+      const recentMessages = previousMessages.slice(-10);
+      const history = recentMessages.map(msg => ({
+        role: msg.role === "user" ? "user" : "model",
+        parts: [{ text: msg.content }],
+      }));
 
       // ─────────────────────────────────────────────────────────────────────
       // STEP 3: Configure SSE (Server-Sent Events) headers
