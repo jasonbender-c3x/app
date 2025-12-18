@@ -6,22 +6,22 @@ Nebula Chat uses a structured tool call system that allows the AI to request ope
 
 ---
 
-## LLM Output Format: Emoji Sea Delimiter
+## LLM Output Format: Scissors Cat Delimiter
 
 The LLM uses a simple, unmistakable delimiter format:
 
 ```
 [TOOL CALLS JSON ARRAY]
 
-🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊
+✂️🐱
 
 [MARKDOWN CONTENT FOR CHAT]
 ```
 
 ### Format Rules
 
-1. **Tool Calls First**: If the LLM needs to execute tools, it outputs a JSON array of tool call objects at the very start
-2. **Emoji Sea Delimiter**: The unmistakable separator `🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊` separates tool calls from markdown
+1. **Tool Calls First**: If the LLM needs to execute tools, it outputs a JSON array of tool call objects at the very start (NO markdown code fences around JSON)
+2. **Scissors Cat Delimiter**: The unmistakable separator `✂️🐱` separates tool calls from markdown
 3. **Markdown Last**: Everything after the delimiter is markdown content for the chat window
 
 ### Example Output
@@ -36,7 +36,7 @@ The LLM uses a simple, unmistakable delimiter format:
   }
 ]
 
-🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊
+✂️🐱
 
 Let me check your recent emails...
 ```
@@ -46,7 +46,9 @@ Let me check your recent emails...
 When no tools are needed, the LLM can output markdown directly:
 
 ```
-🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊
+[]
+
+✂️🐱
 
 Here's your answer...
 ```
@@ -176,7 +178,7 @@ export type ToolCall = z.infer<typeof toolCallSchema>;
 ## Delimiter Constant
 
 ```typescript
-export const EMOJI_SEA_DELIMITER = "🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊🐱🌊" as const;
+export const SCISSORS_CAT_DELIMITER = "✂️🐱" as const;
 ```
 
 ---
@@ -199,7 +201,7 @@ export function parseLLMOutput(output: string): ParsedLLMOutput {
     parseErrors: [],
   };
 
-  const delimiterIndex = output.indexOf(EMOJI_SEA_DELIMITER);
+  const delimiterIndex = output.indexOf(SCISSORS_CAT_DELIMITER);
   
   if (delimiterIndex === -1) {
     // No delimiter found - treat as pure markdown
@@ -209,7 +211,7 @@ export function parseLLMOutput(output: string): ParsedLLMOutput {
 
   // Split at delimiter
   const toolCallsSection = output.substring(0, delimiterIndex).trim();
-  const markdownSection = output.substring(delimiterIndex + EMOJI_SEA_DELIMITER.length).trim();
+  const markdownSection = output.substring(delimiterIndex + SCISSORS_CAT_DELIMITER.length).trim();
 
   result.markdown = markdownSection;
 

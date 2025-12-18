@@ -54,18 +54,36 @@ Preferred communication style: Simple, everyday language.
 - **Replit Platform Integration:** Vite plugins (cartographer, dev-banner, runtime-error-modal, meta images).
 - **PostgreSQL:** Primary database.
 
+## Documentation
+
+The system has comprehensive documentation in the `docs/` folder:
+
+### Core Documentation
+- **SYSTEM_OVERVIEW.md** - Complete system architecture overview (start here)
+- **FEATURES.md** - Feature documentation
+- **01-database-schemas.md** - Database schema with Feedback table
+- **02-ui-architecture.md** - Frontend architecture
+- **03-prompt-lifecycle.md** - Prompt processing flow
+- **04-system-prompt.md** - System prompt structure
+- **05-tool-call-schema.md** - Tool call format (`✂️🐱` delimiter)
+
+### Prompt Files
+- **prompts/README.md** - Prompt system overview
+- **prompts/core-directives.md** - Core behavior rules
+- **prompts/tools.md** - Tool definitions with examples
+
 ## Pending Feature Reminders
 
 ### Voice Input Integration (Priority)
 1. **Turn off pause before user speaks** - When voice input is paused, auto-disable pause mode before user says anything else
 2. **Speech-to-text → Input box integration** - Design software link between the LLM's speech-to-text input chain and the chat input box, using the submit button as the "okay to proceed" signal
 
-### GitHub Tools (Not yet documented in prompts)
-The server has these GitHub functions implemented but not exposed to the AI:
+### GitHub Tools (Need documentation in prompts/tools.md)
+The server has these GitHub functions implemented but not yet exposed to the AI as documented tools:
 - `createBranch` - Create a new branch
 - `createOrUpdateFile` - Create or update files in a repo
 - `createPullRequest` - Create a pull request
 - `listBranches` - List branches
 - `deleteBranch` - Delete a branch
 
-These need to be added to `prompts/tools.md` for the AI to use them.
+These are used internally by the Evolution page for PR creation but not yet available for general AI use.

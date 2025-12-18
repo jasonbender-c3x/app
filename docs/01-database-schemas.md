@@ -48,6 +48,17 @@ Nebula Chat uses PostgreSQL with Drizzle ORM for data persistence. The schema is
 │ executedAt      │         │ createdAt        │
 │ createdAt       │         └──────────────────┘
 └─────────────────┘
+
+┌─────────────────┐
+│    feedback     │
+├─────────────────┤
+│ id (PK)         │
+│ messageId       │
+│ rating          │
+│ freeformText    │
+│ createdAt       │
+│ submittedAt     │
+└─────────────────┘
 ```
 
 ---
@@ -329,6 +340,53 @@ export const executionLogs = pgTable("execution_logs", {
 
 ---
 
+## 7. Feedback Table
+
+**Purpose**: Stores user feedback on AI responses for the evolution system.
+
+### Schema Definition
+
+```typescript
+export const feedback = pgTable("feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").notNull(),
+  rating: text("rating").notNull(), // 'positive' or 'negative'
+  freeformText: text("freeform_text"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  submittedAt: timestamp("submitted_at"), // Set when feedback is submitted to GitHub PR
+});
+```
+
+### Columns
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | VARCHAR (UUID) | Primary key |
+| `messageId` | VARCHAR | Reference to the message being rated |
+| `rating` | TEXT | Rating type: `"positive"` or `"negative"` |
+| `freeformText` | TEXT | Optional user comment explaining feedback |
+| `createdAt` | TIMESTAMP | When feedback was submitted |
+| `submittedAt` | TIMESTAMP | When feedback was included in a GitHub PR (null = pending) |
+
+### Feedback Lifecycle
+
+```
+┌─────────────┐    Create PR    ┌───────────────┐
+│   pending   │─────────────────►│   submitted   │
+│ (submittedAt│                  │ (submittedAt  │
+│   = null)   │                  │   = Date)     │
+└─────────────┘                  └───────────────┘
+```
+
+### Use Cases
+
+- Collecting user feedback on AI responses
+- Filtering pending vs submitted feedback
+- Creating GitHub PRs from selected feedback items
+- Tracking which feedback has been processed
+
+---
+
 ## Zod Validation Schemas
 
 Each table has corresponding Zod schemas for input validation:
@@ -363,6 +421,11 @@ export const insertToolTaskSchema = createInsertSchema(toolTasks).omit({
 export const insertExecutionLogSchema = createInsertSchema(executionLogs).omit({
   id: true, createdAt: true
 });
+
+// Feedback validation
+export const insertFeedbackSchema = createInsertSchema(feedback).omit({
+  id: true, createdAt: true, submittedAt: true
+});
 ```
 
 ---
@@ -379,6 +442,7 @@ export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
 export type InsertDraft = z.infer<typeof insertDraftSchema>;
 export type InsertToolTask = z.infer<typeof insertToolTaskSchema>;
 export type InsertExecutionLog = z.infer<typeof insertExecutionLogSchema>;
+export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 
 // Select types (for reading records)
 export type Chat = typeof chats.$inferSelect;
@@ -387,4 +451,5 @@ export type Attachment = typeof attachments.$inferSelect;
 export type Draft = typeof drafts.$inferSelect;
 export type ToolTask = typeof toolTasks.$inferSelect;
 export type ExecutionLog = typeof executionLogs.$inferSelect;
+export type Feedback = typeof feedback.$inferSelect;
 ```
