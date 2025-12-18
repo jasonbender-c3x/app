@@ -59,6 +59,8 @@ import {
   type Workflow,
   type InsertWorkflow,
   type ExecutorState,
+  type LlmUsage,
+  type InsertLlmUsage,
   chats,
   messages,
   attachments,
@@ -73,7 +75,8 @@ import {
   schedules,
   triggers,
   workflows,
-  executorState
+  executorState,
+  llmUsage
 } from "@shared/schema";
 import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq, desc, and, lte, or, sql, isNull, isNotNull, inArray, arrayContains } from "drizzle-orm";
@@ -280,6 +283,21 @@ export interface IStorage {
   getFeedback(limit?: number, status?: 'all' | 'pending' | 'submitted'): Promise<Feedback[]>;
   getFeedbackStats(): Promise<{ total: number; positive: number; negative: number; withComments: number }>;
   markFeedbackSubmitted(ids: string[]): Promise<void>;
+
+  // =========================================================================
+  // LLM USAGE TRACKING OPERATIONS
+  // =========================================================================
+  
+  logLlmUsage(data: InsertLlmUsage): Promise<LlmUsage>;
+  getLlmUsageStats(): Promise<{ 
+    totalCalls: number; 
+    totalPromptTokens: number; 
+    totalCompletionTokens: number;
+    totalTokens: number;
+    averageLatencyMs: number;
+  }>;
+  getLlmUsageByChat(chatId: string): Promise<LlmUsage[]>;
+  getRecentLlmUsage(limit?: number): Promise<LlmUsage[]>;
 
   // =========================================================================
   // QUEUED TASK OPERATIONS (AI batch processing queue)
@@ -1032,6 +1050,57 @@ export class DrizzleStorage implements IStorage {
       .update(feedback)
       .set({ submittedAt: new Date() })
       .where(inArray(feedback.id, ids));
+  }
+
+  // =========================================================================
+  // LLM USAGE TRACKING IMPLEMENTATION
+  // =========================================================================
+
+  async logLlmUsage(data: InsertLlmUsage): Promise<LlmUsage> {
+    const [usage] = await this.getDb().insert(llmUsage).values(data).returning();
+    return usage;
+  }
+
+  async getLlmUsageStats(): Promise<{
+    totalCalls: number;
+    totalPromptTokens: number;
+    totalCompletionTokens: number;
+    totalTokens: number;
+    averageLatencyMs: number;
+  }> {
+    const result = await this.getDb()
+      .select({
+        totalCalls: sql<number>`COUNT(*)::int`,
+        totalPromptTokens: sql<number>`COALESCE(SUM(${llmUsage.promptTokens}), 0)::int`,
+        totalCompletionTokens: sql<number>`COALESCE(SUM(${llmUsage.completionTokens}), 0)::int`,
+        totalTokens: sql<number>`COALESCE(SUM(${llmUsage.totalTokens}), 0)::int`,
+        averageLatencyMs: sql<number>`COALESCE(AVG(${llmUsage.durationMs}), 0)::int`,
+      })
+      .from(llmUsage);
+    
+    return result[0] || {
+      totalCalls: 0,
+      totalPromptTokens: 0,
+      totalCompletionTokens: 0,
+      totalTokens: 0,
+      averageLatencyMs: 0,
+    };
+  }
+
+  async getLlmUsageByChat(chatId: string): Promise<LlmUsage[]> {
+    return await this.getDb()
+      .select()
+      .from(llmUsage)
+      .where(eq(llmUsage.chatId, chatId))
+      .orderBy(desc(llmUsage.createdAt));
+  }
+
+  async getRecentLlmUsage(limit: number = 50): Promise<LlmUsage[]> {
+    return await this.getDb()
+      .select()
+      .from(llmUsage)
+      .orderBy(desc(llmUsage.createdAt))
+      .limit(limit);
   }
 
   // =========================================================================

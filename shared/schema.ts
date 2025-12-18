@@ -443,6 +443,35 @@ export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 export type Feedback = typeof feedback.$inferSelect;
 
 // =============================================================================
+// LLM USAGE TRACKING - Token usage logging for all LLM calls
+// =============================================================================
+/**
+ * LLM_USAGE TABLE
+ * ---------------
+ * Logs every LLM API call with token counts for monitoring and cost tracking.
+ * Captures input tokens, output tokens, model used, and timing information.
+ */
+export const llmUsage = pgTable("llm_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  chatId: varchar("chat_id").references(() => chats.id, { onDelete: "cascade" }),
+  messageId: varchar("message_id").references(() => messages.id, { onDelete: "cascade" }),
+  model: text("model").notNull(), // e.g., "gemini-2.0-flash-exp"
+  promptTokens: integer("prompt_tokens").notNull(), // Input tokens
+  completionTokens: integer("completion_tokens").notNull(), // Output tokens
+  totalTokens: integer("total_tokens").notNull(), // Total tokens
+  durationMs: integer("duration_ms"), // Request duration in milliseconds
+  metadata: jsonb("metadata"), // Additional metadata (e.g., thoughtsTokenCount for thinking models)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertLlmUsageSchema = createInsertSchema(llmUsage).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertLlmUsage = z.infer<typeof insertLlmUsageSchema>;
+export type LlmUsage = typeof llmUsage.$inferSelect;
+
+// =============================================================================
 // STRUCTURED LLM OUTPUT SCHEMAS
 // =============================================================================
 /**
