@@ -6,13 +6,19 @@ A turn-based collaboration system for file editing and code generation between h
 
 ## Overview
 
-This document defines the operational boundaries and data flow triggers for the collaborative editing environment. The system facilitates continuous iteration through a turn-based model where control alternates between the human user and the AI assistant.
+This document defines the operational boundaries and data flow triggers for the collaborative editing environment. The system facilitates continuous iteration through a turn-based model where control [...]
 
 ---
 
 ## Core Concepts
 
 ### Turn-Based Collaboration
+
+```mermaid
+graph TD
+    User[Human's Turn] -->|Edit in canvas, save, upload file| AI[Computer's Turn]
+    AI -->|Generate changes, diff, or tool action| User
+```
 
 | Turn | Actor | Actions |
 |------|-------|---------|
@@ -37,18 +43,11 @@ The "canvas" is the editing environment where files are opened and modified. It 
 
 **Trigger:** User attaches a file to a prompt, or asks the LLM to use an existing workspace file.
 
-```
-┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│  User attaches   │     │  App stores copy │     │  File opens in   │
-│  file to prompt  │ ──▶ │  in workspace    │ ──▶ │  Canvas editor   │
-└──────────────────┘     └──────────────────┘     └──────────────────┘
-                                  │
-                                  ▼
-                         ┌──────────────────┐
-                         │  LLM receives    │
-                         │  file as context │
-                         │  (Ground Truth)  │
-                         └──────────────────┘
+```mermaid
+graph TD
+    A[User attaches file] --> B[App stores copy in workspace]
+    B --> C[File opens in editor]
+    C --> D[LLM receives file as Ground Truth context]
 ```
 
 **Flow:**
@@ -64,17 +63,11 @@ The "canvas" is the editing environment where files are opened and modified. It 
 
 **Trigger:** User asks the AI to create a new file or document.
 
-```
-┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│  User: "Create   │     │  LLM generates   │     │  Tool call with  │
-│  a landing page" │ ──▶ │  file content    │ ──▶ │  path alias      │
-└──────────────────┘     └──────────────────┘     └──────────────────┘
-                                                           │
-                                                           ▼
-                         ┌──────────────────┐     ┌──────────────────┐
-                         │  File opens in   │ ◀── │  App saves file  │
-                         │  specified editor│     │  to workspace    │
-                         └──────────────────┘     └──────────────────┘
+```mermaid
+graph TD
+    A[User requests AI create file] --> B[LLM generates file content]
+    B --> C[Tool call sends path alias]
+    C --> D[App saves file and opens in editor]
 ```
 
 **Flow:**
@@ -94,17 +87,11 @@ The "canvas" is the editing environment where files are opened and modified. It 
 
 **Trigger:** User asks the AI to run commands or execute code.
 
-```
-┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│  User: "Run the  │     │  LLM generates   │     │  Tool call to    │
-│  test suite"     │ ──▶ │  bash script     │ ──▶ │  <terminal>      │
-└──────────────────┘     └──────────────────┘     └──────────────────┘
-                                                           │
-                                                           ▼
-                                                  ┌──────────────────┐
-                                                  │  Script executes │
-                                                  │  in sandbox      │
-                                                  └──────────────────┘
+```mermaid
+graph TD
+    A[User requests command execution] --> B[LLM generates script/command]
+    B --> C[Tool call sends script to terminal editor]
+    C --> D[App executes script in sandbox]
 ```
 
 **Flow:**
@@ -157,6 +144,14 @@ function parsePathAlias(aliasPath: string): { editor: string; filePath: string }
 
 ## Human's Turn: Canvas Controls
 
+```mermaid
+graph TD
+    Human[Edit in Canvas] -->|Save| Human
+    Human -->|Save + Upload| AI[Computer's Turn]
+    Human -->|Cancel| Restart[Restart Human's Turn]
+    Human -->|Discard| End[Editing Ends]
+```
+
 When a file is open in the canvas, the user has these controls:
 
 ### Button Actions
@@ -178,18 +173,13 @@ When a file is open in the canvas, the user has these controls:
 
 ### Turn Transitions
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        HUMAN'S TURN                              │
-│                                                                  │
-│   [Edit in Canvas] ─┬─▶ [Save] ───▶ Remains Human's Turn       │
-│                     │                                            │
-│                     ├─▶ [Save + Upload] ──▶ Computer's Turn     │
-│                     │                                            │
-│                     ├─▶ [Cancel] ───▶ Restarts Human's Turn     │
-│                     │                                            │
-│                     └─▶ [Discard] ───▶ Editing Ends             │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    A[Human's Turn] -->|Take action| B[Transition Decision]
+    B -->|Save| A
+    B -->|Upload to AI| C[Computer's Turn]
+    B -->|Cancel| A
+    B -->|Discard| D[End Workflow]
 ```
 
 ---
@@ -214,8 +204,6 @@ After the AI completes its action:
 ## Diff-Based Updates
 
 When modifying existing files, the AI should prefer sending diffs rather than full file replacements:
-
-### Diff Format
 
 ```json
 {
