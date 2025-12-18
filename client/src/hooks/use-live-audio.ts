@@ -29,12 +29,54 @@ export interface UseLiveAudioReturn {
   connect: () => void;
   disconnect: () => void;
   sendMessage: (text: string) => void;
+  startRecording: () => Promise<void>;
+  stopRecording: () => void;
   isConnected: boolean;
   isPlaying: boolean;
+  isRecording: boolean;
   error: string | null;
 }
 
 const SAMPLE_RATE = 24000;
+const INPUT_SAMPLE_RATE = 16000; // Gemini input requirement
+
+/**
+ * Downsample Float32 audio buffer to Int16 PCM at target sample rate
+ */
+function downsampleBuffer(buffer: Float32Array, inputRate: number, outputRate: number): Int16Array {
+  if (inputRate === outputRate) {
+    const result = new Int16Array(buffer.length);
+    for (let i = 0; i < buffer.length; i++) {
+      const s = Math.max(-1, Math.min(1, buffer[i]));
+      result[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    return result;
+  }
+  
+  const ratio = inputRate / outputRate;
+  const newLength = Math.round(buffer.length / ratio);
+  const result = new Int16Array(newLength);
+  
+  for (let i = 0; i < newLength; i++) {
+    const index = Math.round(i * ratio);
+    const s = Math.max(-1, Math.min(1, buffer[index]));
+    result[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  
+  return result;
+}
+
+/**
+ * Convert ArrayBuffer to base64 string
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
 
 export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioReturn {
   const {
@@ -47,14 +89,22 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
     onAudioEnd,
   } = options;
 
+  // Playback Refs
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioQueueRef = useRef<AudioBuffer[]>([]);
   const isPlayingRef = useRef(false);
   const nextPlayTimeRef = useRef(0);
   
+  // Recording Input Refs
+  const inputContextRef = useRef<AudioContext | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  
   const [isConnected, setIsConnected] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const playNextBuffer = useCallback(() => {
@@ -198,7 +248,93 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
     };
   }, [voice, systemInstruction, onConnected, onDisconnected, onError, queueAudioData]);
 
+  // ---------------------------------------------------------------------------
+  // RECORDING LOGIC
+  // ---------------------------------------------------------------------------
+
+  const startRecording = useCallback(async () => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.error("[Live Audio] Cannot record: not connected");
+      setError("Not connected to live API");
+      return;
+    }
+
+    try {
+      console.log("[Live Audio] Requesting microphone access...");
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          channelCount: 1,
+          sampleRate: INPUT_SAMPLE_RATE,
+          echoCancellation: true,
+          noiseSuppression: true,
+        } 
+      });
+      
+      mediaStreamRef.current = stream;
+      inputContextRef.current = new AudioContext({ sampleRate: INPUT_SAMPLE_RATE });
+      
+      sourceRef.current = inputContextRef.current.createMediaStreamSource(stream);
+      
+      // ScriptProcessorNode is deprecated but still widely supported
+      // AudioWorklet would be more modern but requires more setup
+      const bufferSize = 4096;
+      processorRef.current = inputContextRef.current.createScriptProcessor(bufferSize, 1, 1);
+      
+      processorRef.current.onaudioprocess = (event) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        
+        const inputData = event.inputBuffer.getChannelData(0);
+        const pcmData = downsampleBuffer(inputData, inputContextRef.current!.sampleRate, INPUT_SAMPLE_RATE);
+        const base64Audio = arrayBufferToBase64(pcmData.buffer);
+        
+        wsRef.current.send(JSON.stringify({ 
+          type: "audio", 
+          data: base64Audio 
+        }));
+      };
+      
+      sourceRef.current.connect(processorRef.current);
+      processorRef.current.connect(inputContextRef.current.destination);
+      
+      setIsRecording(true);
+      console.log("[Live Audio] Recording started");
+    } catch (err) {
+      console.error("[Live Audio] Failed to start recording:", err);
+      setError("Failed to access microphone");
+      onError?.("Failed to access microphone");
+    }
+  }, [onError]);
+
+  const stopRecording = useCallback(() => {
+    console.log("[Live Audio] Stopping recording...");
+    
+    if (processorRef.current) {
+      processorRef.current.disconnect();
+      processorRef.current = null;
+    }
+    
+    if (sourceRef.current) {
+      sourceRef.current.disconnect();
+      sourceRef.current = null;
+    }
+    
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    
+    if (inputContextRef.current) {
+      inputContextRef.current.close();
+      inputContextRef.current = null;
+    }
+    
+    setIsRecording(false);
+    console.log("[Live Audio] Recording stopped");
+  }, []);
+
   const disconnect = useCallback(() => {
+    stopRecording();
+    
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
@@ -210,7 +346,7 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
     audioQueueRef.current = [];
     setIsConnected(false);
     setIsPlaying(false);
-  }, []);
+  }, [stopRecording]);
 
   const sendMessage = useCallback((text: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
@@ -232,8 +368,11 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
     connect,
     disconnect,
     sendMessage,
+    startRecording,
+    stopRecording,
     isConnected,
     isPlaying,
+    isRecording,
     error,
   };
 }

@@ -1,0 +1,56 @@
+// ... existing code ...
++ const INPUT_SAMPLE_RATE = 16000;    // Gemini input requirement
+
++ // Utility to convert Float32 (Web Audio) to Int16 (PCM) and downsample
++ function downsampleBuffer(buffer: Float32Array, inputRate: number, outputRate: number): Int16Array {
++   // ... implementation ...
++ }
+
++ function arrayBufferToBase64(buffer: ArrayBuffer): string {
++   // ... implementation ...
++ }
+
+export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioReturn {
+  // ... existing code ...
+  
++   // Audio Input Refs
++   const inputContextRef = useRef<AudioContext | null>(null);
++   const mediaStreamRef = useRef<MediaStream | null>(null);
++   const processorRef = useRef<ScriptProcessorNode | null>(null);
++   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+
+  // State
+  // ... existing code ...
++   const [isRecording, setIsRecording] = useState(false);
+
+  // ... existing playback logic ...
+
++   // ---------------------------------------------------------------------------
++   // RECORDING LOGIC
++   // ---------------------------------------------------------------------------
+
++   const startRecording = useCallback(async () => {
++     // ... getUserMedia, createScriptProcessor, downsample, send ...
++   }, []);
+
++   const stopRecording = useCallback(() => {
++     // ... cleanup input context ...
++   }, []);
+
+  const disconnect = useCallback(() => {
++     stopRecording();
+    // ... existing disconnect logic ...
+  }, [stopRecording]);
+
+  return {
+    connect,
+    disconnect,
+    sendMessage,
++     startRecording,
++     stopRecording,
+    isConnected,
+    isPlaying,
++     isRecording,
+    error,
+  };
+}
