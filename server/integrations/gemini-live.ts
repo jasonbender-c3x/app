@@ -176,6 +176,40 @@ export async function closeLiveSession(liveSession: LiveSession): Promise<void> 
 }
 
 /**
+ * Send activity start signal (user started speaking)
+ */
+export async function sendActivityStart(liveSession: LiveSession): Promise<void> {
+  if (!liveSession.isConnected) {
+    throw new Error("Session is not connected");
+  }
+  
+  try {
+    console.log("[Live API] Sending activityStart signal");
+    await liveSession.session.sendRealtimeInput({ activityStart: {} });
+  } catch (error: any) {
+    console.error("[Live API] Error sending activityStart:", error.message);
+    throw error;
+  }
+}
+
+/**
+ * Send activity end signal (user stopped speaking)
+ */
+export async function sendActivityEnd(liveSession: LiveSession): Promise<void> {
+  if (!liveSession.isConnected) {
+    throw new Error("Session is not connected");
+  }
+  
+  try {
+    console.log("[Live API] Sending activityEnd signal");
+    await liveSession.session.sendRealtimeInput({ activityEnd: {} });
+  } catch (error: any) {
+    console.error("[Live API] Error sending activityEnd:", error.message);
+    throw error;
+  }
+}
+
+/**
  * Send audio input to the Live API session
  */
 export async function sendAudioInput(
@@ -190,7 +224,6 @@ export async function sendAudioInput(
   const base64Audio = audioData.toString("base64");
   
   try {
-    console.log(`[Live API] Sending ${audioData.length} bytes of audio to Gemini`);
     await liveSession.session.sendRealtimeInput({
       mediaChunks: [{
         mimeType: "audio/pcm;rate=16000",

@@ -363,6 +363,9 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
       sourceRef.current.connect(processorRef.current);
       processorRef.current.connect(inputContextRef.current.destination);
       
+      // Send activity start signal to Gemini
+      wsRef.current.send(JSON.stringify({ type: "activity_start" }));
+      
       setIsRecording(true);
       console.log("[Live Audio] Recording started");
     } catch (err) {
@@ -374,6 +377,11 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
 
   const stopRecording = useCallback(() => {
     console.log("[Live Audio] Stopping recording...");
+    
+    // Send activity end signal to Gemini before disconnecting
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "activity_end" }));
+    }
     
     if (processorRef.current) {
       processorRef.current.disconnect();
