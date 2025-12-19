@@ -111,67 +111,13 @@ export function TTSProvider({ children }: { children: ReactNode }) {
       .replace(/\n/g, " ")
       .trim();
     
-    if (!cleanText) return;
-    
-    setIsSpeaking(true);
-    
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      const response = await fetch("/api/speech/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: cleanText,
-          speakers: [{ name: "narrator", voice: "Kore" }]
-        }),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        console.warn("Gemini TTS unavailable, using browser TTS");
-        speakWithBrowserTTS(cleanText);
-        return;
-      }
-      
-      const data = await response.json();
-      
-      if (!data.success || !data.audioBase64) {
-        console.warn("Gemini TTS failed, using browser TTS:", data.error);
-        speakWithBrowserTTS(cleanText);
-        return;
-      }
-      
-      console.log("[TTS] Creating audio from base64, mimeType:", data.mimeType);
-      const audio = new Audio(`data:${data.mimeType || "audio/mp3"};base64,${data.audioBase64}`);
-      audioRef.current = audio;
-      
-      audio.onended = () => {
-        console.log("[TTS] Audio playback ended");
-        setIsSpeaking(false);
-        audioRef.current = null;
-      };
-      
-      audio.onerror = (e) => {
-        console.error("[TTS] Audio playback error:", e);
-        setIsSpeaking(false);
-        audioRef.current = null;
-      };
-      
-      try {
-        await audio.play();
-        console.log("[TTS] Audio playback started successfully");
-      } catch (playError) {
-        console.error("[TTS] Failed to play audio:", playError);
-        speakWithBrowserTTS(cleanText);
-      }
-    } catch (error) {
-      console.warn("TTS API error, using browser TTS:", error);
-      speakWithBrowserTTS(cleanText);
+    if (!cleanText) {
+      console.log("[TTS] No text to speak after cleaning");
+      return;
     }
+    
+    console.log("[TTS] Speaking:", cleanText.substring(0, 50) + "...");
+    speakWithBrowserTTS(cleanText);
   }, [isMuted, stopSpeaking, speakWithBrowserTTS]);
 
   return (
