@@ -60,7 +60,7 @@ import { Button } from "@/components/ui/button";
  * - Lightbulb: Icon for brainstorming prompt
  * - Code2: Icon for coding/debug prompt
  */
-import { Menu, Sparkles, Compass, Lightbulb, Code2, Volume2, VolumeX, ChevronLeft, ChevronRight, PawPrint, Moon, Fish, Heart, Zap, BookOpen, Radio, AlertTriangle } from "lucide-react";
+import { Menu, Sparkles, Compass, Lightbulb, Code2, Volume2, VolumeX, ChevronLeft, ChevronRight, PawPrint, Moon, Fish, Heart, Zap, BookOpen, Radio, AlertTriangle, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 
 /**
@@ -187,6 +187,11 @@ export default function Home() {
   const [isLiveMode, setIsLiveMode] = useState(false);
   
   /**
+   * Connecting state - shows while Live Mode is connecting to Gemini
+   */
+  const [isLiveConnecting, setIsLiveConnecting] = useState(false);
+  
+  /**
    * Error count from LLM error buffer - lights up indicator when > 0
    */
   const [errorCount, setErrorCount] = useState(0);
@@ -207,9 +212,13 @@ export default function Home() {
    */
   const liveAudio = useLiveAudio({
     voice: "Kore",
-    onError: (error) => console.error("[Live Audio] Error:", error),
+    onError: (error) => {
+      console.error("[Live Audio] Error:", error);
+      setIsLiveConnecting(false);
+    },
     onConnected: () => {
       console.log("[Live Audio] Connected");
+      setIsLiveConnecting(false);
       // Auto-start recording when we connect in Live Mode
       if (shouldAutoRecordRef.current && startRecordingRef.current) {
         console.log("[Live Mode] Auto-starting microphone recording...");
@@ -219,7 +228,10 @@ export default function Home() {
         }, 100);
       }
     },
-    onDisconnected: () => console.log("[Live Audio] Disconnected"),
+    onDisconnected: () => {
+      console.log("[Live Audio] Disconnected");
+      setIsLiveConnecting(false);
+    },
   });
   
   // Update the startRecording ref after hook initialization
@@ -241,6 +253,8 @@ export default function Home() {
     if (isLiveMode && !audio.isConnected) {
       // Set flag to auto-start recording when connected
       shouldAutoRecordRef.current = true;
+      // Show connecting state immediately
+      setIsLiveConnecting(true);
       audio.connect();
     } else if (!isLiveMode && audio.isConnected) {
       // Clear the auto-record flag
@@ -704,11 +718,16 @@ export default function Home() {
               variant="ghost" 
               size="icon" 
               onClick={() => setIsLiveMode(!isLiveMode)}
-              className={`rounded-full h-11 w-11 ${isLiveMode ? 'ring-2 ring-green-400 shadow-[0_0_12px_rgba(74,222,128,0.6)]' : ''}`}
+              disabled={isLiveConnecting}
+              className={`rounded-full h-11 w-11 ${isLiveMode ? 'ring-2 ring-green-400 shadow-[0_0_12px_rgba(74,222,128,0.6)]' : ''} ${isLiveConnecting ? 'animate-pulse' : ''}`}
               data-testid="button-live-mode-toggle-mobile"
-              title={isLiveMode ? "Disable live streaming audio" : "Enable live streaming audio"}
+              title={isLiveConnecting ? "Connecting to voice..." : isLiveMode ? "Disable live streaming audio" : "Enable live streaming audio"}
             >
-              <Radio className={`h-6 w-6 ${isLiveMode ? 'text-green-400' : 'text-muted-foreground'}`} />
+              {isLiveConnecting ? (
+                <Loader2 className="h-6 w-6 animate-spin text-green-400" />
+              ) : (
+                <Radio className={`h-6 w-6 ${isLiveMode ? 'text-green-400' : 'text-muted-foreground'}`} />
+              )}
             </Button>
             {/* Mobile TTS Toggle - only shown if browser supports TTS */}
             {isTTSSupported && (
@@ -757,11 +776,16 @@ export default function Home() {
               variant="ghost" 
               size="icon" 
               onClick={() => setIsLiveMode(!isLiveMode)}
-              className={`rounded-full h-11 w-11 ${isLiveMode ? 'ring-2 ring-green-400 shadow-[0_0_12px_rgba(74,222,128,0.6)]' : ''}`}
+              disabled={isLiveConnecting}
+              className={`rounded-full h-11 w-11 ${isLiveMode ? 'ring-2 ring-green-400 shadow-[0_0_12px_rgba(74,222,128,0.6)]' : ''} ${isLiveConnecting ? 'animate-pulse' : ''}`}
               data-testid="button-live-mode-toggle"
-              title={isLiveMode ? "Disable live streaming audio (currently on)" : "Enable live streaming audio for real-time voice"}
+              title={isLiveConnecting ? "Connecting to voice..." : isLiveMode ? "Disable live streaming audio (currently on)" : "Enable live streaming audio for real-time voice"}
             >
-              <Radio className={`h-6 w-6 ${isLiveMode ? 'text-green-400' : 'text-muted-foreground'}`} />
+              {isLiveConnecting ? (
+                <Loader2 className="h-6 w-6 animate-spin text-green-400" />
+              ) : (
+                <Radio className={`h-6 w-6 ${isLiveMode ? 'text-green-400' : 'text-muted-foreground'}`} />
+              )}
             </Button>
             {/* TTS Toggle Button - only shown if browser supports TTS */}
             {isTTSSupported && (
