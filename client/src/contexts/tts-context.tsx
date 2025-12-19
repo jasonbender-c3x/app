@@ -116,14 +116,20 @@ export function TTSProvider({ children }: { children: ReactNode }) {
     setIsSpeaking(true);
     
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
       const response = await fetch("/api/speech/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: cleanText,
           speakers: [{ name: "narrator", voice: "Kore" }]
-        })
+        }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         console.warn("Gemini TTS unavailable, using browser TTS");
