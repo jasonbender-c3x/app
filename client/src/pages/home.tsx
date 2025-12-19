@@ -256,9 +256,11 @@ export default function Home() {
       // Show connecting state immediately
       setIsLiveConnecting(true);
       audio.connect();
-    } else if (!isLiveMode && audio.isConnected) {
-      // Clear the auto-record flag
+    } else if (!isLiveMode) {
+      // Always disconnect when Live Mode is turned off, regardless of connection state
+      // This prevents race conditions where toggle happens during connection
       shouldAutoRecordRef.current = false;
+      setIsLiveConnecting(false);
       // Stop recording before disconnecting
       if (audio.isRecording) {
         console.log("[Live Mode] Stopping microphone recording...");
