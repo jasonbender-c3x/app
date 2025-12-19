@@ -406,17 +406,20 @@ export default function Home() {
    * // AI response streams in token by token
    */
   const handleSendMessage = async (content: string, attachments: Attachment[] = []) => {
+    console.log("[handleSendMessage] Starting with content:", content.substring(0, 50));
     try {
       let chatId = currentChatId;
 
       // Step 1: Create a new chat if none selected
       if (!chatId) {
+        console.log("[handleSendMessage] No chat ID, creating new chat...");
         const newChatId = await handleNewChat();
         if (!newChatId) {
-          console.error('Failed to create chat');
+          console.error('[handleSendMessage] Failed to create chat');
           return;
         }
         chatId = newChatId;
+        console.log("[handleSendMessage] Created new chat:", chatId);
       }
 
       // Step 2: Add user message to UI immediately (optimistic update)
@@ -432,10 +435,16 @@ export default function Home() {
       setMessages((prev) => [...prev, tempUserMessage]);
       setIsLoading(true);
 
-      // Step 2.5: If Live Mode is enabled, send user's message directly to Live API
-      // This generates audio response in real-time while text response streams
+      // Step 2.5: If Live Mode is enabled, try to send to Live API for audio response
+      // This is optional - regular text chat continues regardless of Live API status
       if (isLiveMode && liveAudio.isConnected) {
-        liveAudio.sendMessage(content);
+        try {
+          liveAudio.sendMessage(content);
+          console.log("[handleSendMessage] Sent to Live API for audio");
+        } catch (liveError) {
+          console.warn("[handleSendMessage] Live API send failed:", liveError);
+          // Continue with regular text chat
+        }
       }
 
       // Step 3: Send message to backend with optional attachments
@@ -564,8 +573,20 @@ export default function Home() {
         }
       }
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error('[handleSendMessage] Failed to send message:', error);
       setIsLoading(false);
+    } finally {
+      // Ensure loading state is always cleared after a reasonable timeout
+      // This prevents the UI from getting stuck if something goes wrong
+      setTimeout(() => {
+        setIsLoading(current => {
+          if (current) {
+            console.warn('[handleSendMessage] Force clearing loading state after timeout');
+            return false;
+          }
+          return current;
+        });
+      }, 60000); // 60 second safety timeout
     }
   };
 
