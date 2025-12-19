@@ -217,7 +217,22 @@ export default function Home() {
     const audio = liveAudioRef.current;
     if (isLiveMode && !audio.isConnected) {
       audio.connect();
+      // Start recording (microphone capture) after a short delay to ensure WebSocket is ready
+      const startMicrophoneRecording = async () => {
+        // Wait for WebSocket to be ready
+        await new Promise(resolve => setTimeout(resolve, 500));
+        if (liveAudioRef.current.isConnected) {
+          console.log("[Live Mode] Starting microphone recording...");
+          liveAudioRef.current.startRecording();
+        }
+      };
+      startMicrophoneRecording();
     } else if (!isLiveMode && audio.isConnected) {
+      // Stop recording before disconnecting
+      if (audio.isRecording) {
+        console.log("[Live Mode] Stopping microphone recording...");
+        audio.stopRecording();
+      }
       audio.disconnect();
     }
   }, [isLiveMode]);
