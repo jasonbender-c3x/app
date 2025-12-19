@@ -91,7 +91,7 @@ async function callTTSAPI(client: GoogleGenAI, text: string, voice: string): Pro
     model: modelName,
     contents: [{
       role: "user",
-      parts: [{ text }]
+      parts: [{ text: `Read the following text aloud exactly as written:\n\n${text}` }]
     }],
     config: {
       responseModalities: ["AUDIO"],
