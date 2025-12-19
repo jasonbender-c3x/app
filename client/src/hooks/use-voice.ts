@@ -229,7 +229,15 @@ export function useVoice(options: VoiceOptions = {}): UseVoiceReturn {
      * @param {SpeechRecognitionErrorEvent} event - Error event
      */
     recognition.onerror = (event: any) => {
-      setError(event.error);
+      const friendlyMessages: Record<string, string> = {
+        'not-allowed': 'Microphone access denied. Please allow microphone access in your browser settings.',
+        'no-speech': 'No speech detected. Please speak into your microphone.',
+        'audio-capture': 'No microphone found. Please connect a microphone.',
+        'network': 'Network error. Please check your connection.',
+        'aborted': 'Speech recognition was aborted.',
+        'service-not-allowed': 'Speech recognition service is not available in this browser.',
+      };
+      setError(friendlyMessages[event.error] || `Speech recognition error: ${event.error}`);
       setIsListening(false);
     };
 
