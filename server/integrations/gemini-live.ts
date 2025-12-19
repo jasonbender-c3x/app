@@ -65,8 +65,10 @@ export async function createLiveSession(
         },
         systemInstruction: config.systemInstruction || 
           "You are Meowstic, a helpful AI assistant. Respond naturally and conversationally.",
-        contextWindowCompression: {
-          slidingWindow: {}
+        realtimeInputConfig: {
+          automaticActivityDetection: {
+            disabled: false
+          }
         }
       },
       callbacks: {
@@ -188,6 +190,7 @@ export async function sendAudioInput(
   const base64Audio = audioData.toString("base64");
   
   try {
+    console.log(`[Live API] Sending ${audioData.length} bytes of audio to Gemini`);
     await liveSession.session.sendRealtimeInput({
       mediaChunks: [{
         mimeType: "audio/pcm;rate=16000",
