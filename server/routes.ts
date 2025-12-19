@@ -100,7 +100,7 @@ import { ragDispatcher } from "./services/rag-dispatcher";
 
 import { createApiRouter } from "./routes/index";
 import { WebSocketServer, WebSocket } from "ws";
-import { createLiveSession, sendTextMessage, closeLiveSession, type LiveSession } from "./integrations/gemini-live";
+import { createLiveSession, sendTextMessage, sendAudioInput, closeLiveSession, type LiveSession } from "./integrations/gemini-live";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SECTION: AI CLIENT INITIALIZATION
@@ -1098,6 +1098,15 @@ ${summary}`
             if (!liveSession) {
               ws.send(JSON.stringify({ type: "error", message: "Session not connected" }));
               return;
+            }
+            
+            try {
+              // Decode base64 audio data and send to Gemini
+              const audioBuffer = Buffer.from(message.data, "base64");
+              await sendAudioInput(liveSession, audioBuffer);
+            } catch (error: any) {
+              console.error("[Live API] Audio input error:", error);
+              ws.send(JSON.stringify({ type: "error", message: error.message }));
             }
             break;
           }

@@ -95,6 +95,7 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
   const audioQueueRef = useRef<AudioBuffer[]>([]);
   const isPlayingRef = useRef(false);
   const nextPlayTimeRef = useRef(0);
+  const activeSourceRef = useRef<AudioBufferSourceNode | null>(null);
   
   // Recording Input Refs
   const inputContextRef = useRef<AudioContext | null>(null);
@@ -102,10 +103,41 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   
+  // Auto-reconnect refs
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const shouldReconnectRef = useRef(false);
+  const MAX_RECONNECT_ATTEMPTS = 5;
+  const RECONNECT_DELAY_MS = 2000;
+  
   const [isConnected, setIsConnected] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Clear audio queue and stop current playback (barge-in)
+  const clearAudioQueue = useCallback(() => {
+    console.log("[Live Audio] Clearing audio queue (barge-in)");
+    audioQueueRef.current = [];
+    
+    // Stop currently playing source
+    if (activeSourceRef.current) {
+      try {
+        activeSourceRef.current.stop();
+      } catch (e) {
+        // Ignore if already stopped
+      }
+      activeSourceRef.current = null;
+    }
+    
+    if (isPlayingRef.current) {
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+      onAudioEnd?.();
+    }
+    
+    nextPlayTimeRef.current = 0;
+  }, [onAudioEnd]);
 
   const playNextBuffer = useCallback(() => {
     if (!audioContextRef.current || audioQueueRef.current.length === 0) {
@@ -114,6 +146,7 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
         setIsPlaying(false);
         onAudioEnd?.();
       }
+      activeSourceRef.current = null;
       return;
     }
 
@@ -121,6 +154,7 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
     const source = audioContextRef.current.createBufferSource();
     source.buffer = buffer;
     source.connect(audioContextRef.current.destination);
+    activeSourceRef.current = source;
     
     const currentTime = audioContextRef.current.currentTime;
     const startTime = Math.max(currentTime, nextPlayTimeRef.current);
@@ -129,6 +163,7 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
     nextPlayTimeRef.current = startTime + buffer.duration;
     
     source.onended = () => {
+      activeSourceRef.current = null;
       playNextBuffer();
     };
   }, [onAudioEnd]);
@@ -171,6 +206,9 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
       return;
     }
 
+    // Enable auto-reconnect when connecting
+    shouldReconnectRef.current = true;
+    
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/api/live`;
     
@@ -195,6 +233,8 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
 
     ws.onopen = () => {
       console.log("[Live Audio] WebSocket connected, sending connect message");
+      // Reset reconnect counter on successful connection
+      reconnectAttemptsRef.current = 0;
       ws.send(JSON.stringify({ 
         type: "connect", 
         voice,
@@ -245,6 +285,23 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
       setIsConnected(false);
       onDisconnected?.();
       wsRef.current = null;
+      
+      // Auto-reconnect logic
+      if (shouldReconnectRef.current && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttemptsRef.current++;
+        const delay = RECONNECT_DELAY_MS * Math.pow(2, reconnectAttemptsRef.current - 1); // Exponential backoff
+        console.log(`[Live Audio] Attempting reconnect ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms`);
+        
+        reconnectTimeoutRef.current = setTimeout(() => {
+          if (shouldReconnectRef.current) {
+            connect();
+          }
+        }, delay);
+      } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+        console.error("[Live Audio] Max reconnect attempts reached");
+        setError("Connection lost. Please reconnect manually.");
+        onError?.("Connection lost. Please reconnect manually.");
+      }
     };
   }, [voice, systemInstruction, onConnected, onDisconnected, onError, queueAudioData]);
 
@@ -258,6 +315,9 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
       setError("Not connected to live API");
       return;
     }
+
+    // Barge-in: clear any playing audio when user starts speaking
+    clearAudioQueue();
 
     try {
       console.log("[Live Audio] Requesting microphone access...");
@@ -303,7 +363,7 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
       setError("Failed to access microphone");
       onError?.("Failed to access microphone");
     }
-  }, [onError]);
+  }, [onError, clearAudioQueue]);
 
   const stopRecording = useCallback(() => {
     console.log("[Live Audio] Stopping recording...");
@@ -333,6 +393,14 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
   }, []);
 
   const disconnect = useCallback(() => {
+    // Disable auto-reconnect on intentional disconnect
+    shouldReconnectRef.current = false;
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    reconnectAttemptsRef.current = 0;
+    
     stopRecording();
     
     if (wsRef.current) {
@@ -360,6 +428,10 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
 
   useEffect(() => {
     return () => {
+      // Clear reconnect timeout on unmount
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
       disconnect();
     };
   }, [disconnect]);
