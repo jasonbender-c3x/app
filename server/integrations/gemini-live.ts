@@ -64,7 +64,10 @@ export async function createLiveSession(
           }
         },
         systemInstruction: config.systemInstruction || 
-          "You are Meowstic, a helpful AI assistant. Respond naturally and conversationally."
+          "You are Meowstic, a helpful AI assistant. Respond naturally and conversationally.",
+        contextWindowCompression: {
+          slidingWindow: {}
+        }
       },
       callbacks: {
         onopen: () => {
@@ -96,9 +99,13 @@ export async function createLiveSession(
           console.error(`[Live API] Session error:`, error);
           emitter.emit("error", error);
         },
-        onclose: () => {
-          console.log(`[Live API] Session ${sessionId} closed`);
-          emitter.emit("close");
+        onclose: (event: any) => {
+          console.log(`[Live API] Session ${sessionId} CLOSED!`);
+          console.log(`[Live API] Close event details:`, JSON.stringify(event, null, 2));
+          if (event) {
+            console.log(`[Live API] Close code: ${event.code}, reason: ${event.reason}`);
+          }
+          emitter.emit("close", event);
         }
       }
     });
@@ -174,15 +181,21 @@ export async function sendAudioInput(
   audioData: Buffer
 ): Promise<void> {
   if (!liveSession.isConnected) {
+    console.error("[Live API] Cannot send audio - session not connected");
     throw new Error("Session is not connected");
   }
 
   const base64Audio = audioData.toString("base64");
   
-  await liveSession.session.sendRealtimeInput({
-    mediaChunks: [{
-      mimeType: "audio/pcm;rate=16000",
-      data: base64Audio
-    }]
-  });
+  try {
+    await liveSession.session.sendRealtimeInput({
+      mediaChunks: [{
+        mimeType: "audio/pcm;rate=16000",
+        data: base64Audio
+      }]
+    });
+  } catch (error: any) {
+    console.error("[Live API] Error sending audio input:", error.message);
+    throw error;
+  }
 }

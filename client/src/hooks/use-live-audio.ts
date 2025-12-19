@@ -267,6 +267,13 @@ export function useLiveAudio(options: UseLiveAudioOptions = {}): UseLiveAudioRet
               setError(message.message);
               onError?.(message.message);
               break;
+              
+            case "session_closed":
+              console.warn("[Live Audio] Gemini session closed:", message.message);
+              setIsConnected(false);
+              setError("Voice session ended. Please reconnect.");
+              onError?.("Voice session ended. Please reconnect.");
+              break;
           }
         } catch (e) {
           console.error("[Live Audio] Failed to parse message:", e);

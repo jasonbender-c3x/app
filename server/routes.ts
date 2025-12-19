@@ -1072,6 +1072,16 @@ ${summary}`
                 }
               });
               
+              liveSession.emitter.on("close", () => {
+                console.log("[Live API] Gemini session closed, marking as disconnected");
+                if (liveSession) {
+                  liveSession.isConnected = false;
+                }
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: "session_closed", message: "Gemini session ended" }));
+                }
+              });
+              
               ws.send(JSON.stringify({ type: "connected", sessionId }));
             } catch (error: any) {
               ws.send(JSON.stringify({ type: "error", message: error.message }));
