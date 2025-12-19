@@ -99,7 +99,8 @@ export function TTSProvider({ children }: { children: ReactNode }) {
     stopSpeaking();
     
     const cleanText = text
-      .replace(/```(?:\w+)?\n?([\s\S]*?)```/g, "$1")
+      .replace(/```\w*\n?/g, "")
+      .replace(/```/g, "")
       .replace(/`([^`]+)`/g, "$1")
       .replace(/\*\*([^*]+)\*\*/g, "$1")
       .replace(/\*([^*]+)\*/g, "$1")
