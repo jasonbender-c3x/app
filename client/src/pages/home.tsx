@@ -193,14 +193,37 @@ export default function Home() {
   const [, navigate] = useLocation();
   
   /**
+   * Ref to track whether we should auto-start recording on connect
+   */
+  const shouldAutoRecordRef = useRef(false);
+  
+  /**
+   * Ref to hold the startRecording function (initialized after hook)
+   */
+  const startRecordingRef = useRef<(() => Promise<void>) | null>(null);
+  
+  /**
    * Live Audio hook for real-time streaming audio via Gemini Live API
    */
   const liveAudio = useLiveAudio({
     voice: "Kore",
     onError: (error) => console.error("[Live Audio] Error:", error),
-    onConnected: () => console.log("[Live Audio] Connected"),
+    onConnected: () => {
+      console.log("[Live Audio] Connected");
+      // Auto-start recording when we connect in Live Mode
+      if (shouldAutoRecordRef.current && startRecordingRef.current) {
+        console.log("[Live Mode] Auto-starting microphone recording...");
+        // Small delay to ensure WebSocket is fully ready
+        setTimeout(() => {
+          startRecordingRef.current?.();
+        }, 100);
+      }
+    },
     onDisconnected: () => console.log("[Live Audio] Disconnected"),
   });
+  
+  // Update the startRecording ref after hook initialization
+  startRecordingRef.current = liveAudio.startRecording;
 
   // ===========================================================================
   // EFFECTS (Side Effects)
@@ -216,18 +239,12 @@ export default function Home() {
   useEffect(() => {
     const audio = liveAudioRef.current;
     if (isLiveMode && !audio.isConnected) {
+      // Set flag to auto-start recording when connected
+      shouldAutoRecordRef.current = true;
       audio.connect();
-      // Start recording (microphone capture) after a short delay to ensure WebSocket is ready
-      const startMicrophoneRecording = async () => {
-        // Wait for WebSocket to be ready
-        await new Promise(resolve => setTimeout(resolve, 500));
-        if (liveAudioRef.current.isConnected) {
-          console.log("[Live Mode] Starting microphone recording...");
-          liveAudioRef.current.startRecording();
-        }
-      };
-      startMicrophoneRecording();
     } else if (!isLiveMode && audio.isConnected) {
+      // Clear the auto-record flag
+      shouldAutoRecordRef.current = false;
       // Stop recording before disconnecting
       if (audio.isRecording) {
         console.log("[Live Mode] Stopping microphone recording...");
