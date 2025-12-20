@@ -608,11 +608,11 @@ export function ChatMessage({ role, content, isThinking, metadata, createdAt, id
         {/* 
          * Action Buttons (AI messages only, not during thinking)
          * Provides interaction options for the AI response
+         * All 4 icons in a single row: Copy, Regenerate, ThumbsUp, ThumbsDown
          */}
         {role === "ai" && !isThinking && (
-          <div className="flex flex-col gap-3 mt-4 pt-2">
-            {/* Top row: Copy and Regenerate buttons */}
-            <div className="flex gap-2">
+          <div className="mt-4 pt-2">
+            <div className="flex items-center gap-2">
               {/* Copy to Clipboard Button */}
               <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
                 <Copy className="h-4 w-4" />
@@ -622,17 +622,17 @@ export function ChatMessage({ role, content, isThinking, metadata, createdAt, id
               <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
                 <RefreshCw className="h-4 w-4" />
               </Button>
+              
+              {/* Feedback Panel - Inline thumbs up/down */}
+              {id && (
+                <FeedbackPanel 
+                  messageId={id}
+                  chatId={chatId}
+                  promptSnapshot={promptSnapshot}
+                  responseSnapshot={content}
+                />
+              )}
             </div>
-            
-            {/* Feedback Panel - Expandable form for user feedback */}
-            {id && (
-              <FeedbackPanel 
-                messageId={id}
-                chatId={chatId}
-                promptSnapshot={promptSnapshot}
-                responseSnapshot={content}
-              />
-            )}
           </div>
         )}
       </div>

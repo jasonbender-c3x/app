@@ -279,7 +279,7 @@ export function FeedbackPanel({ messageId, chatId, promptSnapshot, responseSnaps
   }
 
   return (
-    <div className={cn("space-y-2", className)} data-testid="feedback-panel">
+    <div className={cn("", className)} data-testid="feedback-panel">
       {/* Quick Rating Row */}
       <div className="flex items-center gap-2">
         <RatingButton 
