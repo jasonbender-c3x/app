@@ -6,7 +6,6 @@ import docsRouter from "./docs";
 import sheetsRouter from "./sheets";
 import tasksRouter from "./tasks";
 import speechRouter from "./speech";
-import draftsRouter, { attachmentsRouter } from "./drafts";
 import authRouter from "./auth";
 import terminalRouter from "./terminal";
 import musicRouter from "./music";
@@ -33,8 +32,6 @@ export function createApiRouter(): Router {
   router.use("/sheets", sheetsRouter);
   router.use("/tasks", tasksRouter);
   router.use("/speech", speechRouter);
-  router.use("/drafts", draftsRouter);
-  router.use("/attachments", attachmentsRouter);
   router.use("/terminal", terminalRouter);
   router.use("/music", musicRouter);
   router.use("/image", imageRouter);
