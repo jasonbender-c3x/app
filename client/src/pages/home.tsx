@@ -60,7 +60,7 @@ import { Button } from "@/components/ui/button";
  * - Lightbulb: Icon for brainstorming prompt
  * - Code2: Icon for coding/debug prompt
  */
-import { Menu, Sparkles, Compass, Lightbulb, Code2, Volume2, VolumeX, ChevronLeft, ChevronRight, PawPrint, Moon, Fish, Heart, Zap, BookOpen, Radio, AlertTriangle, Loader2 } from "lucide-react";
+import { Menu, Sparkles, Compass, Lightbulb, Code2, Volume2, VolumeX, ChevronLeft, ChevronRight, PawPrint, Moon, Fish, Heart, Zap, BookOpen, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
 
 /**
@@ -83,7 +83,6 @@ import logo from "@assets/generated_images/cute_cat_logo_icon.png";
 import type { Chat, Message } from "@shared/schema";
 
 import { useTTS } from "@/contexts/tts-context";
-import { useLiveAudio } from "@/hooks/use-live-audio";
 
 /**
  * Attachment type for files and screenshots from input area
@@ -182,93 +181,14 @@ export default function Home() {
   const { isMuted, toggleMuted, speak, isSpeaking, stopSpeaking, isSupported: isTTSSupported, isUsingBrowserTTS } = useTTS();
 
   /**
-   * Live Mode state - when enabled, uses real-time streaming audio
-   */
-  const [isLiveMode, setIsLiveMode] = useState(false);
-  
-  /**
-   * Connecting state - shows while Live Mode is connecting to Gemini
-   */
-  const [isLiveConnecting, setIsLiveConnecting] = useState(false);
-  
-  /**
    * Error count from LLM error buffer - lights up indicator when > 0
    */
   const [errorCount, setErrorCount] = useState(0);
   const [, navigate] = useLocation();
-  
-  /**
-   * Ref to track whether we should auto-start recording on connect
-   */
-  const shouldAutoRecordRef = useRef(false);
-  
-  /**
-   * Ref to hold the startRecording function (initialized after hook)
-   */
-  const startRecordingRef = useRef<(() => Promise<void>) | null>(null);
-  
-  /**
-   * Live Audio hook for real-time streaming audio via Gemini Live API
-   */
-  const liveAudio = useLiveAudio({
-    voice: "Kore",
-    onError: (error) => {
-      console.error("[Live Audio] Error:", error);
-      setIsLiveConnecting(false);
-    },
-    onConnected: () => {
-      console.log("[Live Audio] Connected");
-      setIsLiveConnecting(false);
-      // Auto-start recording when we connect in Live Mode
-      if (shouldAutoRecordRef.current && startRecordingRef.current) {
-        console.log("[Live Mode] Auto-starting microphone recording...");
-        // Small delay to ensure WebSocket is fully ready
-        setTimeout(() => {
-          startRecordingRef.current?.();
-        }, 100);
-      }
-    },
-    onDisconnected: () => {
-      console.log("[Live Audio] Disconnected");
-      setIsLiveConnecting(false);
-    },
-  });
-  
-  // Update the startRecording ref after hook initialization
-  startRecordingRef.current = liveAudio.startRecording;
 
   // ===========================================================================
   // EFFECTS (Side Effects)
   // ===========================================================================
-
-  /**
-   * Effect: Connect/disconnect Live Audio when Live Mode is toggled
-   * Note: We use refs for liveAudio methods to avoid re-running on every render
-   */
-  const liveAudioRef = useRef(liveAudio);
-  liveAudioRef.current = liveAudio;
-  
-  useEffect(() => {
-    const audio = liveAudioRef.current;
-    if (isLiveMode && !audio.isConnected) {
-      // Set flag to auto-start recording when connected
-      shouldAutoRecordRef.current = true;
-      // Show connecting state immediately
-      setIsLiveConnecting(true);
-      audio.connect();
-    } else if (!isLiveMode) {
-      // Always disconnect when Live Mode is turned off, regardless of connection state
-      // This prevents race conditions where toggle happens during connection
-      shouldAutoRecordRef.current = false;
-      setIsLiveConnecting(false);
-      // Stop recording before disconnecting
-      if (audio.isRecording) {
-        console.log("[Live Mode] Stopping microphone recording...");
-        audio.stopRecording();
-      }
-      audio.disconnect();
-    }
-  }, [isLiveMode]);
 
   /**
    * Effect: Load all chats on component mount
@@ -437,18 +357,6 @@ export default function Home() {
       setMessages((prev) => [...prev, tempUserMessage]);
       setIsLoading(true);
 
-      // Step 2.5: If Live Mode is enabled, try to send to Live API for audio response
-      // This is optional - regular text chat continues regardless of Live API status
-      if (isLiveMode && liveAudio.isConnected) {
-        try {
-          liveAudio.sendMessage(content);
-          console.log("[handleSendMessage] Sent to Live API for audio");
-        } catch (liveError) {
-          console.warn("[handleSendMessage] Live API send failed:", liveError);
-          // Continue with regular text chat
-        }
-      }
-
       // Step 3: Send message to backend with optional attachments
       const response = await fetch(`/api/chats/${chatId}/messages`, {
         method: 'POST',
@@ -547,9 +455,8 @@ export default function Home() {
               // Step 6: Stream complete - reload final messages and speak response
               if (data.done) {
                 setIsLoading(false);
-                // Speak the AI response using TTS (only if NOT in Live Mode)
-                // Live Mode already sent user's input to Live API at step 2.5
-                if (aiMessageContent && !isLiveMode) {
+                // Speak the AI response using TTS
+                if (aiMessageContent) {
                   speak(aiMessageContent);
                 }
                 // Get actual stored messages with real IDs
@@ -736,22 +643,6 @@ export default function Home() {
                 <AlertTriangle className="h-6 w-6 text-red-400" />
               </Button>
             )}
-            {/* Mobile Live Mode Toggle */}
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setIsLiveMode(!isLiveMode)}
-              disabled={isLiveConnecting}
-              className={`rounded-full h-11 w-11 ${isLiveMode ? 'ring-2 ring-green-400 shadow-[0_0_12px_rgba(74,222,128,0.6)]' : ''} ${isLiveConnecting ? 'animate-pulse' : ''}`}
-              data-testid="button-live-mode-toggle-mobile"
-              title={isLiveConnecting ? "Connecting to voice..." : isLiveMode ? "Disable live streaming audio" : "Enable live streaming audio"}
-            >
-              {isLiveConnecting ? (
-                <Loader2 className="h-6 w-6 animate-spin text-green-400" />
-              ) : (
-                <Radio className={`h-6 w-6 ${isLiveMode ? 'text-green-400' : 'text-muted-foreground'}`} />
-              )}
-            </Button>
             {/* Mobile TTS Toggle - only shown if browser supports TTS */}
             {isTTSSupported && (
               <Button 
@@ -794,22 +685,6 @@ export default function Home() {
                 <AlertTriangle className="h-6 w-6 text-red-400" />
               </Button>
             )}
-            {/* Live Mode Toggle Button */}
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setIsLiveMode(!isLiveMode)}
-              disabled={isLiveConnecting}
-              className={`rounded-full h-11 w-11 ${isLiveMode ? 'ring-2 ring-green-400 shadow-[0_0_12px_rgba(74,222,128,0.6)]' : ''} ${isLiveConnecting ? 'animate-pulse' : ''}`}
-              data-testid="button-live-mode-toggle"
-              title={isLiveConnecting ? "Connecting to voice..." : isLiveMode ? "Disable live streaming audio (currently on)" : "Enable live streaming audio for real-time voice"}
-            >
-              {isLiveConnecting ? (
-                <Loader2 className="h-6 w-6 animate-spin text-green-400" />
-              ) : (
-                <Radio className={`h-6 w-6 ${isLiveMode ? 'text-green-400' : 'text-muted-foreground'}`} />
-              )}
-            </Button>
             {/* TTS Toggle Button - only shown if browser supports TTS */}
             {isTTSSupported && (
               <Button 
