@@ -39,7 +39,7 @@
  * React Hooks
  * - useState: Manage component state (currently unused, using props)
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /**
  * Utility for conditional class names
@@ -171,6 +171,21 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
   const [location] = useLocation();
   const { liveMode, revision, uiRevision, refresh, isLoading, googleConnected, githubConnected } = useAppSession();
   
+  // Track if we're on desktop (lg breakpoint = 1024px)
+  const [isDesktop, setIsDesktop] = useState(false);
+  
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    setIsDesktop(mediaQuery.matches);
+    
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
+  }, []);
+  
+  // Only apply collapsed state on desktop - mobile always shows full sidebar
+  const effectiveCollapsed = isDesktop && isCollapsed;
+  
   // ===========================================================================
   // EVENT HANDLERS
   // ===========================================================================
@@ -262,34 +277,36 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
         className={cn(
           "fixed inset-y-0 left-0 z-50 bg-secondary/30 border-r border-border backdrop-blur-xl transform transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:h-screen flex flex-col",
           isOpen ? "translate-x-0" : "-translate-x-full",
-          isCollapsed ? "lg:w-16" : "w-72"
+          // Always full width on mobile, only collapse on desktop (lg+)
+          "w-72",
+          effectiveCollapsed && "lg:w-16"
         )}
       >
         {/* 
          * Header Section
          * Contains close button (mobile), logo/branding, and collapse toggle (desktop)
          */}
-        <div className={cn("p-4 flex items-center", isCollapsed ? "justify-center" : "justify-between")}>
+        <div className={cn("p-4 flex items-center", effectiveCollapsed ? "justify-center" : "justify-between")}>
           {/* Close button - only visible on mobile */}
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsOpen(false)}>
             <X className="h-5 w-5" />
           </Button>
           
           {/* Logo and Brand Name */}
-          <div className={cn("flex items-center gap-3", isCollapsed ? "px-0" : "px-2")}>
+          <div className={cn("flex items-center gap-3", effectiveCollapsed ? "px-0" : "px-2")}>
              <img src={logo} alt="Logo" className="w-8 h-8 rounded-lg" />
-             {!isCollapsed && <span className="font-display font-semibold text-lg tracking-tight">Meowstic</span>}
+             {!effectiveCollapsed && <span className="font-display font-semibold text-lg tracking-tight">Meowstic</span>}
           </div>
           
           {/* Collapse toggle button - only visible on desktop */}
           <Button 
             variant="ghost" 
             size="icon" 
-            className={cn("hidden lg:flex", isCollapsed && "absolute right-2 top-4")}
-            onClick={() => setIsCollapsed(!isCollapsed)}
+            className={cn("hidden lg:flex", effectiveCollapsed && "absolute right-2 top-4")}
+            onClick={() => setIsCollapsed(!effectiveCollapsed)}
             data-testid="button-collapse-sidebar"
           >
-            {isCollapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+            {effectiveCollapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
           </Button>
         </div>
 
@@ -297,18 +314,18 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
          * New Chat Button
          * Prominently displayed action to create a new conversation
          */}
-        <div className={cn("mb-4", isCollapsed ? "px-2" : "px-4")}>
+        <div className={cn("mb-4", effectiveCollapsed ? "px-2" : "px-4")}>
           <Button 
             onClick={onNewChat}
             className={cn(
               "rounded-full bg-secondary/50 text-foreground hover:bg-secondary border border-transparent hover:border-border/50 shadow-none transition-all",
-              isCollapsed ? "w-12 h-12 p-0 justify-center" : "w-full justify-start gap-3 h-12"
+              effectiveCollapsed ? "w-12 h-12 p-0 justify-center" : "w-full justify-start gap-3 h-12"
             )}
             variant="secondary"
             data-testid="button-new-chat"
           >
             <Plus className="h-5 w-5 text-muted-foreground" />
-            {!isCollapsed && <span className="font-medium">New discussion</span>}
+            {!effectiveCollapsed && <span className="font-medium">New discussion</span>}
           </Button>
         </div>
 
@@ -317,13 +334,13 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
          * Grouped by time period with section headers
          * Hidden when collapsed on desktop
          */}
-        <ScrollArea className={cn("flex-1", isCollapsed ? "px-2" : "px-4")}>
+        <ScrollArea className={cn("flex-1", effectiveCollapsed ? "px-2" : "px-4")}>
           <div className="space-y-6 py-2">
             
             {/* TODAY section */}
             {today.length > 0 && (
               <div>
-                {!isCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Today</h3>}
+                {!effectiveCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Today</h3>}
                 <div className="space-y-1">
                   {today.map((chat) => (
                     <Button
@@ -331,15 +348,15 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
                       data-testid={`button-chat-${chat.id}`}
                       variant="ghost"
                       onClick={() => handleChatClick(chat.id)}
-                      title={isCollapsed ? chat.title : undefined}
+                      title={effectiveCollapsed ? chat.title : undefined}
                       className={cn(
                         "font-normal text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-lg overflow-hidden",
-                        isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3 h-9 px-2",
+                        effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3 h-9 px-2",
                         currentChatId === chat.id && "bg-secondary/50 text-foreground"
                       )}
                     >
                       <MessageSquare className="h-4 w-4 shrink-0" />
-                      {!isCollapsed && <span className="truncate">{chat.title}</span>}
+                      {!effectiveCollapsed && <span className="truncate">{chat.title}</span>}
                     </Button>
                   ))}
                 </div>
@@ -349,7 +366,7 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
             {/* YESTERDAY section */}
             {yesterday.length > 0 && (
               <div>
-                {!isCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Yesterday</h3>}
+                {!effectiveCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Yesterday</h3>}
                 <div className="space-y-1">
                   {yesterday.map((chat) => (
                     <Button
@@ -357,15 +374,15 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
                       data-testid={`button-chat-${chat.id}`}
                       variant="ghost"
                       onClick={() => handleChatClick(chat.id)}
-                      title={isCollapsed ? chat.title : undefined}
+                      title={effectiveCollapsed ? chat.title : undefined}
                       className={cn(
                         "font-normal text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-lg overflow-hidden",
-                        isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3 h-9 px-2",
+                        effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3 h-9 px-2",
                         currentChatId === chat.id && "bg-secondary/50 text-foreground"
                       )}
                     >
                       <MessageSquare className="h-4 w-4 shrink-0" />
-                      {!isCollapsed && <span className="truncate">{chat.title}</span>}
+                      {!effectiveCollapsed && <span className="truncate">{chat.title}</span>}
                     </Button>
                   ))}
                 </div>
@@ -375,7 +392,7 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
             {/* PREVIOUS 7 DAYS section */}
             {previous7Days.length > 0 && (
               <div>
-                {!isCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Previous 7 Days</h3>}
+                {!effectiveCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Previous 7 Days</h3>}
                 <div className="space-y-1">
                   {previous7Days.map((chat) => (
                     <Button
@@ -383,15 +400,15 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
                       data-testid={`button-chat-${chat.id}`}
                       variant="ghost"
                       onClick={() => handleChatClick(chat.id)}
-                      title={isCollapsed ? chat.title : undefined}
+                      title={effectiveCollapsed ? chat.title : undefined}
                       className={cn(
                         "font-normal text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-lg overflow-hidden",
-                        isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3 h-9 px-2",
+                        effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3 h-9 px-2",
                         currentChatId === chat.id && "bg-secondary/50 text-foreground"
                       )}
                     >
                       <MessageSquare className="h-4 w-4 shrink-0" />
-                      {!isCollapsed && <span className="truncate">{chat.title}</span>}
+                      {!effectiveCollapsed && <span className="truncate">{chat.title}</span>}
                     </Button>
                   ))}
                 </div>
@@ -401,7 +418,7 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
             {/* OLDER section */}
             {older.length > 0 && (
               <div>
-                {!isCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Older</h3>}
+                {!effectiveCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-3 px-2">Older</h3>}
                 <div className="space-y-1">
                   {older.map((chat) => (
                     <Button
@@ -409,15 +426,15 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
                       data-testid={`button-chat-${chat.id}`}
                       variant="ghost"
                       onClick={() => handleChatClick(chat.id)}
-                      title={isCollapsed ? chat.title : undefined}
+                      title={effectiveCollapsed ? chat.title : undefined}
                       className={cn(
                         "font-normal text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-lg overflow-hidden",
-                        isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3 h-9 px-2",
+                        effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3 h-9 px-2",
                         currentChatId === chat.id && "bg-secondary/50 text-foreground"
                       )}
                     >
                       <MessageSquare className="h-4 w-4 shrink-0" />
-                      {!isCollapsed && <span className="truncate">{chat.title}</span>}
+                      {!effectiveCollapsed && <span className="truncate">{chat.title}</span>}
                     </Button>
                   ))}
                 </div>
@@ -432,9 +449,9 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
          * Scrollable to accommodate all tools on small screens
          */}
         <ScrollArea className="mt-auto border-t border-border/50 max-h-[50vh]">
-        <div className={cn("space-y-1", isCollapsed ? "p-2" : "p-4")}>
+        <div className={cn("space-y-1", effectiveCollapsed ? "p-2" : "p-4")}>
           {/* AI Studio Section Header */}
-          {!isCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-2 px-2">AI Studio</h3>}
+          {!effectiveCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-2 px-2">AI Studio</h3>}
           
           {/* Image Studio Button */}
           <Link href="/image">
@@ -442,14 +459,14 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/image" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Image Studio" : undefined}
+              title={effectiveCollapsed ? "Image Studio" : undefined}
               data-testid="button-image"
             >
               <Image className="h-4 w-4" />
-              {!isCollapsed && "Image Studio"}
+              {!effectiveCollapsed && "Image Studio"}
             </Button>
           </Link>
           
@@ -459,14 +476,14 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/music" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Music Generation" : undefined}
+              title={effectiveCollapsed ? "Music Generation" : undefined}
               data-testid="button-music"
             >
               <Music className="h-4 w-4" />
-              {!isCollapsed && "Music Generation"}
+              {!effectiveCollapsed && "Music Generation"}
             </Button>
           </Link>
           
@@ -476,14 +493,14 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/speech" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Speech Generation" : undefined}
+              title={effectiveCollapsed ? "Speech Generation" : undefined}
               data-testid="button-speech"
             >
               <Mic className="h-4 w-4" />
-              {!isCollapsed && "Speech Generation"}
+              {!effectiveCollapsed && "Speech Generation"}
             </Button>
           </Link>
           
@@ -493,19 +510,19 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/google" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Google Services" : undefined}
+              title={effectiveCollapsed ? "Google Services" : undefined}
               data-testid="button-google"
             >
               <Cloud className="h-4 w-4" />
-              {!isCollapsed && "Google Services"}
+              {!effectiveCollapsed && "Google Services"}
             </Button>
           </Link>
           
           {/* Tools Section Header */}
-          {!isCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-2 mt-4 px-2">Tools</h3>}
+          {!effectiveCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-2 mt-4 px-2">Tools</h3>}
           
           {/* Python Sandbox Button */}
           <Link href="/python">
@@ -513,14 +530,14 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/python" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Python Sandbox" : undefined}
+              title={effectiveCollapsed ? "Python Sandbox" : undefined}
               data-testid="button-python"
             >
               <FileCode className="h-4 w-4" />
-              {!isCollapsed && "Python Sandbox"}
+              {!effectiveCollapsed && "Python Sandbox"}
             </Button>
           </Link>
           
@@ -530,14 +547,14 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/testing" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Playwright Testing" : undefined}
+              title={effectiveCollapsed ? "Playwright Testing" : undefined}
               data-testid="button-testing"
             >
               <TestTube className="h-4 w-4" />
-              {!isCollapsed && "Playwright Testing"}
+              {!effectiveCollapsed && "Playwright Testing"}
             </Button>
           </Link>
           
@@ -547,14 +564,14 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/search" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Web Search" : undefined}
+              title={effectiveCollapsed ? "Web Search" : undefined}
               data-testid="button-web-search"
             >
               <Globe className="h-4 w-4" />
-              {!isCollapsed && "Web Search"}
+              {!effectiveCollapsed && "Web Search"}
             </Button>
           </Link>
           
@@ -564,14 +581,14 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/help" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Help & FAQ" : undefined}
+              title={effectiveCollapsed ? "Help & FAQ" : undefined}
               data-testid="button-help"
             >
               <HelpCircle className="h-4 w-4" />
-              {!isCollapsed && "Help & FAQ"}
+              {!effectiveCollapsed && "Help & FAQ"}
             </Button>
           </Link>
           
@@ -581,14 +598,14 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/editor" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Editor" : undefined}
+              title={effectiveCollapsed ? "Editor" : undefined}
               data-testid="button-editor"
             >
               <Code className="h-4 w-4" />
-              {!isCollapsed && "Editor"}
+              {!effectiveCollapsed && "Editor"}
             </Button>
           </Link>
           
@@ -598,14 +615,14 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/terminal" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Terminal" : undefined}
+              title={effectiveCollapsed ? "Terminal" : undefined}
               data-testid="button-terminal"
             >
               <Terminal className="h-4 w-4" />
-              {!isCollapsed && "Terminal"}
+              {!effectiveCollapsed && "Terminal"}
             </Button>
           </Link>
           
@@ -615,14 +632,14 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/debug" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Debug" : undefined}
+              title={effectiveCollapsed ? "Debug" : undefined}
               data-testid="button-debug"
             >
               <Bug className="h-4 w-4" />
-              {!isCollapsed && "Debug"}
+              {!effectiveCollapsed && "Debug"}
             </Button>
           </Link>
           
@@ -632,14 +649,14 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/evolution" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Evolution Engine" : undefined}
+              title={effectiveCollapsed ? "Evolution Engine" : undefined}
               data-testid="button-evolution"
             >
               <Brain className="h-4 w-4" />
-              {!isCollapsed && "Evolution Engine"}
+              {!effectiveCollapsed && "Evolution Engine"}
             </Button>
           </Link>
           
@@ -649,14 +666,14 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/schedules" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Schedules" : undefined}
+              title={effectiveCollapsed ? "Schedules" : undefined}
               data-testid="button-schedules"
             >
               <Calendar className="h-4 w-4" />
-              {!isCollapsed && "Schedules"}
+              {!effectiveCollapsed && "Schedules"}
             </Button>
           </Link>
           
@@ -666,14 +683,14 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               variant="ghost" 
               className={cn(
                 "font-normal text-muted-foreground hover:text-foreground",
-                isCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
                 location === "/settings" && "bg-secondary/50 text-foreground"
               )}
-              title={isCollapsed ? "Settings" : undefined}
+              title={effectiveCollapsed ? "Settings" : undefined}
               data-testid="button-settings"
             >
               <Settings className="h-4 w-4" />
-              {!isCollapsed && "Settings"}
+              {!effectiveCollapsed && "Settings"}
             </Button>
           </Link>
           
@@ -681,8 +698,8 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
         </ScrollArea>
         
         {/* Status Bar - ALWAYS VISIBLE at bottom, outside ScrollArea */}
-        <div className={cn("border-t border-border/50 shrink-0", isCollapsed ? "p-2" : "p-4")}>
-          {!isCollapsed && (
+        <div className={cn("border-t border-border/50 shrink-0", effectiveCollapsed ? "p-2" : "p-4")}>
+          {!effectiveCollapsed && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Button
@@ -741,7 +758,7 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               </div>
             </div>
           )}
-          {isCollapsed && (
+          {effectiveCollapsed && (
             <div className="flex flex-col items-center">
               <Button
                 variant="ghost"
