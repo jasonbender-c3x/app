@@ -11,7 +11,7 @@ export default function HelpPage() {
       icon: MessageSquare
     },
     {
-      question: "What can Meowstic help me with?",
+      question: "What can Meowstik help me with?",
       answer: "This clever cat can assist with writing, coding, analysis, brainstorming, answering questions, and integrating with Google Workspace services like Drive, Gmail, Calendar, Docs, Sheets, and Tasks. Purrfect for any task!",
       icon: Sparkles
     },
@@ -22,7 +22,7 @@ export default function HelpPage() {
     },
     {
       question: "Can I attach files to my messages?",
-      answer: "Yes! You can attach images and documents using the attachment button in the input area. Meowstic can analyze and discuss the content of your files like a curious cat inspecting something new.",
+      answer: "Yes! You can attach images and documents using the attachment button in the input area. Meowstik can analyze and discuss the content of your files like a curious cat inspecting something new.",
       icon: FileText
     },
     {
@@ -55,7 +55,7 @@ export default function HelpPage() {
         <ScrollArea className="h-[calc(100vh-200px)]">
           <div className="space-y-6">
             <p className="text-muted-foreground text-lg">
-              Welcome to Meowstic! 🐱 Here you'll find answers to common questions and guidance on how to get the most out of your purrfect AI assistant.
+              Welcome to Meowstik! 🐱 Here you'll find answers to common questions and guidance on how to get the most out of your purrfect AI assistant.
             </p>
 
             <div className="space-y-4">
@@ -84,7 +84,7 @@ export default function HelpPage() {
                 Need More Help?
               </h2>
               <p className="text-muted-foreground">
-                If you have additional questions or need personalized assistance, feel free to ask Meowstic directly in the chat. This curious cat is designed to help you with a wide range of tasks and questions. Just say "meow"! 🐾
+                If you have additional questions or need personalized assistance, feel free to ask Meowstik directly in the chat. This curious cat is designed to help you with a wide range of tasks and questions. Just say "meow"! 🐾
               </p>
             </div>
 

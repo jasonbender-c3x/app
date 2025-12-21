@@ -1,7 +1,7 @@
-# Nebula Chat
+# Meowstik
 
 ## Overview
-Nebula Chat is a next-generation AI chat interface powered by Google's Generative AI, integrating Google Workspace services (Drive, Gmail, Calendar, Docs, Sheets, Tasks) and featuring an HTML/CSS/JS editor with live preview. It aims to provide a modern, user-friendly, and powerful conversational AI experience with a clean, Google-esque design. The project also includes ambitious features for a self-evolving AI system, encompassing advanced AI integrations for speech, music, and image generation, a robust knowledge ingestion pipeline, and a workflow orchestration engine.
+Meowstik is a next-generation AI chat interface powered by Google's Generative AI, integrating Google Workspace services (Drive, Gmail, Calendar, Docs, Sheets, Tasks) and featuring an HTML/CSS/JS editor with live preview. It aims to provide a modern, user-friendly, and powerful conversational AI experience with a clean, Google-esque design. The project also includes ambitious features for a self-evolving AI system, encompassing advanced AI integrations for speech, music, and image generation, a robust knowledge ingestion pipeline, and a workflow orchestration engine.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.

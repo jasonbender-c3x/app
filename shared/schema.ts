@@ -3,7 +3,7 @@
  * NEBULA CHAT - DATABASE SCHEMA DEFINITIONS
  * =============================================================================
  * 
- * This file defines the complete data model for the Nebula Chat application.
+ * This file defines the complete data model for the Meowstik application.
  * It uses Drizzle ORM to define PostgreSQL table schemas and generates
  * TypeScript types for type-safe database operations throughout the app.
  * 

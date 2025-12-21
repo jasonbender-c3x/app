@@ -783,7 +783,7 @@ export function ChatInputArea({ onSend, isLoading, promptHistory = [] }: InputAr
                 }
               }}
               onKeyDown={handleKeyDown}
-              placeholder={ghostText !== null ? "" : "Ask Meowstic anything..."}
+              placeholder={ghostText !== null ? "" : "Ask Meowstik anything..."}
               className="w-full bg-transparent border-none resize-none outline-none text-base max-h-[200px] min-h-[24px] placeholder:text-muted-foreground relative z-10"
               rows={1}
               data-testid="input-chat-message"

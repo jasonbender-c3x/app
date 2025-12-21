@@ -1,7 +1,7 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║                     WEB SEARCH INTEGRATION MODULE                          ║
- * ║                   Nebula Chat - Google Custom Search                       ║
+ * ║                   Meowstik - Google Custom Search                       ║
  * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
  * This module provides web search capabilities using Google Custom Search API.

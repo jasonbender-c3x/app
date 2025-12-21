@@ -1,4 +1,4 @@
-# Nebula Chat (Meowstic) - System Overview
+# Meowstik (Meowstik) - System Overview
 
 > **Comprehensive System Architecture Documentation**
 > Last Updated: December 2025
@@ -21,7 +21,7 @@
 
 ## Executive Summary
 
-**Nebula Chat** (codename: **Meowstic**) is a next-generation AI assistant application powered by Google's Generative AI (Gemini). It integrates with Google Workspace services, GitHub, and features advanced capabilities including streaming responses, multimodal input processing, code editing with live preview, and a feedback-driven evolution system.
+**Meowstik** (codename: **Meowstik**) is a next-generation AI assistant application powered by Google's Generative AI (Gemini). It integrates with Google Workspace services, GitHub, and features advanced capabilities including streaming responses, multimodal input processing, code editing with live preview, and a feedback-driven evolution system.
 
 ### Key Personas
 - **End Users**: Interact with the AI via chat, voice, and file attachments
@@ -41,7 +41,7 @@
 
 ## 1. Experience Layer
 
-The user-facing components that deliver the Nebula Chat experience.
+The user-facing components that deliver the Meowstik experience.
 
 ### 1.1 Chat Interface
 
@@ -453,5 +453,5 @@ npm run db:push --force # Force sync (use carefully)
 
 ---
 
-*Nebula Chat (Meowstic) - AI-Powered Productivity Companion*
+*Meowstik (Meowstik) - AI-Powered Productivity Companion*
 *System Overview v1.0 - December 2025*

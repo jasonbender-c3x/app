@@ -118,7 +118,7 @@ const defaultCode = `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <h1>Welcome to Meowstic Editor</h1>
+  <h1>Welcome to Meowstik Editor</h1>
   <p>Start editing to see changes in the preview!</p>
   <div class="card">
     <h2>Getting Started</h2>
@@ -270,7 +270,7 @@ export default function EditorPage() {
           {/* Editor Branding */}
           <div className="flex items-center gap-2">
             <FileCode className="h-5 w-5 text-primary" />
-            <span className="font-display font-semibold text-lg">Meowstic Editor</span>
+            <span className="font-display font-semibold text-lg">Meowstik Editor</span>
           </div>
         </div>
 

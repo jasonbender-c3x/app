@@ -1,6 +1,6 @@
 # Gemini Live API Integration Proposal
 
-**Author**: Nebula Chat Development  
+**Author**: Meowstik Development  
 **Date**: December 13, 2025  
 **Status**: Proposed  
 **Priority**: High
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-This document proposes integrating the **Gemini Live API** to enable real-time streaming audio responses in Nebula Chat. The current implementation generates complete audio files before playback, causing noticeable delays. The Live API uses WebSockets for bidirectional streaming, allowing audio to play as it's generated—eliminating latency and creating a more natural conversational experience.
+This document proposes integrating the **Gemini Live API** to enable real-time streaming audio responses in Meowstik. The current implementation generates complete audio files before playback, causing noticeable delays. The Live API uses WebSockets for bidirectional streaming, allowing audio to play as it's generated—eliminating latency and creating a more natural conversational experience.
 
 ---
 
@@ -98,7 +98,7 @@ export async function createLiveSession(sessionId: string): Promise<void> {
         prebuiltVoiceConfig: { voiceName: 'Kore' }
       }
     },
-    systemInstruction: 'You are Meowstic, a helpful AI assistant.'
+    systemInstruction: 'You are Meowstik, a helpful AI assistant.'
   };
   
   const session = await ai.live.connect(

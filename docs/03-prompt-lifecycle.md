@@ -1,4 +1,4 @@
-# Nebula Chat - The Life of a Prompt
+# Meowstik - The Life of a Prompt
 
 ## Overview
 

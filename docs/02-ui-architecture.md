@@ -1,8 +1,8 @@
-# Nebula Chat - UI Architecture Documentation
+# Meowstik - UI Architecture Documentation
 
 ## Overview
 
-Nebula Chat features a modern, Google-esque user interface built with React, TypeScript, and Tailwind CSS. The design emphasizes simplicity, clarity, and accessibility while providing a sophisticated multimodal chat experience.
+Meowstik features a modern, Google-esque user interface built with React, TypeScript, and Tailwind CSS. The design emphasizes simplicity, clarity, and accessibility while providing a sophisticated multimodal chat experience.
 
 ---
 
@@ -96,7 +96,7 @@ The sidebar displays the list of chat conversations with navigation capabilities
 
 ```
 ┌────────────────────────┐
-│  Nebula Chat     [+]   │  ← Header with new chat button
+│  Meowstik     [+]   │  ← Header with new chat button
 ├────────────────────────┤
 │  ┌──────────────────┐  │
 │  │ Chat Title 1     │  │  ← Chat list items
@@ -274,7 +274,7 @@ const sendMessage = useMutation({
 
 ## Animation System
 
-Nebula Chat uses Framer Motion for smooth, polished animations:
+Meowstik uses Framer Motion for smooth, polished animations:
 
 ### Attachment Preview Animation
 

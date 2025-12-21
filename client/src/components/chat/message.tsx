@@ -380,10 +380,10 @@ export function ChatMessage({ role, content, isThinking, metadata, createdAt, id
         <div className="flex items-center gap-2 flex-wrap">
           {/* Sender Name */}
           <span className="text-sm font-semibold">
-            {role === "user" ? "You" : "Meowstic"}
+            {role === "user" ? "You" : "Meowstik"}
           </span>
           
-          {/* Timestamp (AI only) - Same font/size as Meowstic */}
+          {/* Timestamp (AI only) - Same font/size as Meowstik */}
           {role === "ai" && createdAt && (
             <span className="text-sm font-semibold text-muted-foreground">
               {formatTimestamp(createdAt)}

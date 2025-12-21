@@ -1,7 +1,7 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║                   GOOGLE SHEETS INTEGRATION MODULE                        ║
- * ║                  Nebula Chat - Spreadsheet Service                        ║
+ * ║                  Meowstik - Spreadsheet Service                        ║
  * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
  * This module provides integration with Google Sheets API v4 for spreadsheet

@@ -1,8 +1,8 @@
-# Nebula Chat - Tool Call Schema
+# Meowstik - Tool Call Schema
 
 ## Overview
 
-Nebula Chat uses a structured tool call system that allows the AI to request operations to be executed by the backend. This document defines the complete schema for tool calls and the output format.
+Meowstik uses a structured tool call system that allows the AI to request operations to be executed by the backend. This document defines the complete schema for tool calls and the output format.
 
 ---
 

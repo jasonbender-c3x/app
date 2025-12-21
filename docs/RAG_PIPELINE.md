@@ -1,13 +1,13 @@
 # RAG Pipeline: Document & Chat Ingestion, Chunking, Vectorization, Storage, and Retrieval
 
-> **Technical Reference for the Nebula Chat Knowledge System**
+> **Technical Reference for the Meowstik Knowledge System**
 > Revision: 1.0 - December 2025
 
 ---
 
 ## Overview
 
-This document explains how Nebula Chat processes documents and chat messages through its Retrieval-Augmented Generation (RAG) pipeline. The system ingests content, breaks it into chunks, converts those chunks to vectors, stores them in the database, and retrieves relevant knowledge to augment AI prompts.
+This document explains how Meowstik processes documents and chat messages through its Retrieval-Augmented Generation (RAG) pipeline. The system ingests content, breaks it into chunks, converts those chunks to vectors, stores them in the database, and retrieves relevant knowledge to augment AI prompts.
 
 ---
 
@@ -378,7 +378,7 @@ formatForPrompt(result: RetrievalResult): string {
 
 ## Known Entities
 - [ENTITY: person] Max: User's pet dog
-- [ENTITY: project] Nebula Chat: Current project being developed
+- [ENTITY: project] Meowstik: Current project being developed
 </retrieved_knowledge>
 
 [User Message]

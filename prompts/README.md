@@ -1,8 +1,8 @@
-# Nebula Chat - System Prompt Architecture
+# Meowstik - System Prompt Architecture
 
 ## Overview
 
-This directory contains the modular system prompt configuration for Nebula, the AI assistant powering Nebula Chat. The prompt is split into separate files for maintainability, versioning, and easy customization.
+This directory contains the modular system prompt configuration for Nebula, the AI assistant powering Meowstik. The prompt is split into separate files for maintainability, versioning, and easy customization.
 
 ## File Structure
 

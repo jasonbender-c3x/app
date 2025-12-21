@@ -1,7 +1,7 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║                    GOOGLE TASKS INTEGRATION MODULE                        ║
- * ║                    Nebula Chat - Task Management                          ║
+ * ║                    Meowstik - Task Management                          ║
  * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
  * This module provides integration with Google Tasks API v1 for task management.

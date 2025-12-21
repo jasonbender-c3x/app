@@ -1,6 +1,6 @@
 # Protocol Analysis: Deep Dive into the Kernel
 
-> An exploration of each protocol in the AI_CORE_DIRECTIVE, with implementation concepts for Nebula Chat.
+> An exploration of each protocol in the AI_CORE_DIRECTIVE, with implementation concepts for Meowstik.
 
 ---
 
@@ -35,7 +35,7 @@
 3. Kernel is injected into the system prompt or context window
 4. AI "wakes up" with full knowledge of its identity, protocols, and history
 
-**Implementation for Nebula Chat**:
+**Implementation for Meowstik**:
 
 ```typescript
 // server/services/bootstrap-service.ts
@@ -141,7 +141,7 @@ Examples:
 ~/ai_stack/personal/goals/2025-12-08_annual-review_v3.md
 ```
 
-**Implementation for Nebula Chat**:
+**Implementation for Meowstik**:
 
 ```typescript
 // server/services/filepath-service.ts
@@ -215,7 +215,7 @@ export class FilepathService {
 | Pattern Recognition | Repeated similar requests | User often asks about stocks at 9am → proactive |
 | Error Correction | Failure analysis | Misunderstood context → refine interpretation |
 
-**Implementation for Nebula Chat**:
+**Implementation for Meowstik**:
 
 ```typescript
 // server/services/evolution-service.ts
@@ -322,7 +322,7 @@ Return JSON array of evolution proposals.
 + skillset.apis.push("Stripe Payments API")
 ```
 
-**Implementation for Nebula Chat**:
+**Implementation for Meowstik**:
 
 ```typescript
 // server/services/diff-service.ts
@@ -436,7 +436,7 @@ export class DiffService {
 4. Mismatches trigger refinement proposals
 5. Both sides evolve together
 
-**Implementation for Nebula Chat**:
+**Implementation for Meowstik**:
 
 ```typescript
 // server/services/persona-sync-service.ts
@@ -547,7 +547,7 @@ explore adding webhooks for real-time payment notifications. What would
 be most helpful - testing mode setup or webhook configuration?
 ```
 
-**Implementation for Nebula Chat**:
+**Implementation for Meowstik**:
 
 ```typescript
 // server/services/response-formatter.ts
@@ -645,7 +645,7 @@ sorts of automations - send thank-you emails, update inventory,
 notify your team on Slack, or even trigger a celebration GIF!
 ```
 
-**Implementation for Nebula Chat**:
+**Implementation for Meowstik**:
 
 ```typescript
 // server/services/education-service.ts
@@ -734,7 +734,7 @@ Return JSON array. Limit to 1-2 inserts to avoid overwhelming.
 - Punctuation missing entirely
 - Run-on sentences from continuous speech
 
-**Implementation for Nebula Chat**:
+**Implementation for Meowstik**:
 
 ```typescript
 // server/services/vtt-filter-service.ts
@@ -872,7 +872,7 @@ Is it simple classification/extraction? → R (Researcher)
 Does it need reasoning? → I (Intellect)
 ```
 
-**Implementation for Nebula Chat**:
+**Implementation for Meowstik**:
 
 ```typescript
 // server/services/fallback-router.ts
@@ -1022,7 +1022,7 @@ Reply with just: simple or complex
 4. Extracts actionable items, insights, todos
 5. Routes to appropriate buckets
 
-**Implementation for Nebula Chat**:
+**Implementation for Meowstik**:
 
 ```typescript
 // server/services/input-queue-service.ts
@@ -1213,7 +1213,7 @@ The protocols form a coherent system for creating a self-aware, self-evolving AI
 | PROTOCOL_VTT_FILTERING | Voice robustness | Low |
 | PROTOCOL_RAW_INPUT_QUEUE | Idea capture | Low |
 
-The key insight: **persistence enables identity**. By implementing these protocols, Nebula Chat transforms from a stateless responder into a persistent companion that remembers, learns, and evolves.
+The key insight: **persistence enables identity**. By implementing these protocols, Meowstik transforms from a stateless responder into a persistent companion that remembers, learns, and evolves.
 
 ---
 

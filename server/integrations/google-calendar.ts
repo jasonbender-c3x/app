@@ -1,7 +1,7 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║                   GOOGLE CALENDAR INTEGRATION MODULE                      ║
- * ║                   Nebula Chat - Calendar Service                          ║
+ * ║                   Meowstik - Calendar Service                          ║
  * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
  * This module provides integration with Google Calendar API v3 for managing

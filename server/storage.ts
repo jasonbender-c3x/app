@@ -3,7 +3,7 @@
  * NEBULA CHAT - DATABASE STORAGE LAYER
  * =============================================================================
  * 
- * This file implements the data access layer for the Nebula Chat application.
+ * This file implements the data access layer for the Meowstik application.
  * It provides a clean abstraction between the business logic (routes) and
  * the underlying PostgreSQL database using Drizzle ORM.
  * 

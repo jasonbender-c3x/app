@@ -295,7 +295,7 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
           {/* Logo and Brand Name */}
           <div className={cn("flex items-center gap-3", effectiveCollapsed ? "px-0" : "px-2")}>
              <img src={logo} alt="Logo" className="w-8 h-8 rounded-lg" />
-             {!effectiveCollapsed && <span className="font-display font-semibold text-lg tracking-tight">Meowstic</span>}
+             {!effectiveCollapsed && <span className="font-display font-semibold text-lg tracking-tight">Meowstik</span>}
           </div>
           
           {/* Collapse toggle button - only visible on desktop */}

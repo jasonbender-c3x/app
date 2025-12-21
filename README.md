@@ -1,4 +1,4 @@
-# Nebula Chat
+# Meowstik
 
 A next-generation AI chat interface built with modern web technologies, featuring conversational AI powered by Google's Gemini, integrated Google Workspace services, and a code editor with live preview.
 
@@ -22,7 +22,7 @@ A next-generation AI chat interface built with modern web technologies, featurin
 
 ### 1. AI-Powered Chat Interface
 
-The core feature of Nebula Chat is a conversational AI assistant powered by Google's Gemini model.
+The core feature of Meowstik is a conversational AI assistant powered by Google's Gemini model.
 
 - **Real-time Streaming Responses**: AI responses stream in word-by-word using Server-Sent Events (SSE), providing a natural conversation feel
 - **Chat History**: All conversations are persisted to a PostgreSQL database and organized in a collapsible sidebar
@@ -51,7 +51,7 @@ View your HTML/CSS/JS code rendered in a sandboxed environment.
 
 ### 4. Google Workspace Integration
 
-Access and manage your Google account services directly from Nebula Chat.
+Access and manage your Google account services directly from Meowstik.
 
 #### Google Drive
 - Browse files and folders

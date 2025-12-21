@@ -67,7 +67,7 @@
 
 ### Open Questions
 
-- [ ] How to implement self-evolution protocols in Nebula Chat?
+- [ ] How to implement self-evolution protocols in Meowstik?
 - [ ] Should session logs be structured as JSON for machine parsing?
 - [ ] How to integrate the Cognitive Cascade into the existing chat flow?
 

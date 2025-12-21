@@ -3,7 +3,7 @@
  * NEBULA CHAT - SERVER ENTRY POINT
  * =============================================================================
  * 
- * This is the main entry point for the Nebula Chat backend server.
+ * This is the main entry point for the Meowstik backend server.
  * It initializes and configures the Express.js application, sets up
  * middleware, registers API routes, and starts the HTTP server.
  * 

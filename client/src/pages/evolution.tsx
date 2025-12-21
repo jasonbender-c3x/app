@@ -186,7 +186,7 @@ export default function EvolutionPage() {
                 Feedback
               </h1>
               <p className="text-muted-foreground mt-1">
-                Share your thoughts and help improve Meowstic
+                Share your thoughts and help improve Meowstik
               </p>
             </div>
           </div>

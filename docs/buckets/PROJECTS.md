@@ -6,7 +6,7 @@
 
 ## Active Projects
 
-### Nebula Chat
+### Meowstik
 **Status**: Active Development
 **Location**: This repository
 **Purpose**: Next-generation AI chat interface with self-evolution

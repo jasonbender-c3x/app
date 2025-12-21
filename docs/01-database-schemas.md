@@ -1,8 +1,8 @@
-# Nebula Chat - Database Schema Documentation
+# Meowstik - Database Schema Documentation
 
 ## Overview
 
-Nebula Chat uses PostgreSQL with Drizzle ORM for data persistence. The schema is designed around a conversational AI interface with support for multimodal inputs, tool execution, and audit logging.
+Meowstik uses PostgreSQL with Drizzle ORM for data persistence. The schema is designed around a conversational AI interface with support for multimodal inputs, tool execution, and audit logging.
 
 ---
 

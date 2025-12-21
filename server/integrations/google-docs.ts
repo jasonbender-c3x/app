@@ -1,7 +1,7 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║                    GOOGLE DOCS INTEGRATION MODULE                         ║
- * ║                  Nebula Chat - Document Service                           ║
+ * ║                  Meowstik - Document Service                           ║
  * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
  * This module provides integration with Google Docs API v1 for document operations.

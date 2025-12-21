@@ -1,10 +1,10 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║                        API ROUTES CONFIGURATION                           ║
- * ║                     Nebula Chat - Express Route Handlers                  ║
+ * ║                     Meowstik - Express Route Handlers                  ║
  * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
- * This file defines all HTTP API endpoints for the Nebula Chat application.
+ * This file defines all HTTP API endpoints for the Meowstik application.
  * The routes are organized into several logical groups:
  * 
  * ┌─────────────────────────────────────────────────────────────────────────────┐

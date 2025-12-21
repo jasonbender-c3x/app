@@ -1,7 +1,7 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║                    GOOGLE DRIVE INTEGRATION MODULE                        ║
- * ║                   Nebula Chat - File Storage Service                      ║
+ * ║                   Meowstik - File Storage Service                      ║
  * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
  * This module provides integration with Google Drive API v3 for file operations.

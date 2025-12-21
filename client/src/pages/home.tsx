@@ -627,7 +627,7 @@ export default function Home() {
             <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(true)}>
               <Menu className="h-6 w-6" />
             </Button>
-            <span className="ml-3 font-display font-semibold text-lg">Meowstic</span>
+            <span className="ml-3 font-display font-semibold text-lg">Meowstik</span>
           </div>
           <div className="flex items-center gap-1">
             {/* Mobile Error Indicator - shows when there are API errors */}
@@ -728,7 +728,7 @@ export default function Home() {
                {/* Cat Logo with glow effect */}
                <div className="mb-8 relative">
                   <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full"></div>
-                  <img src={logo} alt="Meowstic Logo" className="w-24 h-24 rounded-2xl relative z-10 shadow-2xl shadow-primary/20" data-testid="img-logo" />
+                  <img src={logo} alt="Meowstik Logo" className="w-24 h-24 rounded-2xl relative z-10 shadow-2xl shadow-primary/20" data-testid="img-logo" />
                </div>
                
               {/* Welcome Heading */}

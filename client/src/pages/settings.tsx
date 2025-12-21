@@ -461,9 +461,9 @@ export default function SettingsPage() {
             </section>
 
             <div className="p-6 rounded-xl border border-border bg-gradient-to-br from-primary/5 to-primary/10">
-              <h2 className="text-lg font-semibold mb-2">About Meowstic</h2>
+              <h2 className="text-lg font-semibold mb-2">About Meowstik</h2>
               <p className="text-muted-foreground text-sm mb-3">
-                Meowstic is a purrfect AI assistant powered by Google's Gemini models, with integrated Google Workspace services. Always curious, always helpful!
+                Meowstik is a purrfect AI assistant powered by Google's Gemini models, with integrated Google Workspace services. Always curious, always helpful!
               </p>
               <p className="text-xs text-muted-foreground">Version 9.lives</p>
             </div>

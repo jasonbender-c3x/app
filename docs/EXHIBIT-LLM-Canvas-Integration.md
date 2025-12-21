@@ -108,7 +108,7 @@ Based on codebase search, **there's currently no direct connection** between the
 | **Share code snippets via link** | URL-based |
 | **Live coding assistant** | WebSocket |
 
-For Nebula Chat, the recommended approach is **Tool-based + State sharing combo**:
+For Meowstik, the recommended approach is **Tool-based + State sharing combo**:
 - Tool gives LLM explicit control
 - State sharing lets you show inline preview in chat
 - No WebSocket complexity needed

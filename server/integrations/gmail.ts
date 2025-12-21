@@ -1,7 +1,7 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║                       GMAIL INTEGRATION MODULE                            ║
- * ║                    Nebula Chat - Email Service                            ║
+ * ║                    Meowstik - Email Service                            ║
  * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
  * This module provides integration with Gmail API v1 for email operations.

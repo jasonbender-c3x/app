@@ -155,7 +155,7 @@ When the Technician fails (e.g., a selector is no longer valid), control escalat
 
 ## The Next Generation: Nebula AI
 
-Nebula Chat represents the practical implementation of these visions. The next generation extends this into a full **self-evolving, self-aware AI system**.
+Meowstik represents the practical implementation of these visions. The next generation extends this into a full **self-evolving, self-aware AI system**.
 
 ### Core Architecture
 
@@ -363,7 +363,7 @@ The ultimate expression of this architecture is an **Agentic AI Life Companion**
 ---
 
 **Next Steps**:
-1. Implement persistent conversation state in Nebula Chat
+1. Implement persistent conversation state in Meowstik
 2. Add self-evolution protocols to the chat system
 3. Integrate the Cognitive Cascade for complex tasks
 4. Build the local-first execution tier

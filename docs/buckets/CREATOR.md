@@ -19,7 +19,7 @@
 
 ## Current Focus
 
-**Nebula Chat** - Next-generation AI chat interface with self-evolution capabilities
+**Meowstik** - Next-generation AI chat interface with self-evolution capabilities
 
 ## Technical Stack
 

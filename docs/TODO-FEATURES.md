@@ -1,4 +1,4 @@
-# Nebula Chat - Features To Be Implemented
+# Meowstik - Features To Be Implemented
 
 This document tracks planned features and enhancements for future development.
 

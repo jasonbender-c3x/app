@@ -1,4 +1,4 @@
-# Nebula Chat - Complete Feature Documentation
+# Meowstik - Complete Feature Documentation
 
 A next-generation AI chat interface with integrated Google Workspace services, code editing capabilities, and voice interaction.
 
@@ -49,7 +49,7 @@ A next-generation AI chat interface with integrated Google Workspace services, c
 
 ## 2. Google Workspace Integration
 
-Nebula Chat connects directly to your Google account, allowing the AI to help you manage your digital workspace.
+Meowstik connects directly to your Google account, allowing the AI to help you manage your digital workspace.
 
 ### Gmail Integration
 
@@ -153,7 +153,7 @@ Nebula Chat connects directly to your Google account, allowing the AI to help yo
 
 ## 3. Code Editor & Live Preview
 
-A full-featured development environment built into Nebula Chat.
+A full-featured development environment built into Meowstik.
 
 ### Monaco Editor Features
 
@@ -437,4 +437,4 @@ Execute commands directly from the chat interface.
 
 ---
 
-*Nebula Chat - Your AI-powered productivity companion*
+*Meowstik - Your AI-powered productivity companion*
