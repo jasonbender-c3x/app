@@ -348,6 +348,16 @@ export async function registerRoutes(
       // Persist user message to database and get the saved message with ID
       const savedMessage = await storage.addMessage(userMessage);
 
+      // Ingest user message for RAG recall (async, don't block)
+      ragService.ingestMessage(
+        userMessage.content,
+        req.params.id,
+        savedMessage.id,
+        "user"
+      ).catch(error => {
+        console.error(`[RAG] Failed to ingest user message ${savedMessage.id}:`, error);
+      });
+
       // ─────────────────────────────────────────────────────────────────────
       // STEP 1.5: Process and save any attachments
       // ─────────────────────────────────────────────────────────────────────
@@ -678,12 +688,22 @@ export async function registerRoutes(
       
       const endTime = Date.now();
       
-      await storage.addMessage({
+      const savedAiMessage = await storage.addMessage({
         chatId: req.params.id,
         role: "ai",
         content: finalContent, // Store clean prose content (no tool JSON)
         geminiContent: geminiContentToStore,
         metadata: messageMetadata,
+      });
+
+      // Ingest AI response for RAG recall (async, don't block)
+      ragService.ingestMessage(
+        finalContent,
+        req.params.id,
+        savedAiMessage.id,
+        "ai"
+      ).catch(error => {
+        console.error(`[RAG] Failed to ingest AI message ${savedAiMessage.id}:`, error);
       });
 
       // Log to LLM debug buffer for debugging

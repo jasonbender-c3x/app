@@ -221,6 +221,10 @@ You can analyze documents, images, and other attachments. When users share files
     const ragContext = await ragService.buildContext(userMessage, 5);
     const ragContextString = ragService.formatContextForPrompt(ragContext);
 
+    // Retrieve relevant conversation context from past messages
+    const conversationContext = await ragService.buildConversationContext(userMessage, chatId, 5);
+    const conversationContextString = ragService.formatConversationContextForPrompt(conversationContext);
+
     // Perform web search if query would benefit from real-time information
     let webContextString = "";
     if (this.needsWebSearch(userMessage)) {
@@ -228,8 +232,8 @@ You can analyze documents, images, and other attachments. When users share files
       webContextString = await this.getWebSearchContext(userMessage);
     }
 
-    // Build system prompt with RAG context and web search results
-    const systemPrompt = this.buildSystemPrompt(composedAttachments, ragContextString, webContextString);
+    // Build system prompt with RAG context, conversation context, and web search results
+    const systemPrompt = this.buildSystemPrompt(composedAttachments, ragContextString, webContextString, conversationContextString);
 
     return {
       systemPrompt,
@@ -356,16 +360,16 @@ You can analyze documents, images, and other attachments. When users share files
 
   /**
    * Build system prompt from modular components
-   * Assembles: Core Directives + Personality + Tools + RAG Context + Web Search + Contextual Instructions
+   * Assembles: Core Directives + Personality + Tools + RAG Context + Conversation Context + Web Search + Contextual Instructions
    */
-  private buildSystemPrompt(attachments: ComposedAttachment[], ragContext?: string, webContext?: string): string {
+  private buildSystemPrompt(attachments: ComposedAttachment[], ragContext?: string, webContext?: string, conversationContext?: string): string {
     const parts: string[] = [
       this.coreDirectives,
       this.personality,
       this.tools
     ];
 
-    // Add RAG context if available
+    // Add RAG context if available (from uploaded documents)
     if (ragContext && ragContext.trim()) {
       parts.push(`
 ## Retrieved Knowledge Context
@@ -373,6 +377,11 @@ You can analyze documents, images, and other attachments. When users share files
 The following information was retrieved from previously uploaded documents and may be relevant to the user's query:
 
 ${ragContext}`);
+    }
+
+    // Add conversation context if available (from past messages)
+    if (conversationContext && conversationContext.trim()) {
+      parts.push(conversationContext);
     }
 
     // Add web search context if available

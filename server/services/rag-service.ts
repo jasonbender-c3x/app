@@ -261,6 +261,137 @@ Use this context to provide accurate, grounded responses. Cite sources when appr
       mimeType || undefined
     );
   }
+
+  /**
+   * Ingest a conversation message for RAG recall
+   * This allows the AI to remember important facts from earlier in conversations
+   */
+  async ingestMessage(
+    content: string,
+    chatId: string,
+    messageId: string,
+    role: "user" | "ai",
+    timestamp?: Date
+  ): Promise<IngestResult | null> {
+    // Skip very short messages (less than 20 chars) - not worth indexing
+    if (!content || content.trim().length < 20) {
+      return null;
+    }
+
+    // Skip messages that are just greetings or acknowledgments
+    const trivialPatterns = /^(hi|hello|hey|thanks|ok|okay|yes|no|sure|got it|understood)[\s.!?]*$/i;
+    if (trivialPatterns.test(content.trim())) {
+      return null;
+    }
+
+    const documentId = `msg-${chatId}-${messageId}`;
+    const filename = `conversation-${role}-${messageId}`;
+
+    try {
+      // Use sentence-based chunking for conversation messages
+      const chunks = await chunkingService.chunkDocument(
+        content,
+        documentId,
+        filename,
+        "text/plain",
+        { strategy: "sentence", maxChunkSize: 500, overlap: 50 }
+      );
+
+      if (chunks.length === 0) {
+        return null;
+      }
+
+      const chunkTexts = chunks.map((c) => c.content);
+      const embeddings = await embeddingService.embedBatch(chunkTexts);
+
+      for (let i = 0; i < chunks.length; i++) {
+        await storage.createDocumentChunk({
+          documentId,
+          attachmentId: `msg-${messageId}`,
+          chunkIndex: chunks[i].metadata.chunkIndex,
+          content: chunks[i].content,
+          embedding: embeddings[i].embedding,
+          metadata: {
+            ...chunks[i].metadata,
+            chatId,
+            messageId,
+            role,
+            timestamp: timestamp?.toISOString() || new Date().toISOString(),
+            type: "conversation",
+          },
+        });
+      }
+
+      console.log(`[RAG] Ingested ${role} message ${messageId}: ${chunks.length} chunks`);
+
+      return {
+        documentId,
+        chunksCreated: chunks.length,
+        success: true,
+      };
+    } catch (error) {
+      console.error(`[RAG] Message ingestion error for ${messageId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Build conversation context by retrieving relevant past messages
+   */
+  async buildConversationContext(query: string, chatId?: string, topK: number = 5): Promise<RAGContext> {
+    const { chunks, scores } = await this.retrieve(query, topK * 2, 0.4);
+
+    // Pair chunks with their scores and filter to conversation chunks from the same chat
+    const pairedChunks = chunks.map((chunk, index) => ({
+      chunk,
+      score: scores[index],
+    }));
+
+    // Filter to conversation chunks from the current chat
+    const conversationPairs = pairedChunks.filter(({ chunk }) => {
+      const meta = chunk.metadata as { type?: string; chatId?: string } | null;
+      const isConversation = meta?.type === "conversation";
+      const isSameChat = !chatId || meta?.chatId === chatId;
+      return isConversation && isSameChat;
+    }).slice(0, topK);
+
+    const relevantChunks = conversationPairs.map(({ chunk, score }) => {
+      const meta = chunk.metadata as { role?: string; chatId?: string; timestamp?: string } | null;
+      const role = meta?.role || "unknown";
+      const time = meta?.timestamp ? new Date(meta.timestamp).toLocaleDateString() : "";
+      return `[Previous ${role} message${time ? ` from ${time}` : ""}, relevance: ${score.toFixed(2)}]\n${chunk.content}`;
+    });
+
+    const sources = conversationPairs.map(({ chunk }) => {
+      const meta = chunk.metadata as { chatId?: string; messageId?: string } | null;
+      return {
+        documentId: chunk.documentId,
+        filename: `message-${meta?.messageId || "unknown"}`,
+        chunkIndex: chunk.chunkIndex,
+      };
+    });
+
+    return { relevantChunks, sources };
+  }
+
+  /**
+   * Format conversation context for prompt augmentation
+   */
+  formatConversationContextForPrompt(context: RAGContext): string {
+    if (context.relevantChunks.length === 0) {
+      return "";
+    }
+
+    return `
+## Recalled Conversation History
+
+The following excerpts from earlier in our conversations may be relevant:
+
+${context.relevantChunks.join("\n\n---\n\n")}
+
+Use this recalled context to maintain continuity and remember important facts the user has shared.
+`;
+  }
 }
 
 export const ragService = new RAGService();
