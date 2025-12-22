@@ -46,8 +46,9 @@ Even with no tools, use: `[]` then `✂️🐱` then your response.
 | `calendar_update` | `eventId:string`, `summary?:string`, `start?:string`, `end?:string`, `description?:string`, `calendarId?:string` | Update event |
 | `calendar_delete` | `eventId:string`, `calendarId?:string` | Delete event |
 
-### Google Docs
-| Tool | Parameters | Description |
+### Google Doc's YouTube 
+
+| Tool | Parameters | Description |, see you no#ukirube
 |------|------------|-------------|
 | `docs_read` | `documentId:string` | Read document |
 | `docs_create` | `title:string`, `content?:string` | Create document |
