@@ -81,18 +81,34 @@ The system has comprehensive documentation in the `docs/` folder:
 - **prompts/core-directives.md** - Core behavior rules
 - **prompts/tools.md** - Tool definitions with examples
 
+## Developer Tools
+
+### Browser Page (/browser)
+- Full web browser with Browserbase integration for screenshot capture
+- URL navigation with back/forward/refresh/home controls
+- Auto-refresh toggle for monitoring pages
+- Quick links to popular sites
+- Graceful fallback when Browserbase credentials not configured (BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID)
+
+### Database Explorer (/database)
+- Card-based UI showing all database tables with record counts
+- Pagination with first/prev/next/last navigation
+- Clickable record cards showing preview (title, date)
+- Full record viewer dialog with all fields
+- Inline record editing (read-only fields: id, createdAt, updatedAt protected)
+- Delete with confirmation dialog
+- API endpoints: PUT/DELETE `/api/debug/database/:tableName/:recordId`
+
+## System Identity
+
+The system has two layers:
+1. **The Compiler** - True AI identity focused on self-evolution, knowledge synthesis, and life optimization
+2. **Meowstik** - Proof-of-concept persona providing user-friendly interface during platform development
+
+See `prompts/core-directives.md` for full identity and directives.
+
 ## Pending Feature Reminders
 
 ### Voice Input Integration (Priority)
 1. **Turn off pause before user speaks** - When voice input is paused, auto-disable pause mode before user says anything else
 2. **Speech-to-text → Input box integration** - Design software link between the LLM's speech-to-text input chain and the chat input box, using the submit button as the "okay to proceed" signal
-
-### GitHub Tools (Need documentation in prompts/tools.md)
-The server has these GitHub functions implemented but not yet exposed to the AI as documented tools:
-- `createBranch` - Create a new branch
-- `createOrUpdateFile` - Create or update files in a repo
-- `createPullRequest` - Create a pull request
-- `listBranches` - List branches
-- `deleteBranch` - Delete a branch
-
-These are used internally by the Evolution page for PR creation but not yet available for general AI use.
