@@ -83,6 +83,7 @@ import logo from "@assets/generated_images/cute_cat_logo_icon.png";
 import type { Chat, Message } from "@shared/schema";
 
 import { useTTS } from "@/contexts/tts-context";
+import { useAuth } from "@/hooks/useAuth";
 
 /**
  * Attachment type for files and screenshots from input area
@@ -179,6 +180,20 @@ export default function Home() {
    * Text-to-Speech hook for reading AI responses aloud
    */
   const { isMuted, toggleMuted, speak, isSpeaking, stopSpeaking, isSupported: isTTSSupported, isUsingBrowserTTS } = useTTS();
+
+  /**
+   * Authentication state from Replit Auth
+   * - user: Current authenticated user (or undefined if guest)
+   * - isAuthenticated: Whether a user is logged in
+   */
+  const { user, isAuthenticated } = useAuth();
+
+  /**
+   * Get display name for greeting
+   * Returns first name if available, otherwise "Guest"
+   */
+  const displayName = user?.firstName || "Guest";
+  const userInitials = user ? (user.firstName?.[0] || user.email?.[0] || "U").toUpperCase() : "G";
 
   /**
    * Error count from LLM error buffer - lights up indicator when > 0
@@ -706,10 +721,33 @@ export default function Home() {
               </Button>
             )}
             
-            {/* User Avatar */}
-            <Button variant="ghost" size="sm" className="rounded-full">
-                <span className="w-7 h-7 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold">JD</span>
-            </Button>
+            {/* User Avatar / Login Button */}
+            {isAuthenticated ? (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="rounded-full"
+                onClick={() => window.location.href = "/api/logout"}
+                title={`Logged in as ${user?.firstName || user?.email || "User"} - Click to logout`}
+                data-testid="button-user-avatar"
+              >
+                {user?.profileImageUrl ? (
+                  <img src={user.profileImageUrl} alt="Profile" className="w-7 h-7 rounded-full" />
+                ) : (
+                  <span className="w-7 h-7 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold">{userInitials}</span>
+                )}
+              </Button>
+            ) : (
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="rounded-full"
+                onClick={() => window.location.href = "/api/login"}
+                data-testid="button-login"
+              >
+                Login
+              </Button>
+            )}
         </div>
 
         {/* 
@@ -733,7 +771,7 @@ export default function Home() {
                
               {/* Welcome Heading */}
               <h1 className="text-4xl md:text-5xl font-display font-medium text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/60 mb-3 text-center tracking-tight" data-testid="text-welcome-title">
-                Meow there! 🐱
+                Meow there, {displayName}! 🐱
               </h1>
               
               {/* Subtitle */}

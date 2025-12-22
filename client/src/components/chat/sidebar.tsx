@@ -89,10 +89,14 @@ import {
   Radio,
   RefreshCw,
   Brain,
-  Calendar
+  Calendar,
+  LogIn,
+  LogOut,
+  User
 } from "lucide-react";
 
 import { useAppSession } from "@/hooks/use-app-session";
+import { useAuth } from "@/hooks/useAuth";
 
 import { Link, useLocation } from "wouter";
 
@@ -170,6 +174,7 @@ interface SidebarProps {
 export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, onChatSelect, isCollapsed, setIsCollapsed }: SidebarProps) {
   const [location] = useLocation();
   const { liveMode, revision, uiRevision, refresh, isLoading, googleConnected, githubConnected } = useAppSession();
+  const { user, isAuthenticated } = useAuth();
   
   // Track if we're on desktop (lg breakpoint = 1024px)
   const [isDesktop, setIsDesktop] = useState(false);
@@ -700,7 +705,52 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
         {/* Status Bar - ALWAYS VISIBLE at bottom, outside ScrollArea */}
         <div className={cn("border-t border-border/50 shrink-0", effectiveCollapsed ? "p-2" : "p-4")}>
           {!effectiveCollapsed && (
-            <div className="space-y-2">
+            <div className="space-y-3">
+              {/* User Info / Login */}
+              <div className="flex items-center gap-2">
+                {isAuthenticated ? (
+                  <>
+                    {user?.profileImageUrl ? (
+                      <img src={user.profileImageUrl} alt="Profile" className="w-6 h-6 rounded-full" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                        <User className="h-3 w-3 text-primary" />
+                      </div>
+                    )}
+                    <span className="text-sm text-foreground truncate flex-1">
+                      {user?.firstName || user?.email || "User"}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                      onClick={() => window.location.href = "/api/logout"}
+                      data-testid="button-logout"
+                      title="Logout"
+                    >
+                      <LogOut className="h-3 w-3" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                      <User className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <span className="text-sm text-muted-foreground">Guest</span>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-7 px-3 text-xs ml-auto"
+                      onClick={() => window.location.href = "/api/login"}
+                      data-testid="button-login-sidebar"
+                    >
+                      <LogIn className="h-3 w-3 mr-1" />
+                      Login
+                    </Button>
+                  </>
+                )}
+              </div>
+              
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -759,7 +809,35 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
             </div>
           )}
           {effectiveCollapsed && (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center gap-2">
+              {/* Collapsed User Icon / Login */}
+              {isAuthenticated ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-8 h-8 p-0"
+                  onClick={() => window.location.href = "/api/logout"}
+                  data-testid="button-logout-collapsed"
+                  title={`Logged in as ${user?.firstName || user?.email || "User"} - Click to logout`}
+                >
+                  {user?.profileImageUrl ? (
+                    <img src={user.profileImageUrl} alt="Profile" className="w-6 h-6 rounded-full" />
+                  ) : (
+                    <User className="h-4 w-4 text-primary" />
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-8 h-8 p-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => window.location.href = "/api/login"}
+                  data-testid="button-login-collapsed"
+                  title="Login"
+                >
+                  <LogIn className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
