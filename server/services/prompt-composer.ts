@@ -199,6 +199,8 @@ You can analyze documents, images, and other attachments. When users share files
   /**
    * Compose a prompt from individual components
    * Used for direct message composition without drafts
+   * 
+   * @param userId - Optional user ID for data isolation. Guest = null.
    */
   async compose(params: {
     textContent: string;
@@ -207,8 +209,9 @@ You can analyze documents, images, and other attachments. When users share files
     history?: Message[];
     chatId: string;
     draftId?: string;
+    userId?: string | null;
   }): Promise<ComposedPrompt> {
-    const { textContent, voiceTranscript = "", attachments = [], history = [], chatId, draftId } = params;
+    const { textContent, voiceTranscript = "", attachments = [], history = [], chatId, draftId, userId } = params;
 
     // Ensure prompts are loaded
     this.loadPrompts();
@@ -222,7 +225,8 @@ You can analyze documents, images, and other attachments. When users share files
     const ragContextString = ragService.formatContextForPrompt(ragContext);
 
     // Retrieve relevant conversation context from past messages
-    const conversationContext = await ragService.buildConversationContext(userMessage, chatId, 5);
+    // Pass userId for data isolation - guests only see guest bucket data
+    const conversationContext = await ragService.buildConversationContext(userMessage, chatId, 5, userId);
     const conversationContextString = ragService.formatConversationContextForPrompt(conversationContext);
 
     // Perform web search if query would benefit from real-time information

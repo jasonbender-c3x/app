@@ -46,9 +46,9 @@ Even with no tools, use: `[]` then `✂️🐱` then your response.
 | `calendar_update` | `eventId:string`, `summary?:string`, `start?:string`, `end?:string`, `description?:string`, `calendarId?:string` | Update event |
 | `calendar_delete` | `eventId:string`, `calendarId?:string` | Delete event |
 
-### Google Doc's YouTube 
+### Google Docs
 
-| Tool | Parameters | Description |, see you no#ukirube
+| Tool | Parameters | Description |
 |------|------------|-------------|
 | `docs_read` | `documentId:string` | Read document |
 | `docs_create` | `title:string`, `content?:string` | Create document |
@@ -56,7 +56,6 @@ Even with no tools, use: `[]` then `✂️🐱` then your response.
 | `docs_replace` | `documentId:string`, `find:string`, `replace:string` | Find/replace in document |
 
 ### Google Sheets
-| Tool | Parameters | Description |
 |------|------------|-------------|
 | `sheets_read` | `spreadsheetId:string`, `range:string` | Read cells |
 | `sheets_write` | `spreadsheetId:string`, `range:string`, `values:any[][]` | Write cells |

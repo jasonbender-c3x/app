@@ -349,11 +349,15 @@ export async function registerRoutes(
       const savedMessage = await storage.addMessage(userMessage);
 
       // Ingest user message for RAG recall (async, don't block)
+      // Pass userId for data isolation - guests use "guest" bucket
+      const userId = (req as any).user?.claims?.sub || null;
       ragService.ingestMessage(
         userMessage.content,
         req.params.id,
         savedMessage.id,
-        "user"
+        "user",
+        undefined,
+        userId
       ).catch(error => {
         console.error(`[RAG] Failed to ingest user message ${savedMessage.id}:`, error);
       });
@@ -468,7 +472,8 @@ export async function registerRoutes(
         voiceTranscript: "",
         attachments: savedAttachments,
         history: chatMessages,
-        chatId: req.params.id
+        chatId: req.params.id,
+        userId: userId // Pass userId for data isolation in RAG context
       });
       
       console.log(`System prompt composed: ${composedPrompt.systemPrompt.length} chars, ${composedPrompt.attachments.length} attachments`);
@@ -697,11 +702,14 @@ export async function registerRoutes(
       });
 
       // Ingest AI response for RAG recall (async, don't block)
+      // Use same userId from earlier in the request for consistency
       ragService.ingestMessage(
         finalContent,
         req.params.id,
         savedAiMessage.id,
-        "ai"
+        "ai",
+        undefined,
+        userId
       ).catch(error => {
         console.error(`[RAG] Failed to ingest AI message ${savedAiMessage.id}:`, error);
       });

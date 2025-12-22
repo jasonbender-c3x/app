@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- * NEBULA CHAT - RAG SERVICE
+ * MEOWSTIK - RAG SERVICE
  * =============================================================================
  * 
  * Retrieval Augmented Generation service that:
@@ -265,13 +265,16 @@ Use this context to provide accurate, grounded responses. Cite sources when appr
   /**
    * Ingest a conversation message for RAG recall
    * This allows the AI to remember important facts from earlier in conversations
+   * 
+   * @param userId - Optional user ID for authenticated users. Guest messages use "guest" bucket.
    */
   async ingestMessage(
     content: string,
     chatId: string,
     messageId: string,
     role: "user" | "ai",
-    timestamp?: Date
+    timestamp?: Date,
+    userId?: string | null
   ): Promise<IngestResult | null> {
     // Skip very short messages (less than 20 chars) - not worth indexing
     if (!content || content.trim().length < 20) {
@@ -318,6 +321,9 @@ Use this context to provide accurate, grounded responses. Cite sources when appr
             role,
             timestamp: timestamp?.toISOString() || new Date().toISOString(),
             type: "conversation",
+            // Tag with user ID for retrieval scoping - guests go to "guest" bucket
+            userId: userId || "guest",
+            isVerified: !!userId, // Only authenticated users have verified data
           },
         });
       }
@@ -337,8 +343,11 @@ Use this context to provide accurate, grounded responses. Cite sources when appr
 
   /**
    * Build conversation context by retrieving relevant past messages
+   * 
+   * @param userId - Optional user ID. If provided, only retrieves verified user data.
+   *                 If null/undefined, retrieves only guest bucket data.
    */
-  async buildConversationContext(query: string, chatId?: string, topK: number = 5): Promise<RAGContext> {
+  async buildConversationContext(query: string, chatId?: string, topK: number = 5, userId?: string | null): Promise<RAGContext> {
     const { chunks, scores } = await this.retrieve(query, topK * 2, 0.4);
 
     // Pair chunks with their scores and filter to conversation chunks from the same chat
@@ -347,12 +356,20 @@ Use this context to provide accurate, grounded responses. Cite sources when appr
       score: scores[index],
     }));
 
-    // Filter to conversation chunks from the current chat
+    // Filter to conversation chunks - CRITICAL: scope by userId to prevent cross-user data leakage
     const conversationPairs = pairedChunks.filter(({ chunk }) => {
-      const meta = chunk.metadata as { type?: string; chatId?: string } | null;
+      const meta = chunk.metadata as { type?: string; chatId?: string; userId?: string } | null;
       const isConversation = meta?.type === "conversation";
       const isSameChat = !chatId || meta?.chatId === chatId;
-      return isConversation && isSameChat;
+      
+      // Data isolation: only return chunks belonging to the same user
+      // Authenticated users only see their own verified data
+      // Guests only see guest bucket data (and only from same chat)
+      const chunkUserId = meta?.userId || "guest";
+      const requestUserId = userId || "guest";
+      const isSameUser = chunkUserId === requestUserId;
+      
+      return isConversation && isSameChat && isSameUser;
     }).slice(0, topK);
 
     const relevantChunks = conversationPairs.map(({ chunk, score }) => {

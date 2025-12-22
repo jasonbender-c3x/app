@@ -2,7 +2,7 @@
  * ╔══════════════════════════════════════════════════════════════════════════════╗
  * ║                        HOME.TSX - MAIN CHAT INTERFACE                         ║
  * ║                                                                               ║
- * ║  The primary view of Nebula Chat, featuring an AI-powered conversational      ║
+ * ║  The primary view of Meowstik, featuring an AI-powered conversational         ║
  * ║  interface with real-time streaming responses. This component handles:        ║
  * ║                                                                               ║
  * ║    1. Chat session management (create, select, load)                          ║
@@ -105,7 +105,7 @@ interface Attachment {
 /**
  * Home Component - Main Chat Interface
  * 
- * This is the primary page of Nebula Chat, providing a full-featured
+ * This is the primary page of Meowstik, providing a full-featured
  * conversational AI interface. It manages the complete chat lifecycle:
  * 
  * State Management:
@@ -143,8 +143,9 @@ export default function Home() {
   /**
    * Sidebar collapsed state (desktop only)
    * When true, sidebar shows only icons
+   * Default: collapsed for guests (no history), expanded for logged-in users
    */
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true); // Start collapsed, will update based on auth
 
   /**
    * Messages array for the current chat session
@@ -233,6 +234,18 @@ export default function Home() {
       scrollRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isLoading]);
+
+  /**
+   * Effect: Expand sidebar for authenticated users
+   * Guests keep sidebar collapsed (no chat history), logged-in users see it expanded
+   */
+  useEffect(() => {
+    if (isAuthenticated) {
+      setIsSidebarCollapsed(false); // Expand for logged-in users
+    } else {
+      setIsSidebarCollapsed(true); // Keep collapsed for guests
+    }
+  }, [isAuthenticated]);
 
   /**
    * Effect: Poll for error count to light up error indicator
