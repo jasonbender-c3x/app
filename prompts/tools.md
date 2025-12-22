@@ -67,10 +67,17 @@ Even with no tools, use: `[]` then `✂️🐱` then your response.
 | Tool | Parameters | Description |
 |------|------------|-------------|
 | `tasks_list` | `taskListId?:string`, `maxResults?:number` | List tasks |
+| `tasks_get` | `taskId:string`, `taskListId?:string` | Get specific task |
 | `tasks_create` | `title:string`, `notes?:string`, `due?:string`, `taskListId?:string` | Create task |
 | `tasks_update` | `taskId:string`, `title?:string`, `notes?:string`, `due?:string`, `taskListId?:string` | Update task |
 | `tasks_complete` | `taskId:string`, `taskListId?:string` | Complete task |
 | `tasks_delete` | `taskId:string`, `taskListId?:string` | Delete task |
+
+### File Operations
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `file_ingest` | `content:string`, `filename:string`, `mimeType?:string` | Ingest file for RAG processing |
+| `file_upload` | `content:string`, `filename:string`, `mimeType?:string` | Upload file to storage |
 
 ### Terminal
 | Tool | Parameters | Description |
@@ -80,11 +87,22 @@ Even with no tools, use: `[]` then `✂️🐱` then your response.
 ### Web Search
 | Tool | Parameters | Description |
 |------|------------|-------------|
+| `search` | `query:string` | Generic search operation |
+| `web_search` | `query:string`, `maxResults?:number` | Generic web search |
 | `google_search` | `query:string`, `maxResults?:number` | Google search |
 | `duckduckgo_search` | `query:string`, `maxResults?:number` | DuckDuckGo search |
 | `tavily_search` | `query:string`, `searchDepth?:string`, `maxResults?:number` | Tavily AI search |
 | `tavily_qna` | `query:string` | Tavily Q&A (direct answer) |
+| `tavily_research` | `query:string`, `searchDepth?:string` | Tavily deep research |
 | `browser_scrape` | `url:string`, `selector?:string` | Scrape webpage |
+
+### Perplexity AI
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `perplexity_search` | `query:string` | Perplexity AI search |
+| `perplexity_quick` | `query:string` | Quick Perplexity answer |
+| `perplexity_research` | `query:string` | Perplexity research mode |
+| `perplexity_news` | `query:string` | Perplexity news search |
 
 ### Browserbase
 | Tool | Parameters | Description |
@@ -95,7 +113,7 @@ Even with no tools, use: `[]` then `✂️🐱` then your response.
 
 Action types: `{ type: "click", selector }`, `{ type: "type", selector, text }`, `{ type: "wait", delay }`, `{ type: "screenshot" }`
 
-### GitHub
+### GitHub (Read)
 | Tool | Parameters | Description |
 |------|------------|-------------|
 | `github_repos` | `username?:string` | List repositories |
@@ -106,13 +124,22 @@ Action types: `{ type: "click", selector }`, `{ type: "type", selector, text }`,
 | `github_code_search` | `query:string`, `owner?:string`, `repo?:string` | Search code |
 | `github_issues` | `owner:string`, `repo:string`, `state?:string` | List issues |
 | `github_issue_get` | `owner:string`, `repo:string`, `issueNumber:number` | Get issue |
-| `github_issue_create` | `owner:string`, `repo:string`, `title:string`, `body?:string` | Create issue |
-| `github_issue_update` | `owner:string`, `repo:string`, `issueNumber:number`, `title?:string`, `body?:string`, `state?:string` | Update issue |
-| `github_issue_comment` | `owner:string`, `repo:string`, `issueNumber:number`, `body:string` | Comment on issue |
 | `github_pulls` | `owner:string`, `repo:string`, `state?:string` | List pull requests |
 | `github_pull_get` | `owner:string`, `repo:string`, `pullNumber:number` | Get PR details |
 | `github_commits` | `owner:string`, `repo:string`, `maxResults?:number` | List commits |
 | `github_user` | `username?:string` | Get user info |
+
+### GitHub (Write)
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `github_issue_create` | `owner:string`, `repo:string`, `title:string`, `body?:string` | Create issue |
+| `github_issue_update` | `owner:string`, `repo:string`, `issueNumber:number`, `title?:string`, `body?:string`, `state?:string` | Update issue |
+| `github_issue_comment` | `owner:string`, `repo:string`, `issueNumber:number`, `body:string` | Comment on issue |
+| `github_branch_create` | `owner:string`, `repo:string`, `branch:string`, `sourceBranch?:string` | Create branch |
+| `github_branch_delete` | `owner:string`, `repo:string`, `branch:string` | Delete branch |
+| `github_branches` | `owner:string`, `repo:string` | List branches |
+| `github_file_create` | `owner:string`, `repo:string`, `path:string`, `content:string`, `message:string`, `branch?:string` | Create or update file |
+| `github_pr_create` | `owner:string`, `repo:string`, `title:string`, `body?:string`, `head:string`, `base:string` | Create pull request |
 
 ### Queue (Batch Operations)
 | Tool | Parameters | Description |

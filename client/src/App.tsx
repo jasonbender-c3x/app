@@ -96,6 +96,8 @@ import MarkdownPlaygroundPage from "@/pages/markdown-playground";
 import EvolutionPage from "@/pages/evolution";
 import TaskQueuePage from "@/pages/task-queue";
 import SchedulesPage from "@/pages/schedules";
+import BrowserPage from "@/pages/browser";
+import DatabaseExplorerPage from "@/pages/database-explorer";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -190,6 +192,12 @@ function Router() {
       
       {/* Schedules Route - Cron schedules and event triggers */}
       <Route path="/schedules" component={SchedulesPage} />
+      
+      {/* Browser Route - Full headed browser with screenshots */}
+      <Route path="/browser" component={BrowserPage} />
+      
+      {/* Database Explorer Route - View, edit, delete database records */}
+      <Route path="/database" component={DatabaseExplorerPage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything

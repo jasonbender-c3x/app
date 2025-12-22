@@ -267,6 +267,8 @@ export interface IStorage {
   getDebugDatabaseInfo(): Promise<Array<{ name: string; rowCount: number; columns: string[] }>>;
   getDebugLogs(limit?: number): Promise<ExecutionLog[]>;
   getTableData(tableName: string, limit?: number, offset?: number): Promise<{ rows: unknown[]; total: number }>;
+  updateTableRecord(tableName: string, recordId: string, data: Record<string, unknown>): Promise<boolean>;
+  deleteTableRecord(tableName: string, recordId: string): Promise<boolean>;
 
   // =========================================================================
   // USER OPERATIONS (Required for Replit Auth)
@@ -894,6 +896,55 @@ export class DrizzleStorage implements IStorage {
     const rows = allRows.slice(offset, offset + limit);
 
     return { rows, total };
+  }
+
+  async updateTableRecord(tableName: string, recordId: string, data: Record<string, unknown>): Promise<boolean> {
+    const tableMap: Record<string, any> = {
+      chats,
+      messages,
+      attachments,
+      drafts,
+      tool_tasks: toolTasks,
+      execution_logs: executionLogs,
+      document_chunks: documentChunks,
+    };
+
+    const table = tableMap[tableName];
+    if (!table) {
+      return false;
+    }
+
+    const { id, createdAt, updatedAt, ...updateData } = data;
+    
+    await this.getDb()
+      .update(table)
+      .set(updateData)
+      .where(eq(table.id, recordId));
+
+    return true;
+  }
+
+  async deleteTableRecord(tableName: string, recordId: string): Promise<boolean> {
+    const tableMap: Record<string, any> = {
+      chats,
+      messages,
+      attachments,
+      drafts,
+      tool_tasks: toolTasks,
+      execution_logs: executionLogs,
+      document_chunks: documentChunks,
+    };
+
+    const table = tableMap[tableName];
+    if (!table) {
+      return false;
+    }
+
+    await this.getDb()
+      .delete(table)
+      .where(eq(table.id, recordId));
+
+    return true;
   }
 
   // =========================================================================

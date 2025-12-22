@@ -854,6 +854,34 @@ export async function registerRoutes(
     }
   });
 
+  app.put("/api/debug/database/:tableName/:recordId", async (req, res) => {
+    try {
+      const { tableName, recordId } = req.params;
+      const success = await storage.updateTableRecord(tableName, recordId, req.body);
+      if (!success) {
+        return res.status(404).json({ error: "Table not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating record:", error);
+      res.status(500).json({ error: "Failed to update record" });
+    }
+  });
+
+  app.delete("/api/debug/database/:tableName/:recordId", async (req, res) => {
+    try {
+      const { tableName, recordId } = req.params;
+      const success = await storage.deleteTableRecord(tableName, recordId);
+      if (!success) {
+        return res.status(404).json({ error: "Table not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting record:", error);
+      res.status(500).json({ error: "Failed to delete record" });
+    }
+  });
+
   // LLM Debug endpoints - view prompts and responses
   app.get("/api/debug/llm", async (req, res) => {
     try {
@@ -1030,6 +1058,49 @@ ${summary}`
     } catch (error) {
       console.error("Error clearing LLM errors:", error);
       res.status(500).json({ error: "Failed to clear LLM errors" });
+    }
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // BROWSER ENDPOINTS
+  // ═════════════════════════════════════════════════════════════════════════
+
+  app.post("/api/browser/load", async (req, res) => {
+    try {
+      const { url } = req.body;
+      if (!url) {
+        return res.status(400).json({ success: false, error: "URL is required" });
+      }
+
+      if (!process.env.BROWSERBASE_API_KEY || !process.env.BROWSERBASE_PROJECT_ID) {
+        return res.status(503).json({
+          success: false,
+          error: "Browserbase is not configured. Please add BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID to your environment variables.",
+          needsConfig: true
+        });
+      }
+
+      const browserbase = await import("./integrations/browserbase");
+      
+      const result = await browserbase.takeScreenshot(url, { fullPage: false });
+      const screenshotBase64 = result.screenshot.toString("base64");
+      const screenshotUrl = `data:image/png;base64,${screenshotBase64}`;
+      
+      const pageResult = await browserbase.loadPage(url, { textOnly: false });
+      
+      res.json({
+        success: true,
+        sessionId: result.sessionId,
+        url,
+        title: pageResult.title || url,
+        screenshotUrl,
+      });
+    } catch (error) {
+      console.error("Error loading page in browser:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to load page",
+      });
     }
   });
 
