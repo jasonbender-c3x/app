@@ -99,6 +99,18 @@ The system has comprehensive documentation in the `docs/` folder:
 - Delete with confirmation dialog
 - API endpoints: PUT/DELETE `/api/debug/database/:tableName/:recordId`
 
+### Live Voice Page (/live)
+- Dedicated real-time voice conversation interface (separate from text chat)
+- Gemini Live API integration (`gemini-2.5-flash-native-audio-preview-12-2025`)
+- WebSocket-based bidirectional audio streaming
+- Audio format: 16-bit PCM (16kHz input / 24kHz output)
+- Voice Activity Detection (VAD) for natural conversations
+- Barge-in support (interrupt AI mid-speech)
+- 8 voice options: Kore, Puck, Charon, Fenrir, Aoede, Leda, Orus, Zephyr
+- Live transcript display with speaking indicators
+- API endpoints: POST/DELETE `/api/live/session`, GET `/api/live/voices`
+- WebSocket: `/api/live/stream/:sessionId`
+
 ## System Identity
 
 The system has two layers:
@@ -109,6 +121,9 @@ See `prompts/core-directives.md` for full identity and directives.
 
 ## Pending Feature Reminders
 
-### Voice Input Integration (Priority)
-1. **Turn off pause before user speaks** - When voice input is paused, auto-disable pause mode before user says anything else
-2. **Speech-to-text → Input box integration** - Design software link between the LLM's speech-to-text input chain and the chat input box, using the submit button as the "okay to proceed" signal
+### Multi-Persona Voice (Priority)
+- Add emoji-delimited transcript markers for persona switching in Live Voice mode
+- Dynamic system instruction updates for persona personality changes
+
+### Main Chat Model Upgrade
+- Consider upgrading main text chat from current model to Gemini 3 Flash when available

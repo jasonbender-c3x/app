@@ -230,6 +230,15 @@ app.use((req, res, next) => {
   await registerRoutes(httpServer, app);
 
   /**
+   * SETUP LIVE VOICE WEBSOCKET
+   * --------------------------
+   * Initialize WebSocket server for real-time voice conversations.
+   * Handles bidirectional audio streaming with Gemini Live API.
+   */
+  const { setupLiveWebSocket } = await import("./websocket-live");
+  setupLiveWebSocket(httpServer);
+
+  /**
    * INITIALIZE GOOGLE OAUTH TOKENS (NON-BLOCKING)
    * ----------------------------------------------
    * Load any persisted Google OAuth tokens from the database.

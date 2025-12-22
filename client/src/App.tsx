@@ -98,6 +98,7 @@ import TaskQueuePage from "@/pages/task-queue";
 import SchedulesPage from "@/pages/schedules";
 import BrowserPage from "@/pages/browser";
 import DatabaseExplorerPage from "@/pages/database-explorer";
+import LivePage from "@/pages/live";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -198,6 +199,9 @@ function Router() {
       
       {/* Database Explorer Route - View, edit, delete database records */}
       <Route path="/database" component={DatabaseExplorerPage} />
+      
+      {/* Live Voice Route - Real-time voice conversation with Gemini */}
+      <Route path="/live" component={LivePage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything
