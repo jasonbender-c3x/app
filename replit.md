@@ -58,6 +58,7 @@ Preferred communication style: Simple, everyday language.
     - Google Docs (document reading/writing)
     - Google Sheets (spreadsheet data)
     - Google Tasks (task management)
+    - Google Contacts (People API: list, search, create, update, delete contacts)
 - **GitHub Integration (via `@octokit/rest`):** Repository operations, file content, issues, pull requests, commits, user info. Uses Replit connector for OAuth2.
 - **Authentication:** OAuth2 via Replit Connectors for Google services and GitHub.
 - **Replit Platform Integration:** Vite plugins (cartographer, dev-banner, runtime-error-modal, meta images).

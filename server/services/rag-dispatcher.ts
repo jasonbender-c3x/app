@@ -57,6 +57,7 @@ import * as googleCalendar from "../integrations/google-calendar";
 import * as googleDrive from "../integrations/google-drive";
 import * as googleDocs from "../integrations/google-docs";
 import * as googleSheets from "../integrations/google-sheets";
+import * as googleContacts from "../integrations/google-contacts";
 import * as github from "../integrations/github";
 import * as browserbase from "../integrations/browserbase";
 import { exec } from "child_process";
@@ -437,6 +438,24 @@ export class RAGDispatcher {
           break;
         case "browserbase_action":
           result = await this.executeBrowserbaseAction(toolCall);
+          break;
+        case "contacts_list":
+          result = await this.executeContactsList(toolCall);
+          break;
+        case "contacts_search":
+          result = await this.executeContactsSearch(toolCall);
+          break;
+        case "contacts_get":
+          result = await this.executeContactsGet(toolCall);
+          break;
+        case "contacts_create":
+          result = await this.executeContactsCreate(toolCall);
+          break;
+        case "contacts_update":
+          result = await this.executeContactsUpdate(toolCall);
+          break;
+        case "contacts_delete":
+          result = await this.executeContactsDelete(toolCall);
           break;
         case "debug_echo":
           result = await this.executeDebugEcho(toolCall);
@@ -835,6 +854,65 @@ export class RAGDispatcher {
   private async executeTasksComplete(toolCall: ToolCall): Promise<unknown> {
     const params = toolCall.parameters as { taskListId: string; taskId: string };
     return await googleTasks.completeTask(params.taskListId, params.taskId);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GOOGLE CONTACTS HANDLERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private async executeContactsList(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { pageSize?: number; pageToken?: string };
+    const result = await googleContacts.listContacts(params?.pageSize || 100, params?.pageToken);
+    return { contacts: result.contacts, count: result.contacts.length, nextPageToken: result.nextPageToken };
+  }
+
+  private async executeContactsSearch(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { query: string; pageSize?: number };
+    const contacts = await googleContacts.searchContacts(params.query, params?.pageSize || 30);
+    return { contacts, count: contacts.length, query: params.query };
+  }
+
+  private async executeContactsGet(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { resourceName: string };
+    const contact = await googleContacts.getContact(params.resourceName);
+    if (!contact) {
+      throw new Error(`Contact not found: ${params.resourceName}`);
+    }
+    return contact;
+  }
+
+  private async executeContactsCreate(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as {
+      givenName: string;
+      familyName?: string;
+      email?: string;
+      phoneNumber?: string;
+      organization?: string;
+      title?: string;
+    };
+    const contact = await googleContacts.createContact(params);
+    return { success: true, contact, message: `Contact "${params.givenName}" created successfully` };
+  }
+
+  private async executeContactsUpdate(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as {
+      resourceName: string;
+      givenName?: string;
+      familyName?: string;
+      email?: string;
+      phoneNumber?: string;
+      organization?: string;
+      title?: string;
+    };
+    const { resourceName, ...updates } = params;
+    const contact = await googleContacts.updateContact(resourceName, updates);
+    return { success: true, contact, message: `Contact updated successfully` };
+  }
+
+  private async executeContactsDelete(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { resourceName: string };
+    const success = await googleContacts.deleteContact(params.resourceName);
+    return { success, message: success ? "Contact deleted" : "Failed to delete contact" };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -104,6 +104,19 @@ Available tools:
 - **Google Docs**: Read, create, and modify documents
 - **Google Sheets**: Read, write, and manage spreadsheets
 - **Google Tasks**: Manage task lists and tasks
+- **Google Contacts**: List, search, read, create, and update contacts
+
+## Live Voice Mode
+
+You have a dedicated **Live Voice** page at `/live` for real-time voice conversations. When users ask about "live mode" or voice chat:
+
+- **Location**: Navigate to `/live` or click the Live Voice link
+- **Features**: Real-time bidirectional audio streaming with Gemini Live API
+- **Voice Options**: 8 voices available (Kore, Puck, Charon, Fenrir, Aoede, Leda, Orus, Zephyr)
+- **How it works**: Click Connect → Click Mic to speak → AI responds with voice
+- **Barge-in**: You can interrupt the AI while it's speaking
+
+This is separate from the main text chat for a focused voice-first experience.
 
 ## Context Awareness
 

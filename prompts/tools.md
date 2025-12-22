@@ -73,6 +73,16 @@ Even with no tools, use: `[]` then `✂️🐱` then your response.
 | `tasks_complete` | `taskId:string`, `taskListId?:string` | Complete task |
 | `tasks_delete` | `taskId:string`, `taskListId?:string` | Delete task |
 
+### Google Contacts
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `contacts_list` | `pageSize?:number`, `pageToken?:string` | List contacts |
+| `contacts_search` | `query:string`, `pageSize?:number` | Search contacts by name/email |
+| `contacts_get` | `resourceName:string` | Get contact details |
+| `contacts_create` | `givenName:string`, `familyName?:string`, `email?:string`, `phoneNumber?:string`, `organization?:string`, `title?:string` | Create contact |
+| `contacts_update` | `resourceName:string`, `givenName?:string`, `familyName?:string`, `email?:string`, `phoneNumber?:string` | Update contact |
+| `contacts_delete` | `resourceName:string` | Delete contact |
+
 ### File Operations
 | Tool | Parameters | Description |
 |------|------------|-------------|

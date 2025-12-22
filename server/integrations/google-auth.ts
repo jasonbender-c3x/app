@@ -16,6 +16,8 @@ const SCOPES = [
   'https://www.googleapis.com/auth/documents.readonly',
   'https://www.googleapis.com/auth/spreadsheets.readonly',
   'https://www.googleapis.com/auth/tasks.readonly',
+  'https://www.googleapis.com/auth/contacts.readonly',
+  'https://www.googleapis.com/auth/contacts',
 ];
 
 let cachedTokens: Auth.Credentials | null = null;
