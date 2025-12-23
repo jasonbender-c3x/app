@@ -520,28 +520,53 @@ export default function DebugPage() {
                 </div>
               ) : (
                 llmInteractions.map((interaction) => (
-                  <button
+                  <div
                     key={interaction.id}
-                    onClick={() => setSelectedLLM(interaction)}
-                    className="w-full p-4 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/40 hover:border-primary/50 transition-all cursor-pointer text-left group"
+                    className="w-full p-4 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/40 hover:border-primary/50 transition-all text-left group"
                     data-testid={`llm-entry-${interaction.id}`}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <span className="text-xs text-muted-foreground">
                             {formatLogTime(interaction.timestamp)}
                           </span>
                           <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-xs font-mono">
                             {interaction.model}
                           </span>
+                          {interaction.messageId && (
+                            <Link 
+                              href={`/database?table=messages&id=${interaction.messageId}`}
+                              className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 text-xs font-mono hover:bg-green-500/20 hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                              data-testid={`link-message-${interaction.messageId}`}
+                            >
+                              <MessageSquare className="h-3 w-3 inline mr-1" />
+                              {interaction.messageId.slice(0, 8)}...
+                            </Link>
+                          )}
+                          {interaction.chatId && (
+                            <Link 
+                              href={`/database?table=chats&id=${interaction.chatId}`}
+                              className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 text-xs font-mono hover:bg-purple-500/20 hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                              data-testid={`link-chat-${interaction.chatId}`}
+                            >
+                              chat:{interaction.chatId.slice(0, 8)}...
+                            </Link>
+                          )}
                         </div>
-                        <p className="font-medium text-sm group-hover:text-primary transition-colors truncate">
-                          {truncateText(interaction.userMessage, 100)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1 truncate">
-                          {truncateText(interaction.cleanContent, 80)}
-                        </p>
+                        <button 
+                          onClick={() => setSelectedLLM(interaction)}
+                          className="text-left w-full cursor-pointer"
+                        >
+                          <p className="font-medium text-sm group-hover:text-primary transition-colors truncate">
+                            {truncateText(interaction.userMessage, 100)}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            {truncateText(interaction.cleanContent, 80)}
+                          </p>
+                        </button>
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -554,9 +579,16 @@ export default function DebugPage() {
                             {interaction.toolResults.length} tools
                           </div>
                         )}
+                        <button 
+                          onClick={() => setSelectedLLM(interaction)}
+                          className="flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                          <Eye className="h-3 w-3" />
+                          View
+                        </button>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 ))
               )}
             </div>
