@@ -457,6 +457,10 @@ export class RAGDispatcher {
         case "contacts_delete":
           result = await this.executeContactsDelete(toolCall);
           break;
+        case "chat_window":
+          // Chat window tool is handled specially - content goes directly to chat
+          result = await this.executeChatWindow(toolCall);
+          break;
         case "debug_echo":
           result = await this.executeDebugEcho(toolCall);
           break;
@@ -913,6 +917,24 @@ export class RAGDispatcher {
     const params = toolCall.parameters as { resourceName: string };
     const success = await googleContacts.deleteContact(params.resourceName);
     return { success, message: success ? "Contact deleted" : "Failed to delete contact" };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CHAT WINDOW HANDLER
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Chat Window Tool - Displays markdown content in the chat window
+   * This is the primary output mechanism - all user-facing content goes through this tool
+   */
+  private async executeChatWindow(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { content: string; timestamp?: string };
+    return {
+      type: "chat_window",
+      content: params.content,
+      timestamp: params.timestamp || new Date().toISOString(),
+      display: true,
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

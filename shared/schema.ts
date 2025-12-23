@@ -581,6 +581,9 @@ export const ToolTypes = {
   
   // Debug operations
   DEBUG_ECHO: "debug_echo",
+  
+  // Chat output
+  CHAT_WINDOW: "chat_window",
 } as const;
 
 export type ToolType = typeof ToolTypes[keyof typeof ToolTypes];
@@ -625,6 +628,10 @@ export const toolCallSchema = z.object({
     "queue_create", "queue_batch", "queue_list", "queue_start",
     // Debug
     "debug_echo",
+    // Chat output - all markdown for the chat window goes through this tool
+    "chat_window",
+    // Contacts
+    "contacts_list", "contacts_search", "contacts_get", "contacts_create", "contacts_update", "contacts_delete",
   ]),
   operation: z.string(),
   parameters: z.record(z.unknown()),
