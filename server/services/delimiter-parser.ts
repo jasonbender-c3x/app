@@ -55,39 +55,20 @@ export class DelimiterParser {
   private parseErrors: string[] = [];
 
   /**
-   * Sanitize markdown content by stripping any errant delimiters or JSON fragments
-   * that should not appear in the markdown section.
-   * Returns empty string for chunks that contain tool-call JSON to prevent leaking.
+   * Sanitize markdown content - strip duplicate delimiters if they appear.
+   * The emoji delimiter is the single source of truth for separating JSON from markdown.
    */
   private sanitizeMarkdown(content: string): { clean: string; errors: string[]; suppressed: boolean } {
     const errors: string[] = [];
     let clean = content;
-    let suppressed = false;
     
+    // Only strip duplicate delimiters - trust the emoji rule for separation
     if (clean.includes(EMOJI_SEA_DELIMITER)) {
-      errors.push("Unexpected delimiter found in markdown section - suppressing chunk");
-      clean = "";
-      suppressed = true;
-      return { clean, errors, suppressed };
+      clean = clean.replace(EMOJI_SEA_DELIMITER, "");
+      errors.push("Stripped duplicate delimiter from markdown section");
     }
     
-    const jsonToolCallPattern = /\[\s*\{[^[\]]*"type"\s*:\s*"[\w_]+"/;
-    if (jsonToolCallPattern.test(clean)) {
-      errors.push("JSON tool call array detected in markdown section - suppressing to prevent leakage");
-      clean = "";
-      suppressed = true;
-      return { clean, errors, suppressed };
-    }
-    
-    const singleObjectPattern = /\{\s*"type"\s*:\s*"[\w_]+"\s*,\s*"id"\s*:/;
-    if (singleObjectPattern.test(clean)) {
-      errors.push("JSON tool call object detected in markdown section - suppressing to prevent leakage");
-      clean = "";
-      suppressed = true;
-      return { clean, errors, suppressed };
-    }
-    
-    return { clean, errors, suppressed };
+    return { clean, errors, suppressed: false };
   }
 
   /**
