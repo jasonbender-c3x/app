@@ -10,7 +10,7 @@ import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface AppSettings {
-  model: string;
+  model: "pro" | "flash";
   theme: string;
   voiceEnabled: boolean;
   ttsMode: "api" | "browser";
@@ -25,7 +25,7 @@ interface AppSettings {
 }
 
 const defaultSettings: AppSettings = {
-  model: "gemini-3.0-pro",
+  model: "pro",
   theme: "system",
   voiceEnabled: true,
   ttsMode: "api",
@@ -100,12 +100,6 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const models = [
-    { id: "gemini-3.0-pro", name: "Gemini 3.0 Pro", description: "Latest flagship with state-of-the-art reasoning" },
-    { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Advanced reasoning and analysis" },
-    { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Fast and efficient with great quality" },
-    { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", description: "Quick responses, great for chat" }
-  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -136,27 +130,24 @@ export default function SettingsPage() {
               </div>
               
               <div className="space-y-4">
-                <Label htmlFor="model-select">Select AI Model</Label>
-                <Select 
-                  value={settings.model} 
-                  onValueChange={(value) => updateSetting('model', value)}
-                >
-                  <SelectTrigger id="model-select" data-testid="select-model">
-                    <SelectValue placeholder="Select a model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {models.map((model) => (
-                      <SelectItem key={model.id} value={model.id}>
-                        <div>
-                          <div className="font-medium">{model.name}</div>
-                          <div className="text-xs text-muted-foreground">{model.description}</div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="model-toggle" className="font-medium">Flash Mode</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {settings.model === "flash" 
+                        ? "Gemini 2.5 Flash - Fast and efficient" 
+                        : "Gemini 3 Pro - Maximum capability (default)"}
+                    </p>
+                  </div>
+                  <Switch
+                    id="model-toggle"
+                    data-testid="toggle-model"
+                    checked={settings.model === "flash"}
+                    onCheckedChange={(checked) => updateSetting('model', checked ? "flash" : "pro")}
+                  />
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  Choose the AI model that powers your conversations. Different models offer varying levels of speed and capability.
+                  Toggle on for faster responses with Gemini Flash. Toggle off for Gemini 3's advanced reasoning.
                 </p>
               </div>
             </section>

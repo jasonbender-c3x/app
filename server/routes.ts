@@ -511,9 +511,12 @@ export async function registerRoutes(
         userParts.push({ text: "" });
       }
       
-      // Using gemini-2.0-flash-exp model with system instruction
+      // Determine model based on user preference: "pro" = gemini-3, "flash" = gemini-2.5-flash
+      const modelMode = req.body.model === "flash" ? "gemini-2.5-flash" : "gemini-3.0-flash-preview-05-20";
+      console.log(`[Routes] Using model: ${modelMode} (mode: ${req.body.model || 'pro'})`);
+      
       const result = await genAI.models.generateContentStream({
-        model: "gemini-2.0-flash-exp",
+        model: modelMode,
         // Pass the composed system prompt via systemInstruction parameter
         config: {
           systemInstruction: composedPrompt.systemPrompt,
@@ -625,7 +628,7 @@ export async function registerRoutes(
         
         // Send minimal follow-up to LLM to format the results (no history to save tokens)
         const followUpResult = await genAI.models.generateContentStream({
-          model: "gemini-2.0-flash-exp",
+          model: modelMode,
           config: {
             systemInstruction: "Format tool results clearly. No delimiters.",
           },
@@ -732,7 +735,7 @@ export async function registerRoutes(
           parsedToolCalls: parser.getExtractedToolCalls(),
           cleanContent: finalContent,
           toolResults,
-          model: "gemini-2.0-flash-exp",
+          model: modelMode,
           durationMs: endTime - (startTime || endTime),
         });
       } catch (logError) {
@@ -745,7 +748,7 @@ export async function registerRoutes(
           await storage.logLlmUsage({
             chatId: req.params.id,
             messageId: savedMessage.id,
-            model: "gemini-2.0-flash-exp",
+            model: modelMode,
             promptTokens: usageMetadata.promptTokenCount || 0,
             completionTokens: usageMetadata.candidatesTokenCount || 0,
             totalTokens: usageMetadata.totalTokenCount || 0,

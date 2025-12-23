@@ -386,11 +386,16 @@ export default function Home() {
       setIsLoading(true);
 
       // Step 3: Send message to backend with optional attachments
+      // Get model preference from localStorage settings
+      const storedSettings = localStorage.getItem('meowstic-settings');
+      const modelMode = storedSettings ? JSON.parse(storedSettings).model : 'pro';
+      
       const response = await fetch(`/api/chats/${chatId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           content,
+          model: modelMode, // "pro" or "flash"
           attachments: attachments.map(a => ({
             filename: a.filename,
             type: a.type,
