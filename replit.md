@@ -25,6 +25,9 @@ Preferred communication style: Simple, everyday language.
 
 ### AI Integration
 - **Generative AI:** Google's Gemini models via `@google/genai` for conversational AI.
+  - **Model Toggle:** Flash/Pro switch in Settings (default: Pro)
+    - Pro mode: `gemini-3.0-flash-preview-05-20` - Maximum capability
+    - Flash mode: `gemini-2.5-flash` - Fast and efficient
 - **Expressive Speech (TTS):** Gemini 2.5 Flash/Pro TTS for multi-speaker text-to-speech.
 - **Music Generation:** Lyria RealTime experimental API.
 - **Image Generation:** Gemini 2.0 Flash Preview Image Generation with canvas editor and AI editing.
@@ -120,11 +123,19 @@ The system has two layers:
 
 See `prompts/core-directives.md` for full identity and directives.
 
+## V2 Roadmap
+
+Forward-looking documentation is in `docs/v2-roadmap/`:
+- **MULTI_USER_ARCHITECTURE.md** - Per-user tokens, prompts, and message ownership
+- **GEMINI_LIVE_API_PROPOSAL.md** - Live API enhancements
+- **KERNEL_IMPLEMENTATION_PROPOSAL.md** - Core system improvements
+- **KNOWLEDGE_INGESTION_ARCHITECTURE.md** - Knowledge pipeline details
+- **TODO-FEATURES.md** - Feature wishlist
+- **VISIONS_OF_THE_FUTURE.md** - Long-term vision
+- **WORKFLOW-PROTOCOL.md** - Workflow orchestration
+
 ## Pending Feature Reminders
 
 ### Multi-Persona Voice (Priority)
 - Add emoji-delimited transcript markers for persona switching in Live Voice mode
 - Dynamic system instruction updates for persona personality changes
-
-### Main Chat Model Upgrade
-- Consider upgrading main text chat from current model to Gemini 3 Flash when available
