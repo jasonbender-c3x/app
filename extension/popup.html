@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meowstik AI</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🐱</span>
+        <span class="logo-text">Meowstik</span>
+      </div>
+      <div class="status" id="status">
+        <span class="status-dot"></span>
+        <span class="status-text">Connecting...</span>
+      </div>
+    </header>
+
+    <div class="quick-actions">
+      <button class="action-btn" id="captureScreen" title="Capture Screen">
+        <span class="icon">📷</span>
+        <span>Capture</span>
+      </button>
+      <button class="action-btn" id="analyzeConsole" title="Analyze Console">
+        <span class="icon">🔧</span>
+        <span>Console</span>
+      </button>
+      <button class="action-btn" id="inspectNetwork" title="Inspect Network">
+        <span class="icon">🌐</span>
+        <span>Network</span>
+      </button>
+      <button class="action-btn" id="analyzePage" title="Analyze Page">
+        <span class="icon">📄</span>
+        <span>Page</span>
+      </button>
+    </div>
+
+    <div class="workspace-actions">
+      <button class="workspace-btn" id="addCalendar">
+        <span class="icon">📅</span> Add to Calendar
+      </button>
+      <button class="workspace-btn" id="saveDrive">
+        <span class="icon">💾</span> Save to Drive
+      </button>
+      <button class="workspace-btn" id="createTask">
+        <span class="icon">✅</span> Create Task
+      </button>
+      <button class="workspace-btn" id="sendEmail">
+        <span class="icon">📧</span> Draft Email
+      </button>
+    </div>
+
+    <div class="chat-section">
+      <div class="messages" id="messages">
+        <div class="message assistant">
+          <p>Hi! I can help you with this page. Capture the screen, analyze console errors, or ask me anything!</p>
+        </div>
+      </div>
+      <div class="input-area">
+        <textarea id="userInput" placeholder="Ask about this page..." rows="2"></textarea>
+        <button id="sendBtn" class="send-btn">
+          <span>↑</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="context-toggle">
+      <label class="toggle-label">
+        <input type="checkbox" id="includeContext" checked>
+        <span class="toggle-text">Include page context</span>
+      </label>
+      <label class="toggle-label">
+        <input type="checkbox" id="devToolsMode">
+        <span class="toggle-text">DevTools mode</span>
+      </label>
+    </div>
+
+    <footer class="footer">
+      <button id="openApp" class="link-btn">Open Meowstik App</button>
+      <button id="settings" class="link-btn">Settings</button>
+    </footer>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

@@ -239,6 +239,15 @@ app.use((req, res, next) => {
   setupLiveWebSocket(httpServer);
 
   /**
+   * SETUP AGENT WEBSOCKET
+   * ---------------------
+   * Initialize WebSocket server for local agent connections.
+   * Handles bidirectional communication for browser automation.
+   */
+  const { setupAgentWebSocket } = await import("./routes/agent");
+  setupAgentWebSocket(httpServer);
+
+  /**
    * INITIALIZE GOOGLE OAUTH TOKENS (NON-BLOCKING)
    * ----------------------------------------------
    * Load any persisted Google OAuth tokens from the database.

@@ -115,6 +115,31 @@ The system has comprehensive documentation in the `docs/` folder:
 - API endpoints: POST/DELETE `/api/live/session`, GET `/api/live/voices`
 - WebSocket: `/api/live/stream/:sessionId`
 
+## Browser Extension & Local Agent
+
+### Browser Extension (`extension/`)
+Chrome extension (Manifest V3) for AI-powered browser assistance:
+- **Popup Chat**: Mini chat interface accessible from any page
+- **Screen Capture**: Capture visible tab and analyze with Gemini vision
+- **Console Log Capture**: Intercept and analyze browser console logs
+- **Network Request Capture**: Monitor HTTP requests via webRequest API
+- **Page Content Extraction**: Extract text, links, forms, images from pages
+- **Context Menu**: Right-click to analyze selection, explain text, summarize
+- **Quick Actions**: Buttons for Calendar, Drive, Tasks, Email integration
+- **DevTools Panel**: Dedicated panel for HAR export and analysis
+- Files: `manifest.json`, `popup.html/js/css`, `background.js`, `content.js`, `injected.js`, `devtools.html/js`
+- Backend: `/api/extension/action` endpoint for all extension requests
+
+### Local Agent (`local-agent/`)
+Node.js package for AI-directed browser automation:
+- **Playwright Integration**: Spawns and controls Chrome/Chromium browsers
+- **Extension Bridge**: WebSocket server (port 9222) for extension communication
+- **Backend WebSocket**: Connects to `/api/agent/connect` for AI commands
+- **Full Browser Control**: Navigate, click, type, screenshot, scroll, forms
+- Commands: `navigate`, `click`, `type`, `screenshot`, `get_content`, `execute_script`, `wait`, `scroll`, `select`, `hover`, `fill_form`, `submit_form`, `keyboard`, tab management
+- Files: `src/index.js`, `src/agent-controller.js`, `src/extension-bridge.js`
+- Backend: `/api/agent/agents`, `/api/agent/command`, `/api/agent/task`
+
 ## System Identity
 
 The system has two layers:
