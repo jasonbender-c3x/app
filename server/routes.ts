@@ -201,7 +201,7 @@ export async function registerRoutes(
     } catch (error) {
       // Validation errors or database errors return 400 Bad Request
       console.error("[POST /api/chats] Error creating chat:", error);
-      res.status(400).json({ error: "Invalid request" });the 
+      res.status(400).json({ error: "Invalid request" });
     }
   });
 
