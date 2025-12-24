@@ -57,6 +57,9 @@ import type { VectorStoreConfig, VectorStoreAdapter } from "./types";
  * 1. If DATABASE_URL is set → use pgvector (production/Replit)
  * 2. If GOOGLE_CLOUD_PROJECT is set → use Vertex AI
  * 3. Otherwise → use in-memory (development/testing)
+ * 
+ * Note: Credentials validation happens at adapter initialization time,
+ * not during backend selection. This allows graceful error handling.
  */
 export function detectBackend(): VectorStoreConfig["backend"] {
   // Check for PostgreSQL (Replit, Supabase, etc.)
@@ -65,7 +68,8 @@ export function detectBackend(): VectorStoreConfig["backend"] {
   }
 
   // Check for Google Cloud project (Vertex AI)
-  if (process.env.GOOGLE_CLOUD_PROJECT && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  // Credentials are validated later during adapter initialization
+  if (process.env.GOOGLE_CLOUD_PROJECT) {
     return "vertex";
   }
 
