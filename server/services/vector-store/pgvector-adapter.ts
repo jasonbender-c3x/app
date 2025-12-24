@@ -23,7 +23,7 @@
  */
 
 import { sql } from "drizzle-orm";
-import { db } from "../../db";
+import { getDb } from "../../db";
 import type {
   VectorStoreAdapter,
   VectorStoreConfig,
@@ -55,10 +55,10 @@ export class PgVectorAdapter implements VectorStoreAdapter {
 
     try {
       // Enable pgvector extension (already done via SQL, but safe to repeat)
-      await db.execute(sql`CREATE EXTENSION IF NOT EXISTS vector`);
+      await getDb().execute(sql`CREATE EXTENSION IF NOT EXISTS vector`);
 
       // Create the vector store table with native vector column
-      await db.execute(sql`
+      await getDb().execute(sql`
         CREATE TABLE IF NOT EXISTS ${sql.identifier(this.tableName)} (
           id VARCHAR PRIMARY KEY,
           content TEXT NOT NULL,
@@ -71,7 +71,7 @@ export class PgVectorAdapter implements VectorStoreAdapter {
 
       // Create an index for faster similarity search
       // Using IVFFlat index for better performance on larger datasets
-      await db.execute(sql`
+      await getDb().execute(sql`
         CREATE INDEX IF NOT EXISTS ${sql.identifier(`${this.tableName}_embedding_idx`)}
         ON ${sql.identifier(this.tableName)}
         USING ivfflat (embedding vector_cosine_ops)
@@ -97,7 +97,7 @@ export class PgVectorAdapter implements VectorStoreAdapter {
 
     const embeddingStr = `[${doc.embedding.join(",")}]`;
 
-    await db.execute(sql`
+    await getDb().execute(sql`
       INSERT INTO ${sql.identifier(this.tableName)} (id, content, embedding, metadata, updated_at)
       VALUES (
         ${doc.id},
@@ -156,7 +156,7 @@ export class PgVectorAdapter implements VectorStoreAdapter {
       filterClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
     }
 
-    const results = await db.execute(sql`
+    const results = await getDb().execute(sql`
       SELECT 
         id,
         content,
@@ -189,7 +189,7 @@ export class PgVectorAdapter implements VectorStoreAdapter {
   async get(id: string): Promise<VectorDocument | null> {
     await this.ensureInitialized();
 
-    const results = await db.execute(sql`
+    const results = await getDb().execute(sql`
       SELECT id, content, embedding::text, metadata
       FROM ${sql.identifier(this.tableName)}
       WHERE id = ${id}
@@ -212,7 +212,7 @@ export class PgVectorAdapter implements VectorStoreAdapter {
   async delete(id: string): Promise<void> {
     await this.ensureInitialized();
 
-    await db.execute(sql`
+    await getDb().execute(sql`
       DELETE FROM ${sql.identifier(this.tableName)}
       WHERE id = ${id}
     `);
@@ -226,7 +226,7 @@ export class PgVectorAdapter implements VectorStoreAdapter {
 
     if (ids.length === 0) return;
 
-    await db.execute(sql`
+    await getDb().execute(sql`
       DELETE FROM ${sql.identifier(this.tableName)}
       WHERE id = ANY(${ids})
     `);
@@ -246,7 +246,7 @@ export class PgVectorAdapter implements VectorStoreAdapter {
       filterClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
     }
 
-    const results = await db.execute(sql`
+    const results = await getDb().execute(sql`
       SELECT COUNT(*) as count
       FROM ${sql.identifier(this.tableName)}
       ${filterClause}
@@ -260,7 +260,7 @@ export class PgVectorAdapter implements VectorStoreAdapter {
    */
   async healthCheck(): Promise<boolean> {
     try {
-      const result = await db.execute(sql`
+      const result = await getDb().execute(sql`
         SELECT 1 as ok, extversion 
         FROM pg_extension 
         WHERE extname = 'vector'

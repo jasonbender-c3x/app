@@ -18,6 +18,7 @@
 import { storage } from "../storage";
 import { chunkingService, type ChunkingOptions } from "./chunking-service";
 import { embeddingService } from "./embedding-service";
+import { getVectorStore, type VectorStoreAdapter, type VectorDocument } from "./vector-store";
 import type { DocumentChunk, Attachment } from "@shared/schema";
 
 export interface IngestResult {
@@ -38,6 +39,34 @@ export interface RAGContext {
 }
 
 export class RAGService {
+  private vectorStore: VectorStoreAdapter | null = null;
+  private initPromise: Promise<void> | null = null;
+
+  /**
+   * Initialize the vector store adapter (lazy initialization)
+   * This is called automatically on first use.
+   */
+  private async ensureInitialized(): Promise<VectorStoreAdapter> {
+    if (this.vectorStore) {
+      return this.vectorStore;
+    }
+
+    if (!this.initPromise) {
+      this.initPromise = (async () => {
+        try {
+          this.vectorStore = await getVectorStore();
+          console.log(`[RAG] Vector store initialized: ${this.vectorStore.name}`);
+        } catch (error) {
+          console.error("[RAG] Failed to initialize vector store:", error);
+          throw error;
+        }
+      })();
+    }
+
+    await this.initPromise;
+    return this.vectorStore!;
+  }
+
   /**
    * Ingest a document: chunk, embed, and store
    */
@@ -73,8 +102,15 @@ export class RAGService {
       const chunkTexts = chunks.map((c) => c.content);
       const embeddings = await embeddingService.embedBatch(chunkTexts);
 
+      // Initialize vector store for semantic search
+      const vectorStore = await this.ensureInitialized();
+
+      // Prepare vector documents for batch upsert
+      const vectorDocs: VectorDocument[] = [];
+
       for (let i = 0; i < chunks.length; i++) {
-        await storage.createDocumentChunk({
+        // Store in PostgreSQL for persistence
+        const savedChunk = await storage.createDocumentChunk({
           documentId,
           attachmentId,
           chunkIndex: chunks[i].metadata.chunkIndex,
@@ -82,6 +118,26 @@ export class RAGService {
           embedding: embeddings[i].embedding,
           metadata: chunks[i].metadata,
         });
+
+        // Prepare for vector store (semantic search)
+        vectorDocs.push({
+          id: savedChunk.id.toString(),
+          content: chunks[i].content,
+          embedding: embeddings[i].embedding,
+          metadata: {
+            ...chunks[i].metadata,
+            documentId,
+            attachmentId,
+            chunkIndex: chunks[i].metadata.chunkIndex,
+            source: "document",
+          },
+        });
+      }
+
+      // Batch upsert to vector store for efficient semantic search
+      if (vectorDocs.length > 0) {
+        await vectorStore.upsertBatch(vectorDocs);
+        console.log(`[RAG] Upserted ${vectorDocs.length} chunks to vector store`);
       }
 
       console.log(`Ingested document ${filename}: ${chunks.length} chunks created`);
@@ -103,9 +159,68 @@ export class RAGService {
   }
 
   /**
-   * Retrieve relevant chunks for a query
+   * Retrieve relevant chunks for a query using the vector store
+   * 
+   * TEACHING NOTES:
+   * ---------------
+   * This method now uses the modular vector store for efficient semantic search.
+   * The vector store uses optimized algorithms (IVFFlat, HNSW, etc.) instead
+   * of brute-force comparison of all chunks.
    */
   async retrieve(
+    query: string,
+    topK: number = 5,
+    threshold: number = 0.5
+  ): Promise<RetrievalResult> {
+    try {
+      // Get embedding for the query
+      const queryEmbedding = await embeddingService.embed(query);
+
+      // Use vector store for efficient similarity search
+      const vectorStore = await this.ensureInitialized();
+      
+      const searchResults = await vectorStore.search(queryEmbedding.embedding, {
+        topK,
+        threshold,
+      });
+
+      // If vector store returns no results, try legacy fallback
+      // This handles cases where vector store index is sparse or threshold is high
+      if (searchResults.length === 0) {
+        console.log("[RAG] Vector store returned no results, trying legacy fallback");
+        return this.retrieveLegacy(query, topK, threshold);
+      }
+
+      // Fetch full chunk data from PostgreSQL using the IDs from vector store
+      const chunks: DocumentChunk[] = [];
+      const scores: number[] = [];
+
+      // Cache the chunk list to avoid fetching multiple times
+      const chunkList = await storage.getAllDocumentChunks();
+      
+      for (const result of searchResults) {
+        // Try to fetch full chunk from storage using document.id
+        const chunkIdStr = result.document.id;
+        const chunk = chunkList.find(c => String(c.id) === chunkIdStr);
+        if (chunk) {
+          chunks.push(chunk);
+          scores.push(result.score);
+        }
+      }
+
+      return { chunks, scores };
+    } catch (error) {
+      console.error("Retrieval error:", error);
+      // Fallback to legacy method if vector store fails
+      return this.retrieveLegacy(query, topK, threshold);
+    }
+  }
+
+  /**
+   * Legacy retrieval method (loads all chunks - less efficient)
+   * Used as fallback if vector store is unavailable
+   */
+  private async retrieveLegacy(
     query: string,
     topK: number = 5,
     threshold: number = 0.5
@@ -122,13 +237,11 @@ export class RAGService {
       const candidates = allChunks
         .filter((c) => {
           if (!c.embedding) return false;
-          // Handle both array and object with values property
           if (Array.isArray(c.embedding)) return true;
           if (typeof c.embedding === 'object' && 'values' in c.embedding && Array.isArray((c.embedding as any).values)) return true;
           return false;
         })
         .map((c) => {
-          // Extract embedding array, handling both formats
           let embedding: number[];
           if (Array.isArray(c.embedding)) {
             embedding = c.embedding as number[];
@@ -158,7 +271,7 @@ export class RAGService {
 
       return { chunks, scores };
     } catch (error) {
-      console.error("Retrieval error:", error);
+      console.error("Legacy retrieval error:", error);
       return { chunks: [], scores: [] };
     }
   }
@@ -307,28 +420,50 @@ Use this context to provide accurate, grounded responses. Cite sources when appr
       const chunkTexts = chunks.map((c) => c.content);
       const embeddings = await embeddingService.embedBatch(chunkTexts);
 
+      // Initialize vector store for semantic search
+      const vectorStore = await this.ensureInitialized();
+
+      // Prepare vector documents for batch upsert
+      const vectorDocs: VectorDocument[] = [];
+
       for (let i = 0; i < chunks.length; i++) {
-        await storage.createDocumentChunk({
+        const chunkMetadata = {
+          ...chunks[i].metadata,
+          chatId,
+          messageId,
+          role,
+          timestamp: timestamp?.toISOString() || new Date().toISOString(),
+          type: "conversation",
+          userId: userId || "guest",
+          isVerified: !!userId,
+          source: "conversation",
+        };
+
+        // Store in PostgreSQL for persistence
+        const savedChunk = await storage.createDocumentChunk({
           documentId,
           attachmentId: `msg-${messageId}`,
           chunkIndex: chunks[i].metadata.chunkIndex,
           content: chunks[i].content,
           embedding: embeddings[i].embedding,
-          metadata: {
-            ...chunks[i].metadata,
-            chatId,
-            messageId,
-            role,
-            timestamp: timestamp?.toISOString() || new Date().toISOString(),
-            type: "conversation",
-            // Tag with user ID for retrieval scoping - guests go to "guest" bucket
-            userId: userId || "guest",
-            isVerified: !!userId, // Only authenticated users have verified data
-          },
+          metadata: chunkMetadata,
+        });
+
+        // Prepare for vector store (semantic search)
+        vectorDocs.push({
+          id: savedChunk.id.toString(),
+          content: chunks[i].content,
+          embedding: embeddings[i].embedding,
+          metadata: chunkMetadata,
         });
       }
 
-      console.log(`[RAG] Ingested ${role} message ${messageId}: ${chunks.length} chunks`);
+      // Batch upsert to vector store for efficient semantic search
+      if (vectorDocs.length > 0) {
+        await vectorStore.upsertBatch(vectorDocs);
+      }
+
+      console.log(`[RAG] Ingested ${role} message ${messageId}: ${chunks.length} chunks (vector store: ${vectorStore.name})`);
 
       return {
         documentId,

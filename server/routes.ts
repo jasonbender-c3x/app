@@ -735,31 +735,6 @@ export async function registerRoutes(
       // Remove any residual tool_code blocks, empty code blocks, and cleanup
       let finalContent = cleanContentForStorage
         // Remove code blocks containing tool call arrays (identified by known tool types)
-        .replace(
-          /```(?:json|tool_code|tool|)?\s*\n?\s*\[\s*\{[\s\S]*?"type"\s*:\s*"(?:github_|gmail_|calendar_|drive_|docs_|sheets_|tasks_|terminal_|tavily_|perplexity_|browserbase_|api_call|search|web_search|google_search|duckduckgo_search|browser_scrape|file_ingest|file_upload)[\w_]*"[\s\S]*?\}\s*\]\s*\n?```/gi,
-          "",
-        )
-        // Remove standalone JSON arrays containing tool calls (identified by known tool types)
-        .replace(
-          /\[\s*\{[\s\S]*?"type"\s*:\s*"(?:github_|gmail_|calendar_|drive_|docs_|sheets_|tasks_|terminal_|tavily_|perplexity_|browserbase_|api_call|search|web_search|google_search|duckduckgo_search|browser_scrape|file_ingest|file_upload)[\w_]*"[\s\S]*?\}\s*\]/gi,
-          "",
-        )
-        // Remove malformed/partial JSON arrays that look like failed tool call cleanup
-        .replace(/\[\s*\n?\s*\}\s*\]/gi, "")
-        .replace(/```tool_code\s*\n?\s*```/gi, "")
-        .replace(/```(?:json|tool_code|tool|)?\s*```/gi, "")
-        .replace(/tool_code\s*[:=]?\s*\{[^}]*\}/gi, "")
-        .replace(
-          /\{\s*"type"\s*:\s*"(?:github_|gmail_|calendar_|drive_|docs_|sheets_|tasks_|terminal_|tavily_|perplexity_|browserbase_|api_call|search|web_search|google_search|duckduckgo_search|browser_scrape|file_ingest|file_upload)[\w_]*"\s*,[\s\S]*?\}/gi,
-          "",
-        )
-        .replace(
-          /"(?:operation|parameters|id|type)"\s*:\s*(?:"[^"]*"|\{[^}]*\})/gi,
-          "",
-        )
-        .replace(/\btool_code\b/gi, "")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
 
       // Prepare Gemini content for storage (keep original for multi-turn context)
       // Always use the accumulated fullResponse to ensure complete content is stored

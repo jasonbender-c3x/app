@@ -40,6 +40,7 @@ Preferred communication style: Simple, everyday language.
   - Ingestion: `ragService.ingestMessage()` in `server/services/rag-service.ts`
   - Retrieval: `ragService.buildConversationContext()` filters by chatId for chat-scoped memory
   - Trivial messages (greetings, short responses) are skipped to avoid noise
+  - **File Upload Ingestion:** All uploaded files are automatically chunked, embedded, and stored in both PostgreSQL (persistence) and the modular vector store (semantic search)
 - **Embedding Service:** Google Gemini text-embedding-004 model for vector embeddings and similarity calculations.
 - **Modular Vector Store:** Pluggable storage for RAG with multiple backend adapters:
   - **pgvector**: Native PostgreSQL vector storage with IVFFlat indexing (Replit, Supabase, Neon)
