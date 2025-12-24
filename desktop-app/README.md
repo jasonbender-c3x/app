@@ -52,7 +52,7 @@ A Linux desktop application for running Meowstik AI Chat locally.
 - Linux operating system (Ubuntu, Debian, Fedora, etc.)
 - A Google AI API key (GEMINI_API_KEY)
 
-### From Source
+### From Source (Manual)
 
 ```bash
 # 1. Clone the repository
@@ -74,6 +74,31 @@ cp .env.example .env
 npm run dev
 ```
 
+### Quick Install (Recommended)
+
+If you have a `secrets.json` file from your crypto locker:
+
+```bash
+# 1. Clone and enter the desktop-app folder
+git clone https://github.com/jasonbender-c3x/meowstik.git
+cd meowstik/desktop-app
+
+# 2. Place your secrets.json in this folder
+
+# 3. Run the installer
+chmod +x install.sh
+./install.sh
+```
+
+The installer will:
+1. Check for `secrets.json` (error if missing)
+2. Parse it and create a secure `.env` file (permissions 600)
+3. Install system dependencies via apt
+4. Install all Node.js packages
+5. Copy the browser extension to `~/.meowstik/extension/`
+6. Guide you through Chrome extension installation
+7. Pause for you to install the extension, then continue
+
 ## 📦 Portability
 
 This app is designed to run on multiple platforms:
@@ -85,6 +110,8 @@ This app is designed to run on multiple platforms:
 | **Local/Desktop** | pgvector or memory | Choose based on needs |
 | **Colab Notebook** | memory | No database required |
 | **Docker** | Any | Mount volumes for persistence |
+| **Chromebook** | memory or pgvector | Via Linux container or browser extension |
+| **Windows** | pgvector or memory | Full Playwright support |
 
 ### Switching Vector Stores
 
@@ -198,6 +225,36 @@ This project demonstrates several key concepts:
    - System tray
    - Native menus
    - File dialogs
+
+## 🖥️ Platform Notes
+
+### Chromebook
+
+On Chromebook, you have two options:
+
+1. **Browser Extension Only** (no root required)
+   - Install the Meowstik extension in Chrome
+   - The extension handles all browser automation
+   - Connect to a remote Meowstik backend (Replit, cloud, etc.)
+
+2. **Full Desktop App** (requires Linux container)
+   - Enable Linux (Crostini) in ChromeOS settings
+   - Run the installer inside the Linux container
+   - The desktop app provides local file access
+
+### Windows
+
+Full support with Playwright:
+- Node.js 18+ required
+- Playwright supports Windows 10/11 (x64 and ARM64)
+- Install via the standard npm process
+
+### Linux
+
+Native support:
+- Ubuntu, Debian, Fedora, and derivatives
+- Uses apt for system dependencies
+- AppImage and .deb packages available
 
 ## 🐛 Troubleshooting
 
