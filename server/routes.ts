@@ -536,7 +536,7 @@ export async function registerRoutes(
       const modelMode =
         req.body.model === "flash"
           ? "gemini-2.5-flash"
-          : "gemini-2.5-pro-preview-06-05";
+          : "gemini-2.5-pro";
       console.log(
         `[Routes] Using model: ${modelMode} (mode: ${req.body.model || "pro"})`,
       );

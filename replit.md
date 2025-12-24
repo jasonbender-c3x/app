@@ -26,7 +26,7 @@ Preferred communication style: Simple, everyday language.
 ### AI Integration
 - **Generative AI:** Google's Gemini models via `@google/genai` for conversational AI.
   - **Model Toggle:** Flash/Pro switch in Settings (default: Pro)
-    - Pro mode: `gemini-2.5-pro-preview-06-05` - Maximum capability
+    - Pro mode: `gemini-2.5-pro` - Maximum capability
     - Flash mode: `gemini-2.5-flash` - Fast and efficient
 - **Expressive Speech (TTS):** Gemini 2.5 Flash/Pro TTS for multi-speaker text-to-speech.
 - **Music Generation:** Lyria RealTime experimental API.
