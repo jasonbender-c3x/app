@@ -2,47 +2,151 @@
 
 A Linux desktop application for running Meowstik AI Chat locally.
 
-## Prerequisites
+🎓 **This is a teaching tool** - The code is extensively documented to help you understand Electron development and portable AI application architecture.
 
-- Node.js 18+ 
+## 🏗️ Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    ELECTRON DESKTOP APP                     │
+│                                                             │
+│  ┌──────────────────┐      ┌──────────────────────────────┐│
+│  │   Main Process   │ IPC  │     Renderer Process         ││
+│  │   (main.js)      │◀────▶│     (React Frontend)         ││
+│  │                  │      │                              ││
+│  │  • Window mgmt   │      │  • Chat UI                   ││
+│  │  • System tray   │      │  • Settings                  ││
+│  │  • File dialogs  │      │  • Live Voice                ││
+│  │  • Menu bar      │      │  • Code Editor               ││
+│  └────────┬─────────┘      └──────────────────────────────┘│
+│           │                                                 │
+│           │ spawns                                          │
+│           ▼                                                 │
+│  ┌──────────────────┐                                       │
+│  │  Backend Server  │ ◀── HTTP API                          │
+│  │  (Express.js)    │                                       │
+│  │                  │                                       │
+│  │  • REST API      │                                       │
+│  │  • WebSocket     │                                       │
+│  │  • AI Services   │                                       │
+│  └────────┬─────────┘                                       │
+│           │                                                 │
+│           ▼                                                 │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │              MODULAR VECTOR STORE                     │   │
+│  │                                                       │   │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  │   │
+│  │  │pgvector │  │Vertex AI│  │ Memory  │  │Pinecone │  │   │
+│  │  │(Postgres)│  │ (GCP)   │  │ (Local) │  │ (Cloud) │  │   │
+│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘  │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js 18+
 - npm or yarn
 - Linux operating system (Ubuntu, Debian, Fedora, etc.)
-- A Google AI API key (for Gemini)
-
-## Installation
+- A Google AI API key (GEMINI_API_KEY)
 
 ### From Source
 
-1. Clone the repository:
 ```bash
+# 1. Clone the repository
 git clone https://github.com/jasonbender-c3x/meowstik.git
 cd meowstik
-```
 
-2. Install dependencies for the main app:
-```bash
+# 2. Install main app dependencies
 npm install
-```
 
-3. Navigate to the desktop app folder:
-```bash
+# 3. Navigate to desktop app
 cd desktop-app
 npm install
-```
 
-4. Set up environment variables:
-```bash
-# Create a .env file in the desktop-app folder
-echo "GEMINI_API_KEY=your_api_key_here" > .env
-echo "DATABASE_URL=your_postgres_url" >> .env
-```
+# 4. Set up environment (see Configuration section)
+cp .env.example .env
+# Edit .env with your settings
 
-5. Run in development mode:
-```bash
+# 5. Run in development mode
 npm run dev
 ```
 
-## Building for Distribution
+## 📦 Portability
+
+This app is designed to run on multiple platforms:
+
+| Platform | Vector Store | Notes |
+|----------|-------------|-------|
+| **Replit** | pgvector | Uses built-in PostgreSQL |
+| **Google Cloud** | Vertex AI | Managed RAG service |
+| **Local/Desktop** | pgvector or memory | Choose based on needs |
+| **Colab Notebook** | memory | No database required |
+| **Docker** | Any | Mount volumes for persistence |
+
+### Switching Vector Stores
+
+The app auto-detects the best backend:
+
+```bash
+# Auto-detection priority:
+# 1. DATABASE_URL → pgvector
+# 2. GOOGLE_CLOUD_PROJECT → Vertex AI
+# 3. None → In-memory (development/testing)
+
+# Or explicitly set:
+VECTOR_STORE_BACKEND=pgvector   # PostgreSQL with pgvector
+VECTOR_STORE_BACKEND=vertex     # Google Cloud Vertex AI
+VECTOR_STORE_BACKEND=memory     # In-memory (no persistence)
+```
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `GEMINI_API_KEY` | Google AI API key | Yes | - |
+| `DATABASE_URL` | PostgreSQL connection string | No | (uses memory) |
+| `VECTOR_STORE_BACKEND` | 'pgvector' \| 'vertex' \| 'memory' | No | (auto-detect) |
+| `GOOGLE_CLOUD_PROJECT` | GCP project ID (for Vertex AI) | No | - |
+| `PORT` | Backend port | No | 5001 |
+
+### Example Configurations
+
+**Local Development (no database):**
+```bash
+GEMINI_API_KEY=your_api_key
+VECTOR_STORE_BACKEND=memory
+```
+
+**Local with PostgreSQL:**
+```bash
+GEMINI_API_KEY=your_api_key
+DATABASE_URL=postgresql://user:pass@localhost:5432/meowstik
+```
+
+**Google Cloud Deployment:**
+```bash
+GEMINI_API_KEY=your_api_key
+GOOGLE_CLOUD_PROJECT=my-project-id
+VECTOR_STORE_BACKEND=vertex
+```
+
+## 🎹 Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+N` | New Chat |
+| `Ctrl+,` | Settings |
+| `Ctrl+Q` | Quit |
+| `F11` | Toggle Fullscreen |
+| `Ctrl+R` | Reload |
+| `Ctrl+Shift+I` | DevTools (dev mode only) |
+
+## 🔧 Building for Distribution
 
 ### Build AppImage (recommended for most Linux distros):
 ```bash
@@ -54,63 +158,74 @@ npm run build:appimage
 npm run build:deb
 ```
 
-The built packages will be in the `dist/` folder.
+Built packages will be in the `dist/` folder.
 
-## Features
+## 📚 Code Structure
 
-- **Local Backend**: Runs the complete Meowstik backend locally
-- **System Tray**: Minimize to system tray for quick access
-- **Offline Capable**: Works without internet (except for AI features)
-- **Native Integration**: File dialogs, notifications, keyboard shortcuts
-- **Auto-Start**: Option to start with system boot
+```
+desktop-app/
+├── src/
+│   ├── main.js         # Electron main process (extensively documented)
+│   └── preload.js      # Bridge between main and renderer
+├── assets/
+│   ├── icon.png        # App icon
+│   ├── icon.svg        # Vector icon source
+│   └── tray-icon.png   # System tray icon
+├── package.json        # Dependencies and build config
+└── README.md           # This file
+```
 
-## Configuration
+## 🎓 Learning Resources
 
-The app stores configuration in:
-- Linux: `~/.config/meowstik-desktop/`
+This project demonstrates several key concepts:
 
-### Environment Variables
+1. **Electron Architecture**
+   - Main vs Renderer process
+   - IPC communication
+   - Preload scripts for security
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `GEMINI_API_KEY` | Google AI API key | Yes |
-| `DATABASE_URL` | PostgreSQL connection string | Optional |
-| `PORT` | Backend port (default: 5001) | No |
+2. **Adapter Pattern**
+   - Multiple vector store backends
+   - Same interface, different implementations
+   - Factory pattern for creation
 
-## Keyboard Shortcuts
+3. **Child Process Management**
+   - Spawning Node.js servers
+   - Health checking with polling
+   - Graceful shutdown
 
-- `Ctrl+N` - New Chat
-- `Ctrl+,` - Settings
-- `Ctrl+Q` - Quit
-- `F11` - Toggle Fullscreen
-- `Ctrl+R` - Reload
+4. **Desktop Integration**
+   - System tray
+   - Native menus
+   - File dialogs
 
-## Troubleshooting
+## 🐛 Troubleshooting
 
 ### Backend not starting
 - Check that Node.js 18+ is installed
-- Verify the server files are in the correct location
-- Check logs in the terminal
+- Verify GEMINI_API_KEY is set
+- Check port 5001 is available
+- Look at terminal logs for errors
 
 ### Database connection issues
 - Ensure PostgreSQL is installed and running
-- Verify DATABASE_URL is correct
-- For local-only mode, the app can work without a database
+- Verify DATABASE_URL format is correct
+- Try `VECTOR_STORE_BACKEND=memory` for testing without a database
 
 ### API errors
 - Verify your GEMINI_API_KEY is valid
 - Check internet connection for AI features
+- Review rate limits on your API key
 
-## Development
+### Window not showing
+- Check for existing processes: `ps aux | grep meowstik`
+- Kill stale processes: `pkill -f meowstik`
+- Try running with: `npm run dev` for debug output
 
-```bash
-# Run in development mode with DevTools
-npm run dev
-
-# Build for production
-npm run build
-```
-
-## License
+## 📄 License
 
 MIT License - See LICENSE file for details.
+
+---
+
+**Made with 🐱 by the Meowstik team**

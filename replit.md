@@ -41,6 +41,12 @@ Preferred communication style: Simple, everyday language.
   - Retrieval: `ragService.buildConversationContext()` filters by chatId for chat-scoped memory
   - Trivial messages (greetings, short responses) are skipped to avoid noise
 - **Embedding Service:** Google Gemini text-embedding-004 model for vector embeddings and similarity calculations.
+- **Modular Vector Store:** Pluggable storage for RAG with multiple backend adapters:
+  - **pgvector**: Native PostgreSQL vector storage with IVFFlat indexing (Replit, Supabase, Neon)
+  - **Vertex AI**: Google Cloud's managed RAG Engine
+  - **In-Memory**: For testing, Colab notebooks, and local development
+  - Auto-detection based on environment variables (DATABASE_URL, GOOGLE_CLOUD_PROJECT)
+  - Location: `server/services/vector-store/`
 - **Workflow Orchestration Engine:** Hierarchical task management with sequential/parallel execution, subtask spawning, AI-evaluated conditional logic, operator polling, cron scheduling, event triggers, and workflow interruption capabilities.
 - **LLM Token Usage Tracking:** All Gemini API calls logged with input/output token counts.
   - Captured from streaming `usageMetadata`
@@ -139,6 +145,16 @@ Node.js package for AI-directed browser automation:
 - Commands: `navigate`, `click`, `type`, `screenshot`, `get_content`, `execute_script`, `wait`, `scroll`, `select`, `hover`, `fill_form`, `submit_form`, `keyboard`, tab management
 - Files: `src/index.js`, `src/agent-controller.js`, `src/extension-bridge.js`
 - Backend: `/api/agent/agents`, `/api/agent/command`, `/api/agent/task`
+
+### Desktop App (`desktop-app/`)
+Linux Electron application for running Meowstik locally (teaching tool):
+- **Electron Main Process**: Window management, system tray, native menus
+- **Backend Spawning**: Runs Express server as child process on port 5001
+- **IPC Bridge**: Secure communication between main and renderer processes
+- **Portability**: Code designed to run on Replit, Google Cloud, Colab, or local dev
+- **Vector Store Selection**: Auto-detects best backend (pgvector, Vertex AI, or memory)
+- Build targets: AppImage, .deb package
+- Files: `src/main.js`, `src/preload.js`, `package.json`
 
 ## System Identity
 
