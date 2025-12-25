@@ -440,9 +440,10 @@ Use this context to provide accurate, grounded responses. Cite sources when appr
         };
 
         // Store in PostgreSQL for persistence
+        // Note: attachmentId is null for message-based chunks (not from file attachments)
         const savedChunk = await storage.createDocumentChunk({
           documentId,
-          attachmentId: `msg-${messageId}`,
+          attachmentId: null,
           chunkIndex: chunks[i].metadata.chunkIndex,
           content: chunks[i].content,
           embedding: embeddings[i].embedding,
