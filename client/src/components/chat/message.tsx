@@ -156,6 +156,29 @@ interface MessageProps {
 // ============================================================================
 
 /**
+ * Truncate large values in parameters for display
+ * Keeps the debug view useful without overwhelming it with huge content
+ */
+function truncateParams(params: Record<string, any>, maxLength: number = 200): Record<string, any> {
+  const truncated: Record<string, any> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === 'string' && value.length > maxLength) {
+      truncated[key] = value.substring(0, maxLength) + `... [${value.length - maxLength} more chars]`;
+    } else if (typeof value === 'object' && value !== null) {
+      const stringified = JSON.stringify(value);
+      if (stringified.length > maxLength) {
+        truncated[key] = `[Object: ${stringified.length} chars]`;
+      } else {
+        truncated[key] = value;
+      }
+    } else {
+      truncated[key] = value;
+    }
+  }
+  return truncated;
+}
+
+/**
  * Extract the "thinking" portion from message content
  * The backend format is: [JSON tool calls]\n\n✂️🐱\n\nmarkdown content
  * This function extracts everything BEFORE the delimiter as the thinking/reasoning.
@@ -178,7 +201,8 @@ function extractThinking(content: string): string | null {
           return parsed.map((call: any) => {
             const type = call.type || 'unknown';
             const operation = call.operation || '';
-            const params = call.parameters ? JSON.stringify(call.parameters, null, 2) : '';
+            const truncatedParams = call.parameters ? truncateParams(call.parameters) : null;
+            const params = truncatedParams ? JSON.stringify(truncatedParams, null, 2) : '';
             return `🔧 ${type}${operation ? `: ${operation}` : ''}\n${params ? `   Parameters: ${params}` : ''}`;
           }).join('\n\n');
         }
