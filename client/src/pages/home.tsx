@@ -184,6 +184,12 @@ export default function Home() {
    * Used to auto-scroll to bottom when new messages arrive
    */
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  /**
+   * Reference to the last message element
+   * Used to scroll new messages into view from the top
+   */
+  const lastMessageRef = useRef<HTMLDivElement>(null);
 
   /**
    * Text-to-Speech hook for reading AI responses aloud
@@ -233,12 +239,15 @@ export default function Home() {
   }, [currentChatId]);
 
   /**
-   * Effect: Auto-scroll to bottom
-   * Triggers when messages array changes or loading state changes
-   * Provides smooth scrolling experience during conversation
+   * Effect: Auto-scroll to show new messages
+   * Scrolls to the TOP of the last message so users see the beginning first
+   * Falls back to bottom scroll anchor if no last message ref
    */
   useEffect(() => {
-    if (scrollRef.current) {
+    if (lastMessageRef.current) {
+      // Scroll to show the TOP of the new message
+      lastMessageRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isLoading]);
@@ -879,17 +888,20 @@ export default function Home() {
                   }
                 }
                 
+                const isLastMessage = index === messages.length - 1;
+                
                 return (
-                  <ChatMessage 
-                    key={msg.id} 
-                    id={msg.id}
-                    chatId={currentChatId || undefined}
-                    role={msg.role as "user" | "ai"} 
-                    content={msg.content} 
-                    metadata={(msg as any).metadata}
-                    createdAt={msg.createdAt}
-                    promptSnapshot={promptSnapshot}
-                  />
+                  <div key={msg.id} ref={isLastMessage ? lastMessageRef : undefined}>
+                    <ChatMessage 
+                      id={msg.id}
+                      chatId={currentChatId || undefined}
+                      role={msg.role as "user" | "ai"} 
+                      content={msg.content} 
+                      metadata={(msg as any).metadata}
+                      createdAt={msg.createdAt}
+                      promptSnapshot={promptSnapshot}
+                    />
+                  </div>
                 );
               })}
               
