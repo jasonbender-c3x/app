@@ -21,6 +21,7 @@ import queueRouter from "./queue";
 import orchestrationRouter from "./orchestration";
 import extensionRouter from "./extension";
 import agentRouter from "./agent";
+import liveRouter from "./live";
 import { errorHandler } from "./middleware";
 
 export function createApiRouter(): Router {
@@ -48,6 +49,7 @@ export function createApiRouter(): Router {
   router.use("/orchestration", orchestrationRouter);
   router.use("/extension", extensionRouter);
   router.use("/agent", agentRouter);
+  router.use("/live", liveRouter);
 
   router.use(errorHandler);
 

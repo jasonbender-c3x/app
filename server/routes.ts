@@ -1274,66 +1274,8 @@ ${summary}`,
 
   // ═════════════════════════════════════════════════════════════════════════
   // LIVE VOICE CONVERSATION ENDPOINTS
+  // Moved to server/routes/live.ts
   // ═════════════════════════════════════════════════════════════════════════
-
-  app.post("/api/live/session", async (req, res) => {
-    try {
-      const { sessionId, voiceName, systemInstruction } = req.body;
-
-      if (!sessionId) {
-        return res
-          .status(400)
-          .json({ success: false, error: "sessionId is required" });
-      }
-
-      const geminiLive = await import("./integrations/gemini-live");
-      const result = await geminiLive.createLiveSession(sessionId, {
-        voiceName,
-        systemInstruction,
-      });
-
-      res.json(result);
-    } catch (error) {
-      console.error("[Live] Error creating session:", error);
-      res.status(500).json({
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to create live session",
-      });
-    }
-  });
-
-  app.delete("/api/live/session/:sessionId", async (req, res) => {
-    try {
-      const { sessionId } = req.params;
-
-      const geminiLive = await import("./integrations/gemini-live");
-      const result = await geminiLive.closeLiveSession(sessionId);
-
-      res.json(result);
-    } catch (error) {
-      console.error("[Live] Error closing session:", error);
-      res.status(500).json({
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to close live session",
-      });
-    }
-  });
-
-  app.get("/api/live/voices", async (_req, res) => {
-    try {
-      const geminiLive = await import("./integrations/gemini-live");
-      res.json({ voices: geminiLive.AVAILABLE_VOICES });
-    } catch (error) {
-      console.error("[Live] Error getting voices:", error);
-      res.status(500).json({ error: "Failed to get available voices" });
-    }
-  });
 
   // ═════════════════════════════════════════════════════════════════════════
   // MODULAR API ROUTERS

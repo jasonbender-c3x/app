@@ -208,23 +208,29 @@ export default function LivePage() {
       streamRef.current = stream;
 
       audioContextRef.current = new AudioContext({ sampleRate: 16000 });
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
+      
+      // Load the AudioWorklet processor
+      try {
+        await audioContextRef.current.audioWorklet.addModule("/audio-processor.js");
+      } catch (e) {
+        console.error("Failed to load audio processor worklet:", e);
+        throw new Error("Failed to initialize audio processor");
+      }
 
-      processor.onaudioprocess = (event) => {
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      const workletNode = new AudioWorkletNode(audioContextRef.current, "audio-processor");
+
+      workletNode.port.onmessage = (event) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
-        const inputData = event.inputBuffer.getChannelData(0);
-        const pcmData = new Int16Array(inputData.length);
+        // event.data is the ArrayBuffer containing Int16 PCM data
+        const pcmBuffer = event.data;
+        const uint8Array = new Uint8Array(pcmBuffer);
         
-        for (let i = 0; i < inputData.length; i++) {
-          const s = Math.max(-1, Math.min(1, inputData[i]));
-          pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-        }
-
-        const uint8Array = new Uint8Array(pcmData.buffer);
+        // Convert to base64 for transmission
         let binaryString = "";
-        for (let i = 0; i < uint8Array.length; i++) {
+        const len = uint8Array.byteLength;
+        for (let i = 0; i < len; i++) {
           binaryString += String.fromCharCode(uint8Array[i]);
         }
         const base64 = btoa(binaryString);
@@ -236,8 +242,8 @@ export default function LivePage() {
         }));
       };
 
-      source.connect(processor);
-      processor.connect(audioContextRef.current.destination);
+      source.connect(workletNode);
+      workletNode.connect(audioContextRef.current.destination);
 
       setIsListening(true);
     } catch (err) {
