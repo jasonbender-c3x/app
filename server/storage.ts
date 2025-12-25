@@ -79,7 +79,7 @@ import {
   llmUsage
 } from "@shared/schema";
 import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
-import { eq, desc, and, lte, or, sql, isNull, isNotNull, inArray, arrayContains } from "drizzle-orm";
+import { eq, desc, and, lte, lt, or, sql, isNull, isNotNull, inArray, arrayContains } from "drizzle-orm";
 import { Pool } from "pg";
 
 /**
@@ -181,11 +181,12 @@ export interface IStorage {
   addMessage(message: InsertMessage): Promise<Message>;
   
   /**
-   * Retrieves all messages belonging to a specific chat
+   * Retrieves messages belonging to a specific chat with optional pagination
    * @param chatId - The UUID of the chat
+   * @param options - Optional pagination: limit (max messages), before (cursor for older messages)
    * @returns Array of messages, sorted by createdAt ascending (oldest first)
    */
-  getMessagesByChatId(chatId: string): Promise<Message[]>;
+  getMessagesByChatId(chatId: string, options?: { limit?: number; before?: string }): Promise<Message[]>;
   
   /**
    * Retrieves the most recent user messages across all chats
@@ -591,26 +592,54 @@ export class DrizzleStorage implements IStorage {
   }
 
   /**
-   * Retrieves all messages belonging to a specific chat
+   * Retrieves messages belonging to a specific chat with optional pagination
    * 
    * Orders by createdAt ascending (oldest first) so messages
    * display in chronological order in the chat view.
    * 
    * @param chatId - The UUID of the chat whose messages to retrieve
+   * @param options - Optional pagination: limit (max messages), before (cursor for older messages)
    * @returns Array of Message objects, sorted chronologically
    * 
    * @example
-   * const messages = await storage.getMessagesByChatId("chat-uuid");
-   * messages.forEach(msg => {
-   *   console.log(`${msg.role}: ${msg.content}`);
-   * });
+   * // Get last 20 messages
+   * const messages = await storage.getMessagesByChatId("chat-uuid", { limit: 20 });
+   * 
+   * // Get 20 messages before a specific message (for loading older history)
+   * const older = await storage.getMessagesByChatId("chat-uuid", { limit: 20, before: "msg-uuid" });
    */
-  async getMessagesByChatId(chatId: string): Promise<Message[]> {
-    return await this.getDb()
+  async getMessagesByChatId(chatId: string, options?: { limit?: number; before?: string }): Promise<Message[]> {
+    const { limit, before } = options || {};
+    
+    // Build query with optional cursor-based pagination
+    let query = this.getDb()
       .select()
       .from(messages)
-      .where(eq(messages.chatId, chatId))  // Filter to specific chat
-      .orderBy(messages.createdAt);         // Oldest messages first
+      .where(eq(messages.chatId, chatId))
+      .orderBy(desc(messages.createdAt)); // Newest first for limit, we'll reverse later
+    
+    // If 'before' cursor provided, get messages older than that message
+    if (before) {
+      const cursorMessage = await this.getMessageById(before);
+      if (cursorMessage) {
+        query = this.getDb()
+          .select()
+          .from(messages)
+          .where(and(
+            eq(messages.chatId, chatId),
+            lt(messages.createdAt, cursorMessage.createdAt)
+          ))
+          .orderBy(desc(messages.createdAt));
+      }
+    }
+    
+    // Apply limit if provided (get N most recent, or N before cursor)
+    const result = limit 
+      ? await query.limit(limit)
+      : await query;
+    
+    // Reverse to chronological order (oldest first) for display
+    return result.reverse();
   }
 
   /**

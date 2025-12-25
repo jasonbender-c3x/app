@@ -201,7 +201,7 @@ export async function registerRoutes(
     } catch (error) {
       // Validation errors or database errors return 400 Bad Request
       console.error("[POST /api/chats] Error creating chat:", error);
-      res.status(400).json({ error: "Invalid request" });the 
+      res.status(400).json({ error: "Invalid request" });
     }
   });
 
@@ -228,18 +228,23 @@ export async function registerRoutes(
 
   /**
    * GET /api/chats/:id
-   * Get a specific chat with its message history.
+   * Get a specific chat with its recent message history (paginated).
    *
    * Path Parameters:
    * - id: string (UUID) - The chat ID to retrieve
    *
+   * Query Parameters:
+   * - limit: number (optional) - Max messages to return (default: 30)
+   * - before: string (optional) - Message ID cursor for loading older messages
+   *
    * Response:
    * - chat: Chat object with metadata
-   * - messages: Array of Message objects in chronological order
+   * - messages: Array of Message objects (most recent, chronologically ordered)
+   * - hasMore: boolean indicating if older messages exist
    *
    * @route GET /api/chats/:id
    * @param {string} id - Chat UUID
-   * @returns {Object} 200 - { chat: Chat, messages: Message[] }
+   * @returns {Object} 200 - { chat: Chat, messages: Message[], hasMore: boolean }
    * @returns {Error} 404 - Chat not found
    * @returns {Error} 500 - Server error
    */
@@ -253,17 +258,64 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Chat not found" });
       }
 
-      // Fetch all messages belonging to this chat
-      const messages = await storage.getMessagesByChatId(req.params.id);
+      // Parse pagination params (default: last 30 messages)
+      const limit = parseInt(req.query.limit as string) || 30;
+      const before = req.query.before as string | undefined;
+      
+      // Fetch paginated messages (+1 to check if more exist)
+      const messages = await storage.getMessagesByChatId(req.params.id, { 
+        limit: limit + 1, 
+        before 
+      });
+      
+      // Check if there are more messages to load
+      const hasMore = messages.length > limit;
+      const returnMessages = hasMore ? messages.slice(1) : messages; // Remove oldest if over limit
 
-      // Return both chat metadata and messages
-      res.json({ chat, messages });
+      // Return chat metadata, paginated messages, and hasMore flag
+      res.json({ chat, messages: returnMessages, hasMore });
     } catch (error) {
       console.error(
         `[GET /api/chats/${req.params.id}] Error fetching chat:`,
         error,
       );
       res.status(500).json({ error: "Failed to fetch chat" });
+    }
+  });
+  
+  /**
+   * GET /api/chats/:id/messages
+   * Get paginated messages for a chat (for loading older history).
+   *
+   * Query Parameters:
+   * - limit: number (optional) - Max messages to return (default: 30)
+   * - before: string (required) - Message ID cursor for loading older messages
+   *
+   * @route GET /api/chats/:id/messages
+   * @returns {Object} 200 - { messages: Message[], hasMore: boolean }
+   */
+  app.get("/api/chats/:id/messages", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 30;
+      const before = req.query.before as string;
+      
+      if (!before) {
+        return res.status(400).json({ error: "before cursor required" });
+      }
+      
+      // Fetch messages before cursor (+1 to check if more exist)
+      const messages = await storage.getMessagesByChatId(req.params.id, { 
+        limit: limit + 1, 
+        before 
+      });
+      
+      const hasMore = messages.length > limit;
+      const returnMessages = hasMore ? messages.slice(1) : messages;
+      
+      res.json({ messages: returnMessages, hasMore });
+    } catch (error) {
+      console.error(`[GET /api/chats/${req.params.id}/messages] Error:`, error);
+      res.status(500).json({ error: "Failed to fetch messages" });
     }
   });
 
@@ -439,9 +491,17 @@ export async function registerRoutes(
       // ─────────────────────────────────────────────────────────────────────
       // STEP 2: Build conversation history for AI context
       // ─────────────────────────────────────────────────────────────────────
-
-      // Fetch all previous messages in this chat
-      const chatMessages = await storage.getMessagesByChatId(req.params.id);
+      
+      // OPTIMIZATION: Only fetch a small recent window for immediate context.
+      // RAG (in PromptComposer) handles retrieving relevant older context.
+      // This prevents loading massive tool outputs that bloat token usage.
+      const RECENT_WINDOW = 4; // Last 4 messages for conversational flow
+      const MAX_CONTENT_LENGTH = 2000; // Truncate long messages
+      
+      // Fetch only recent messages (not all history)
+      const chatMessages = await storage.getMessagesByChatId(req.params.id, { 
+        limit: RECENT_WINDOW + 1 // +1 because we exclude the current message
+      });
 
       // IMPORTANT: Exclude the current message we just saved, since we'll add it separately
       // This prevents the user's message from being sent to the AI twice
@@ -449,16 +509,21 @@ export async function registerRoutes(
         (msg) => msg.id !== savedMessage.id,
       );
 
-      // Transform to Gemini API format:
+      // Transform to Gemini API format with content truncation:
       // - "user" role stays as "user"
       // - "ai" role becomes "model" (Gemini terminology)
-      // - Use clean content (without tool JSON) to minimize token usage
-      // - Limit history to last 10 messages to stay within rate limits
-      const recentMessages = previousMessages.slice(-10);
-      const history = recentMessages.map((msg) => ({
-        role: msg.role === "user" ? "user" : "model",
-        parts: [{ text: msg.content }],
-      }));
+      // - Truncate long messages to prevent token overflow from tool outputs
+      const history = previousMessages.map((msg) => {
+        // Truncate content if too long (likely contains tool outputs)
+        let content = msg.content;
+        if (content.length > MAX_CONTENT_LENGTH) {
+          content = content.slice(0, MAX_CONTENT_LENGTH) + "\n...[truncated for context]";
+        }
+        return {
+          role: msg.role === "user" ? "user" : "model",
+          parts: [{ text: content }],
+        };
+      });
 
       // ─────────────────────────────────────────────────────────────────────
       // STEP 3: Configure SSE (Server-Sent Events) headers

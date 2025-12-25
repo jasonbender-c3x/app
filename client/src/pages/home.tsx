@@ -154,6 +154,14 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
 
   /**
+   * Pagination state for message loading
+   * hasMoreMessages: True if there are older messages to load
+   * isLoadingMore: True while loading older messages
+   */
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  /**
    * Loading state - true while waiting for AI response
    * Used to show "thinking" animation and disable input
    */
@@ -297,20 +305,22 @@ export default function Home() {
   };
 
   /**
-   * Fetch messages for a specific chat session
+   * Fetch messages for a specific chat session (paginated)
    * 
-   * Endpoint: GET /api/chats/:chatId
-   * Updates the messages state with the chat's message history
+   * Endpoint: GET /api/chats/:chatId?limit=30
+   * Updates the messages state with the chat's recent message history
+   * Sets hasMoreMessages flag for lazy-loading older messages
    * 
    * @param {string} chatId - The ID of the chat to load messages for
    * 
    * @example
    * await loadChatMessages('abc-123');
-   * // messages state now contains all messages from that chat
+   * // messages state now contains last 30 messages from that chat
+   * // hasMoreMessages indicates if there are older messages to load
    */
   const loadChatMessages = async (chatId: string): Promise<Message[] | undefined> => {
     try {
-      const response = await fetch(`/api/chats/${chatId}`);
+      const response = await fetch(`/api/chats/${chatId}?limit=30`);
       if (response.ok) {
         const data = await response.json();
         // Metadata is already parsed from JSONB column - just pass through
@@ -319,12 +329,44 @@ export default function Home() {
           metadata: msg.metadata || undefined
         }));
         setMessages(messagesWithMetadata);
+        setHasMoreMessages(data.hasMore || false);
         return messagesWithMetadata;
       }
     } catch (error) {
       console.error('Failed to load messages:', error);
     }
     return undefined;
+  };
+
+  /**
+   * Load older messages when user scrolls up or clicks "Load More"
+   * 
+   * Uses cursor-based pagination with the oldest message ID as cursor
+   * Prepends older messages to the existing messages array
+   */
+  const loadMoreMessages = async () => {
+    if (!currentChatId || isLoadingMore || messages.length === 0) return;
+    
+    setIsLoadingMore(true);
+    try {
+      // Use the oldest message ID as cursor
+      const oldestMessageId = messages[0]?.id;
+      const response = await fetch(`/api/chats/${currentChatId}/messages?limit=30&before=${oldestMessageId}`);
+      if (response.ok) {
+        const data = await response.json();
+        const olderMessages = (data.messages || []).map((msg: any) => ({
+          ...msg,
+          metadata: msg.metadata || undefined
+        }));
+        // Prepend older messages to existing messages
+        setMessages(prev => [...olderMessages, ...prev]);
+        setHasMoreMessages(data.hasMore || false);
+      }
+    } catch (error) {
+      console.error('Failed to load older messages:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
 
   // ===========================================================================
@@ -810,6 +852,20 @@ export default function Home() {
             // Renders all messages in the current chat
             // =================================================================
             <div className="flex flex-col gap-2 py-6 min-h-full">
+              {/* Load More Button - Shows when there are older messages */}
+              {hasMoreMessages && (
+                <div className="flex justify-center py-4">
+                  <button
+                    onClick={loadMoreMessages}
+                    disabled={isLoadingMore}
+                    className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
+                    data-testid="button-load-more"
+                  >
+                    {isLoadingMore ? "Loading..." : "Load older messages"}
+                  </button>
+                </div>
+              )}
+              
               {/* Render each message using ChatMessage component */}
               {messages.map((msg, index) => {
                 // For AI messages, find the previous user message as promptSnapshot
