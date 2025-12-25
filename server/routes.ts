@@ -513,12 +513,28 @@ export async function registerRoutes(
       // - "user" role stays as "user"
       // - "ai" role becomes "model" (Gemini terminology)
       // - Truncate long messages to prevent token overflow from tool outputs
-      const history = previousMessages.map((msg) => {
-        // Truncate content if too long (likely contains tool outputs)
+      // - Include tool results from the most recent AI message for continuity
+      const history = previousMessages.map((msg, index) => {
         let content = msg.content;
-        if (content.length > MAX_CONTENT_LENGTH) {
+        
+        // For the most recent AI message, include tool results from metadata
+        // This ensures tool output is available for the next user prompt
+        const isLastAiMessage = msg.role === "ai" && 
+          index === previousMessages.length - 1;
+        const metadata = msg.metadata as { toolResults?: Array<{ type: string; result: unknown; success: boolean }> } | null;
+        
+        if (isLastAiMessage && metadata?.toolResults?.length) {
+          // Append tool results to the most recent AI message (up to 5000 chars per tool)
+          const toolSummary = metadata.toolResults
+            .filter(tr => tr.success)
+            .map(tr => `[Tool ${tr.type} returned: ${JSON.stringify(tr.result).slice(0, 5000)}]`)
+            .join("\n");
+          content = content + "\n\n" + toolSummary;
+        } else if (content.length > MAX_CONTENT_LENGTH) {
+          // Truncate older messages if too long
           content = content.slice(0, MAX_CONTENT_LENGTH) + "\n...[truncated for context]";
         }
+        
         return {
           role: msg.role === "user" ? "user" : "model",
           parts: [{ text: content }],
