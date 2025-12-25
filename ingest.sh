@@ -48,23 +48,31 @@ while IFS= read -r filepath; do
     if [ -n "$filepath" ]; then
         echo "Processing: $filepath" | tee -a "$LOG_FILE"
 
-        #
-        # >>> REPLACE THIS BLOCK WITH YOUR ACTUAL INGESTION COMMAND <<<
-        #
-        # This is a placeholder command. You should replace this with the
-        # actual command-line tool or API call to ingest the file.
-        # For this example, we'll just simulate it and log the action.
-        #
-        # Example: my_ingestion_cli --file "$filepath"
-
-        # Simulate the submission command (replace `true` with your actual command)
-        true
+        # Read file content and send to the knowledge ingestion API
+        # Supports text files, code files, markdown, and other text-based content
         
-        # Check the exit code of the last command
-        if [ $? -eq 0 ]; then
+        # Get the filename without path
+        filename=$(basename "$filepath")
+        
+        # Read file content (escape for JSON)
+        content=$(cat "$filepath" 2>/dev/null | jq -Rs '.')
+        
+        if [ -z "$content" ] || [ "$content" = '""' ]; then
+            echo "  [SKIPPED] Empty or unreadable: $filepath" >> "$LOG_FILE"
+            continue
+        fi
+        
+        # Send to the knowledge ingestion API
+        response=$(curl -s -X POST "http://localhost:5000/api/knowledge/pipeline/ingest/text" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": $content, \"title\": \"$filename\", \"sourceType\": \"codebase\"}" \
+            2>&1)
+        
+        # Check if the response contains success
+        if echo "$response" | grep -q '"success":true'; then
             echo "  [SUCCESS] Ingested $filepath" >> "$LOG_FILE"
         else
-            echo "  [FAILURE] Failed to ingest $filepath" >> "$LOG_FILE"
+            echo "  [FAILURE] Failed to ingest $filepath - $response" >> "$LOG_FILE"
         fi
     fi
 done < "$MANIFEST_FILE"
