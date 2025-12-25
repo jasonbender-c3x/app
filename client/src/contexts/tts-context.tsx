@@ -46,12 +46,18 @@ export function TTSProvider({ children }: { children: ReactNode }) {
   }, [isMuted]);
 
   const stopSpeaking = useCallback(() => {
+    // Stop audio element playback
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       audioRef.current = null;
     }
+    // Stop browser TTS if active
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
     setIsSpeaking(false);
+    setIsUsingBrowserTTS(false);
   }, []);
 
   const setIsMuted = useCallback((muted: boolean) => {
