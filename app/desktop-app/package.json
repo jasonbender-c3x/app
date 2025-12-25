@@ -1,0 +1,66 @@
+{
+  "name": "meowstik-desktop",
+  "version": "1.0.0",
+  "description": "Meowstik AI Chat - Local Desktop Application",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "build": "electron-builder --linux",
+    "build:appimage": "electron-builder --linux AppImage",
+    "build:deb": "electron-builder --linux deb",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "author": "Jason Bender",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "@google/genai": "^1.0.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "electron-store": "^8.1.0"
+  },
+  "build": {
+    "appId": "com.meowstik.desktop",
+    "productName": "Meowstik",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icon.png",
+      "category": "Utility",
+      "maintainer": "Jason Bender",
+      "desktop": {
+        "Name": "Meowstik",
+        "Comment": "AI Chat Assistant powered by Google Gemini",
+        "Categories": "Utility;Chat;AI"
+      }
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../server",
+        "to": "server",
+        "filter": ["**/*", "!node_modules/**"]
+      },
+      {
+        "from": "../shared",
+        "to": "shared",
+        "filter": ["**/*"]
+      }
+    ]
+  }
+}
