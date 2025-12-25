@@ -195,15 +195,52 @@ export default function EditorPage() {
 
   /**
    * Effect: Load saved code from localStorage on mount
-   * 
-   * Checks localStorage for previously saved code and loads it
-   * into the editor, preserving user's work across sessions.
+   * Also checks for LLM-loaded code (takes priority)
    */
   useEffect(() => {
-    const saved = localStorage.getItem("nebula-editor-code");
-    if (saved) {
-      setCode(saved);
+    // Check for LLM-loaded code first (priority)
+    const llmCode = localStorage.getItem("meowstik-editor-llm-code");
+    const llmLanguage = localStorage.getItem("meowstik-editor-llm-language");
+    
+    if (llmCode) {
+      setCode(llmCode);
+      if (llmLanguage) {
+        setLanguage(llmLanguage);
+      }
+      // Clear after loading so it doesn't override future edits
+      localStorage.removeItem("meowstik-editor-llm-code");
+      localStorage.removeItem("meowstik-editor-llm-language");
+      setIsSaved(false); // Mark as unsaved since it's new content
+    } else {
+      // Fall back to user-saved code
+      const saved = localStorage.getItem("nebula-editor-code");
+      if (saved) {
+        setCode(saved);
+      }
     }
+  }, []);
+  
+  /**
+   * Effect: Listen for LLM code loads via storage events
+   * Allows the chat to send code to the editor in real-time
+   */
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "meowstik-editor-llm-code" && e.newValue) {
+        setCode(e.newValue);
+        const llmLanguage = localStorage.getItem("meowstik-editor-llm-language");
+        if (llmLanguage) {
+          setLanguage(llmLanguage);
+        }
+        // Clear after loading
+        localStorage.removeItem("meowstik-editor-llm-code");
+        localStorage.removeItem("meowstik-editor-llm-language");
+        setIsSaved(false);
+      }
+    };
+    
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   // ===========================================================================
@@ -252,11 +289,10 @@ export default function EditorPage() {
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* 
-       * Header Bar
+       * Header Bar - Compact version for maximum editor space
        * Contains navigation, branding, and action buttons
-       * Fixed at top with blur effect
        */}
-      <header className="flex items-center justify-between px-4 py-3 border-b bg-card/50 backdrop-blur-md">
+      <header className="flex items-center justify-between px-3 py-2 border-b bg-card/50 backdrop-blur-md">
         
         {/* Left Section: Navigation + Branding */}
         <div className="flex items-center gap-3">
@@ -267,10 +303,10 @@ export default function EditorPage() {
             </Button>
           </Link>
           
-          {/* Editor Branding */}
+          {/* Editor Branding - Compact */}
           <div className="flex items-center gap-2">
-            <FileCode className="h-5 w-5 text-primary" />
-            <span className="font-display font-semibold text-lg">Meowstik Editor</span>
+            <FileCode className="h-4 w-4 text-primary" />
+            <span className="font-display font-semibold text-sm hidden sm:inline">Meowstik Editor</span>
           </div>
         </div>
 

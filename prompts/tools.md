@@ -89,6 +89,11 @@ Even with no tools, use: `[]` then `✂️🐱` then your response.
 | `file_ingest` | `content:string`, `filename:string`, `mimeType?:string` | Ingest file for RAG processing |
 | `file_upload` | `content:string`, `filename:string`, `mimeType?:string` | Upload file to storage |
 
+### Monaco Editor
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `editor_load` | `code:string`, `language?:string` | Load code into the Monaco editor. User can view at /editor |
+
 ### Terminal
 | Tool | Parameters | Description |
 |------|------------|-------------|

@@ -519,6 +519,23 @@ export default function Home() {
               // Handle metadata event (tool results, file ops, autoexec)
               if (data.metadata) {
                 streamMetadata = data.metadata;
+                
+                // Check for editor_load tool results - store code for Monaco editor
+                if (streamMetadata.toolResults) {
+                  for (const toolResult of streamMetadata.toolResults) {
+                    if (toolResult.type === 'editor_load' && toolResult.success && toolResult.result) {
+                      const { code, language } = toolResult.result as { code: string; language?: string };
+                      if (code) {
+                        localStorage.setItem("meowstik-editor-llm-code", code);
+                        if (language) {
+                          localStorage.setItem("meowstik-editor-llm-language", language);
+                        }
+                        console.log("[Chat] Code loaded for Monaco editor, visit /editor to view");
+                      }
+                    }
+                  }
+                }
+                
                 // Update the temp message with metadata
                 setMessages((prev) => {
                   const filtered = prev.filter(m => !m.id.startsWith('temp-ai-'));

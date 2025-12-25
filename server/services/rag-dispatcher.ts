@@ -364,6 +364,9 @@ export class RAGDispatcher {
         case "terminal_execute":
           result = await this.executeTerminal(toolCall);
           break;
+        case "editor_load":
+          result = await this.executeEditorLoad(toolCall);
+          break;
         case "tavily_search":
           result = await this.executeTavilySearch(toolCall);
           break;
@@ -1158,6 +1161,31 @@ export class RAGDispatcher {
         duration: Date.now() - startTime
       };
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EDITOR HANDLER
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Load code into the Monaco editor on the client.
+   * The code is passed through to the frontend which stores it in localStorage.
+   * User can view/edit the code at /editor.
+   */
+  private async executeEditorLoad(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { code: string; language?: string };
+    
+    if (!params.code || typeof params.code !== 'string') {
+      throw new Error('editor_load requires a code parameter');
+    }
+
+    // Simply return the code - frontend will handle storing it
+    return {
+      type: 'editor_load',
+      code: params.code,
+      language: params.language || 'javascript',
+      message: 'Code loaded for Monaco editor. View at /editor'
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
