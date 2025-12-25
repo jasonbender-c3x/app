@@ -552,7 +552,7 @@ export default function Home() {
               if (data.metadata) {
                 streamMetadata = data.metadata;
                 
-                // Check for editor_load tool results - store code for Monaco editor
+                // Check for editor_load tool results - store code for Monaco editor and navigate
                 if (streamMetadata.toolResults) {
                   for (const toolResult of streamMetadata.toolResults) {
                     if (toolResult.type === 'editor_load' && toolResult.success && toolResult.result) {
@@ -565,7 +565,9 @@ export default function Home() {
                         if (filename) {
                           localStorage.setItem("meowstik-editor-llm-filename", filename);
                         }
-                        console.log(`[Chat] Code loaded for Monaco editor${filename ? ` as "${filename}"` : ''}, visit /editor to view`);
+                        console.log(`[Chat] Code loaded for Monaco editor${filename ? ` as "${filename}"` : ''}, navigating to /editor`);
+                        // Auto-navigate to editor when LLM sends code
+                        navigate("/editor");
                       }
                     }
                   }
