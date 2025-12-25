@@ -3,25 +3,25 @@
  * ║                      EDITOR.TSX - CODE EDITOR PAGE                            ║
  * ║                                                                               ║
  * ║  A full-featured code editor powered by Monaco Editor (same as VS Code).     ║
- * ║  Supports HTML, CSS, JavaScript, TypeScript, JSON, and Markdown with:        ║
+ * ║  Supports multiple open files in tabs with:                                   ║
  * ║                                                                               ║
  * ║    - Syntax highlighting and code completion                                  ║
  * ║    - Light/dark theme toggle                                                  ║
+ * ║    - Multi-file tab support for collaborative editing                         ║
+ * ║    - LLM integration for loading code into specific tabs                      ║
  * ║    - Local storage persistence                                                ║
  * ║    - Live preview integration                                                 ║
  * ║                                                                               ║
  * ║  Layout Structure:                                                            ║
  * ║  ┌────────────────────────────────────────────────────────────────────────┐  ║
- * ║  │ Header: [Menu] Nebula Editor    [Language] [Theme] [Save] [Preview]    │  ║
+ * ║  │ Header: [Menu] Meowstik Editor    [Language] [Theme] [Save] [Preview]  │  ║
  * ║  ├────────────────────────────────────────────────────────────────────────┤  ║
- * ║  │                                                                        │  ║
+ * ║  │ Tabs: [file1.js] [file2.ts] [untitled.html] [+]                        │  ║
+ * ║  ├────────────────────────────────────────────────────────────────────────┤  ║
  * ║  │                     Monaco Editor (Full Height)                        │  ║
- * ║  │                                                                        │  ║
  * ║  │    1 │ <!DOCTYPE html>                                                 │  ║
  * ║  │    2 │ <html lang="en">                                                │  ║
- * ║  │    3 │ <head>                                                          │  ║
  * ║  │   ...│                                                                 │  ║
- * ║  │                                                                        │  ║
  * ║  └────────────────────────────────────────────────────────────────────────┘  ║
  * ╚══════════════════════════════════════════════════════════════════════════════╝
  */
@@ -30,60 +30,32 @@
 // IMPORTS
 // ============================================================================
 
-/**
- * React Hooks
- * - useState: Manage editor state (code, language, theme, save status)
- * - useEffect: Load saved code from localStorage on mount
- */
-import { useState, useEffect } from "react";
-
-/**
- * Monaco Editor - VS Code's editor component for React
- * Provides full code editing capabilities with syntax highlighting,
- * IntelliSense, and many other features
- * @see https://github.com/suren-atoyan/monaco-react
- */
+import { useState, useEffect, useCallback } from "react";
 import Editor from "@monaco-editor/react";
-
-/**
- * UI Components from shadcn/ui
- * - Button: Consistent styled buttons
- * - Select: Dropdown for language selection
- */
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-/**
- * Wouter Link - For navigation back to home and to preview
- */
 import { Link } from "wouter";
+import { Play, Eye, Save, Menu, FileCode, Moon, Sun, X, Plus } from "lucide-react";
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 /**
- * Lucide Icons
- * - Play: For run/execute actions (unused currently)
- * - Eye: Preview button icon
- * - Save: Save button icon
- * - Menu: Navigation menu icon
- * - FileCode: Editor branding icon
- * - Moon/Sun: Theme toggle icons
+ * Represents a single open file in the editor
  */
-import { Play, Eye, Save, Menu, FileCode, Moon, Sun } from "lucide-react";
+interface EditorFile {
+  id: string;
+  filename: string;
+  code: string;
+  language: string;
+  isSaved: boolean;
+}
 
 // ============================================================================
 // DEFAULT CODE TEMPLATE
 // ============================================================================
 
-/**
- * Default HTML/CSS template shown when editor is first opened
- * 
- * This template demonstrates:
- * - Modern HTML5 structure
- * - CSS with system fonts and gradients
- * - Glassmorphism card effect (backdrop-filter blur)
- * - Responsive layout with max-width
- * 
- * Users can modify this or replace it entirely with their own code.
- */
 const defaultCode = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -100,14 +72,8 @@ const defaultCode = `<!DOCTYPE html>
       min-height: 100vh;
       color: white;
     }
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 1rem;
-    }
-    p {
-      font-size: 1.2rem;
-      opacity: 0.9;
-    }
+    h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+    p { font-size: 1.2rem; opacity: 0.9; }
     .card {
       background: rgba(255,255,255,0.1);
       backdrop-filter: blur(10px);
@@ -128,94 +94,136 @@ const defaultCode = `<!DOCTYPE html>
 </html>`;
 
 // ============================================================================
-// EDITOR PAGE COMPONENT
+// HELPER FUNCTIONS
 // ============================================================================
 
 /**
- * EditorPage Component - Code Editor Interface
- * 
- * A full-screen code editor built on Monaco Editor, providing a
- * VS Code-like editing experience in the browser.
- * 
- * Features:
- * - Multi-language support (HTML, CSS, JS, TS, JSON, Markdown)
- * - Light/dark theme toggle
- * - Auto-save to localStorage
- * - Preview integration (opens in separate page)
- * - Professional editor settings (minimap, line numbers, etc.)
- * 
- * State Management:
- * - code: Current editor content
- * - language: Selected programming language
- * - theme: "vs-dark" or "light"
- * - isSaved: Tracks if current code matches localStorage
- * 
- * Data Persistence:
- * - Uses localStorage with key "nebula-editor-code"
- * - Code is automatically loaded on mount
- * - Manual save with Save button
- * 
- * @returns {JSX.Element} The editor page
+ * Infer language from filename extension
  */
+function getLanguageFromFilename(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  const langMap: Record<string, string> = {
+    'html': 'html',
+    'htm': 'html',
+    'css': 'css',
+    'js': 'javascript',
+    'jsx': 'javascript',
+    'ts': 'typescript',
+    'tsx': 'typescript',
+    'json': 'json',
+    'md': 'markdown',
+    'py': 'python',
+    'sh': 'shell',
+    'bash': 'shell',
+  };
+  return langMap[ext] || 'plaintext';
+}
+
+/**
+ * Generate unique ID for a new file
+ */
+function generateFileId(): string {
+  return `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
+ * Create a new empty file
+ */
+function createNewFile(filename: string = 'untitled.html', code: string = '', language?: string): EditorFile {
+  return {
+    id: generateFileId(),
+    filename,
+    code: code || defaultCode,
+    language: language || getLanguageFromFilename(filename),
+    isSaved: code ? false : true,
+  };
+}
+
+// ============================================================================
+// EDITOR PAGE COMPONENT
+// ============================================================================
+
 export default function EditorPage() {
   // ===========================================================================
   // STATE MANAGEMENT
   // ===========================================================================
 
   /**
-   * Current editor content
-   * Initialized with defaultCode template, then overwritten
-   * by localStorage value if available
+   * Array of open files (tabs)
    */
-  const [code, setCode] = useState(defaultCode);
+  const [files, setFiles] = useState<EditorFile[]>(() => [createNewFile()]);
 
   /**
-   * Selected programming language for syntax highlighting
-   * Supported: html, css, javascript, typescript, json, markdown
+   * Currently active file ID
    */
-  const [language, setLanguage] = useState("html");
+  const [activeFileId, setActiveFileId] = useState<string>(() => files[0]?.id || '');
 
   /**
    * Editor theme - Monaco's built-in themes
-   * - "vs-dark": Dark theme (default)
-   * - "light": Light theme
    */
   const [theme, setTheme] = useState<"vs-dark" | "light">("vs-dark");
 
   /**
-   * Save status indicator
-   * - true: Current code matches localStorage
-   * - false: Unsaved changes exist
+   * Get the currently active file
    */
-  const [isSaved, setIsSaved] = useState(true);
+  const activeFile = files.find(f => f.id === activeFileId) || files[0];
 
   // ===========================================================================
   // EFFECTS
   // ===========================================================================
 
   /**
-   * Effect: Load saved code from localStorage on mount
+   * Effect: Load saved files from localStorage on mount
    * Also checks for LLM-loaded code (takes priority)
    */
   useEffect(() => {
     // Check for LLM-loaded code first (priority)
     const llmCode = localStorage.getItem("meowstik-editor-llm-code");
     const llmLanguage = localStorage.getItem("meowstik-editor-llm-language");
+    const llmFilename = localStorage.getItem("meowstik-editor-llm-filename");
     
     if (llmCode) {
-      setCode(llmCode);
-      if (llmLanguage) {
-        setLanguage(llmLanguage);
-      }
-      // Clear after loading so it doesn't override future edits
+      const filename = llmFilename || `untitled.${llmLanguage || 'txt'}`;
+      const newFile = createNewFile(filename, llmCode, llmLanguage || undefined);
+      newFile.isSaved = false;
+      
+      setFiles(prev => {
+        // Check if a file with this filename already exists
+        const existingIndex = prev.findIndex(f => f.filename === filename);
+        if (existingIndex >= 0) {
+          // Update existing file and focus it
+          const updated = [...prev];
+          updated[existingIndex] = { ...updated[existingIndex], code: llmCode, isSaved: false };
+          setActiveFileId(updated[existingIndex].id); // Use existing file's ID
+          return updated;
+        }
+        // Add new file and focus it
+        setActiveFileId(newFile.id);
+        return [...prev, newFile];
+      });
+      
+      // Clear after loading
       localStorage.removeItem("meowstik-editor-llm-code");
       localStorage.removeItem("meowstik-editor-llm-language");
-      setIsSaved(false); // Mark as unsaved since it's new content
+      localStorage.removeItem("meowstik-editor-llm-filename");
     } else {
-      // Fall back to user-saved code
-      const saved = localStorage.getItem("nebula-editor-code");
-      if (saved) {
-        setCode(saved);
+      // Fall back to user-saved files
+      const savedFiles = localStorage.getItem("meowstik-editor-files");
+      const savedActiveId = localStorage.getItem("meowstik-editor-active");
+      if (savedFiles) {
+        try {
+          const parsed = JSON.parse(savedFiles) as EditorFile[];
+          if (parsed.length > 0) {
+            setFiles(parsed);
+            if (savedActiveId && parsed.some(f => f.id === savedActiveId)) {
+              setActiveFileId(savedActiveId);
+            } else {
+              setActiveFileId(parsed[0].id);
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse saved files:', e);
+        }
       }
     }
   }, []);
@@ -227,15 +235,32 @@ export default function EditorPage() {
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "meowstik-editor-llm-code" && e.newValue) {
-        setCode(e.newValue);
         const llmLanguage = localStorage.getItem("meowstik-editor-llm-language");
-        if (llmLanguage) {
-          setLanguage(llmLanguage);
-        }
+        const llmFilename = localStorage.getItem("meowstik-editor-llm-filename");
+        
+        const filename = llmFilename || `untitled.${llmLanguage || 'txt'}`;
+        const newFile = createNewFile(filename, e.newValue, llmLanguage || undefined);
+        newFile.isSaved = false;
+        
+        setFiles(prev => {
+          // Check if a file with this filename already exists
+          const existingIndex = prev.findIndex(f => f.filename === filename);
+          if (existingIndex >= 0) {
+            // Update existing file and focus it
+            const updated = [...prev];
+            updated[existingIndex] = { ...updated[existingIndex], code: e.newValue!, isSaved: false };
+            setActiveFileId(updated[existingIndex].id); // Use existing file's ID
+            return updated;
+          }
+          // Add new file and focus it
+          setActiveFileId(newFile.id);
+          return [...prev, newFile];
+        });
+        
         // Clear after loading
         localStorage.removeItem("meowstik-editor-llm-code");
         localStorage.removeItem("meowstik-editor-llm-language");
-        setIsSaved(false);
+        localStorage.removeItem("meowstik-editor-llm-filename");
       }
     };
     
@@ -249,34 +274,76 @@ export default function EditorPage() {
 
   /**
    * Handle editor content changes
-   * 
-   * Called by Monaco Editor whenever the content changes.
-   * Updates the code state and marks as unsaved.
-   * 
-   * @param {string | undefined} value - New editor content
    */
-  const handleEditorChange = (value: string | undefined) => {
-    if (value !== undefined) {
-      setCode(value);
-      setIsSaved(false); // Mark as unsaved on any change
+  const handleEditorChange = useCallback((value: string | undefined) => {
+    if (value !== undefined && activeFileId) {
+      setFiles(prev => prev.map(f => 
+        f.id === activeFileId ? { ...f, code: value, isSaved: false } : f
+      ));
     }
-  };
+  }, [activeFileId]);
 
   /**
-   * Save code to localStorage
-   * 
-   * Persists the current editor content to localStorage
-   * and updates the save status indicator.
+   * Handle language change for active file
    */
-  const handleSave = () => {
-    localStorage.setItem("nebula-editor-code", code);
-    setIsSaved(true);
-  };
+  const handleLanguageChange = useCallback((lang: string) => {
+    if (activeFileId) {
+      setFiles(prev => prev.map(f =>
+        f.id === activeFileId ? { ...f, language: lang } : f
+      ));
+    }
+  }, [activeFileId]);
+
+  /**
+   * Save all files to localStorage
+   */
+  const handleSave = useCallback(() => {
+    setFiles(prev => {
+      const updated = prev.map(f => ({ ...f, isSaved: true }));
+      localStorage.setItem("meowstik-editor-files", JSON.stringify(updated));
+      localStorage.setItem("meowstik-editor-active", activeFileId);
+      // Also save the active file's code for preview
+      const active = updated.find(f => f.id === activeFileId);
+      if (active) {
+        localStorage.setItem("nebula-editor-code", active.code);
+      }
+      return updated;
+    });
+  }, [activeFileId]);
+
+  /**
+   * Add a new empty file tab
+   */
+  const handleNewFile = useCallback(() => {
+    const count = files.filter(f => f.filename.startsWith('untitled')).length;
+    const newFile = createNewFile(`untitled${count > 0 ? count + 1 : ''}.html`);
+    setFiles(prev => [...prev, newFile]);
+    setActiveFileId(newFile.id);
+  }, [files]);
+
+  /**
+   * Close a file tab
+   */
+  const handleCloseFile = useCallback((fileId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't trigger tab switch
+    setFiles(prev => {
+      if (prev.length === 1) {
+        // Don't close the last tab, just reset it
+        return [createNewFile()];
+      }
+      const filtered = prev.filter(f => f.id !== fileId);
+      // If we're closing the active tab, switch to another
+      if (fileId === activeFileId) {
+        const closedIndex = prev.findIndex(f => f.id === fileId);
+        const newActiveIndex = Math.max(0, closedIndex - 1);
+        setActiveFileId(filtered[newActiveIndex]?.id || filtered[0].id);
+      }
+      return filtered;
+    });
+  }, [activeFileId]);
 
   /**
    * Toggle between light and dark themes
-   * 
-   * Switches Monaco's theme between "vs-dark" and "light"
    */
   const toggleTheme = () => {
     setTheme(theme === "vs-dark" ? "light" : "vs-dark");
@@ -288,22 +355,17 @@ export default function EditorPage() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      {/* 
-       * Header Bar - Compact version for maximum editor space
-       * Contains navigation, branding, and action buttons
-       */}
+      {/* Header Bar - Compact version for maximum editor space */}
       <header className="flex items-center justify-between px-3 py-2 border-b bg-card/50 backdrop-blur-md">
         
         {/* Left Section: Navigation + Branding */}
         <div className="flex items-center gap-3">
-          {/* Back to Home button */}
           <Link href="/">
             <Button variant="ghost" size="icon" data-testid="button-home">
               <Menu className="h-5 w-5" />
             </Button>
           </Link>
           
-          {/* Editor Branding - Compact */}
           <div className="flex items-center gap-2">
             <FileCode className="h-4 w-4 text-primary" />
             <span className="font-display font-semibold text-sm hidden sm:inline">Meowstik Editor</span>
@@ -313,12 +375,9 @@ export default function EditorPage() {
         {/* Right Section: Tools and Actions */}
         <div className="flex items-center gap-2">
           
-          {/* 
-           * Language Selector
-           * Dropdown to choose syntax highlighting mode
-           */}
-          <Select value={language} onValueChange={setLanguage}>
-            <SelectTrigger className="w-32" data-testid="select-language">
+          {/* Language Selector */}
+          <Select value={activeFile?.language || 'html'} onValueChange={handleLanguageChange}>
+            <SelectTrigger className="w-28 h-8 text-xs" data-testid="select-language">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -328,51 +387,80 @@ export default function EditorPage() {
               <SelectItem value="typescript">TypeScript</SelectItem>
               <SelectItem value="json">JSON</SelectItem>
               <SelectItem value="markdown">Markdown</SelectItem>
+              <SelectItem value="python">Python</SelectItem>
+              <SelectItem value="shell">Shell</SelectItem>
             </SelectContent>
           </Select>
 
           {/* Theme Toggle Button */}
-          <Button variant="ghost" size="icon" onClick={toggleTheme} data-testid="button-theme">
-            {theme === "vs-dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggleTheme} data-testid="button-theme">
+            {theme === "vs-dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
 
-          {/* Save Button - Shows "Saved" or "Save" based on status */}
-          <Button variant="outline" size="sm" onClick={handleSave} data-testid="button-save">
-            <Save className="h-4 w-4 mr-2" />
-            {isSaved ? "Saved" : "Save"}
+          {/* Save Button */}
+          <Button variant="outline" size="sm" className="h-8" onClick={handleSave} data-testid="button-save">
+            <Save className="h-3 w-3 mr-1" />
+            {files.every(f => f.isSaved) ? "Saved" : "Save"}
           </Button>
 
-          {/* Preview Button - Opens preview page */}
+          {/* Preview Button */}
           <Link href="/preview">
-            <Button size="sm" className="bg-primary hover:bg-primary/90" data-testid="button-preview">
-              <Eye className="h-4 w-4 mr-2" />
+            <Button size="sm" className="h-8 bg-primary hover:bg-primary/90" data-testid="button-preview">
+              <Eye className="h-3 w-3 mr-1" />
               Preview
             </Button>
           </Link>
         </div>
       </header>
 
-      {/* 
-       * Monaco Editor Container
-       * Takes remaining height after header
-       * 
-       * Editor Options:
-       * - fontSize: 14px for readability
-       * - fontFamily: JetBrains Mono or Fira Code (monospace)
-       * - minimap: Enabled for code overview
-       * - padding: 16px top padding
-       * - scrollBeyondLastLine: Disabled (no extra scroll)
-       * - wordWrap: Enabled for long lines
-       * - automaticLayout: Responds to container size changes
-       * - lineNumbers: Enabled
-       * - renderWhitespace: Shows spaces on selection
-       * - bracketPairColorization: Colored matching brackets
-       */}
+      {/* Tab Bar */}
+      <div className="flex items-center border-b bg-muted/30 overflow-x-auto">
+        <div className="flex items-center min-w-0">
+          {files.map(file => (
+            <button
+              key={file.id}
+              onClick={() => setActiveFileId(file.id)}
+              className={`
+                group flex items-center gap-2 px-3 py-1.5 text-sm border-r border-border
+                transition-colors min-w-0 max-w-[180px]
+                ${file.id === activeFileId 
+                  ? 'bg-background text-foreground' 
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }
+              `}
+              data-testid={`tab-${file.filename}`}
+            >
+              <span className="truncate flex items-center gap-1">
+                {!file.isSaved && <span className="text-primary">●</span>}
+                {file.filename}
+              </span>
+              <button
+                onClick={(e) => handleCloseFile(file.id, e)}
+                className="opacity-0 group-hover:opacity-100 hover:bg-muted-foreground/20 rounded p-0.5 transition-opacity"
+                data-testid={`close-${file.filename}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </button>
+          ))}
+        </div>
+        
+        {/* New Tab Button */}
+        <button
+          onClick={handleNewFile}
+          className="flex items-center justify-center px-2 py-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          data-testid="button-new-tab"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Monaco Editor Container */}
       <div className="flex-1 overflow-hidden">
         <Editor
           height="100%"
-          language={language}
-          value={code}
+          language={activeFile?.language || 'html'}
+          value={activeFile?.code || ''}
           theme={theme}
           onChange={handleEditorChange}
           options={{

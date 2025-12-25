@@ -584,6 +584,9 @@ export const ToolTypes = {
   
   // Chat output
   CHAT_WINDOW: "chat_window",
+  
+  // Monaco Editor
+  EDITOR_LOAD: "editor_load",
 } as const;
 
 export type ToolType = typeof ToolTypes[keyof typeof ToolTypes];
@@ -613,6 +616,8 @@ export const toolCallSchema = z.object({
     "tasks_list", "tasks_get", "tasks_create", "tasks_update", "tasks_complete", "tasks_delete",
     // Terminal
     "terminal_execute",
+    // Monaco Editor
+    "editor_load",
     // Tavily deep research
     "tavily_search", "tavily_qna", "tavily_research",
     // Perplexity AI search

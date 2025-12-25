@@ -1171,9 +1171,14 @@ export class RAGDispatcher {
    * Load code into the Monaco editor on the client.
    * The code is passed through to the frontend which stores it in localStorage.
    * User can view/edit the code at /editor.
+   * 
+   * Parameters:
+   * - code: The code content to load
+   * - language: Optional language for syntax highlighting
+   * - filename: Optional filename for the tab (e.g., "app.js", "styles.css")
    */
   private async executeEditorLoad(toolCall: ToolCall): Promise<unknown> {
-    const params = toolCall.parameters as { code: string; language?: string };
+    const params = toolCall.parameters as { code: string; language?: string; filename?: string };
     
     if (!params.code || typeof params.code !== 'string') {
       throw new Error('editor_load requires a code parameter');
@@ -1184,7 +1189,8 @@ export class RAGDispatcher {
       type: 'editor_load',
       code: params.code,
       language: params.language || 'javascript',
-      message: 'Code loaded for Monaco editor. View at /editor'
+      filename: params.filename || null,
+      message: `Code loaded for Monaco editor${params.filename ? ` as "${params.filename}"` : ''}. View at /editor`
     };
   }
 

@@ -524,13 +524,16 @@ export default function Home() {
                 if (streamMetadata.toolResults) {
                   for (const toolResult of streamMetadata.toolResults) {
                     if (toolResult.type === 'editor_load' && toolResult.success && toolResult.result) {
-                      const { code, language } = toolResult.result as { code: string; language?: string };
+                      const { code, language, filename } = toolResult.result as { code: string; language?: string; filename?: string };
                       if (code) {
                         localStorage.setItem("meowstik-editor-llm-code", code);
                         if (language) {
                           localStorage.setItem("meowstik-editor-llm-language", language);
                         }
-                        console.log("[Chat] Code loaded for Monaco editor, visit /editor to view");
+                        if (filename) {
+                          localStorage.setItem("meowstik-editor-llm-filename", filename);
+                        }
+                        console.log(`[Chat] Code loaded for Monaco editor${filename ? ` as "${filename}"` : ''}, visit /editor to view`);
                       }
                     }
                   }

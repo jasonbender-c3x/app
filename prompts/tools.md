@@ -92,7 +92,7 @@ Even with no tools, use: `[]` then `✂️🐱` then your response.
 ### Monaco Editor
 | Tool | Parameters | Description |
 |------|------------|-------------|
-| `editor_load` | `code:string`, `language?:string` | Load code into the Monaco editor. User can view at /editor |
+| `editor_load` | `code:string`, `language?:string`, `filename?:string` | Load code into the Monaco editor as a new tab. User can view at /editor. Multiple files open as separate tabs. |
 
 ### Terminal
 | Tool | Parameters | Description |
