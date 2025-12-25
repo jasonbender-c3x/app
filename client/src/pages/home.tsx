@@ -229,6 +229,38 @@ export default function Home() {
   }, []);
 
   /**
+   * State: Pending message from editor to auto-send
+   * Set when navigating from editor with code
+   */
+  const [pendingEditorMessage, setPendingEditorMessage] = useState<string | null>(() => {
+    return localStorage.getItem("meowstik-editor-send-message");
+  });
+
+  /**
+   * Effect: Auto-send pending editor message after initial load
+   * Waits for chats to load, then sends the message
+   * Only clears localStorage after successful send
+   */
+  useEffect(() => {
+    if (pendingEditorMessage && chats.length >= 0 && !isLoading) {
+      // Small delay to ensure UI is ready
+      const timer = setTimeout(async () => {
+        try {
+          await handleSendMessage(pendingEditorMessage, []);
+          // Only clear after successful send
+          localStorage.removeItem("meowstik-editor-send-message");
+          localStorage.removeItem("meowstik-editor-send-filename");
+          setPendingEditorMessage(null);
+        } catch (err) {
+          console.error("[Editor Send] Failed to send message:", err);
+          // Keep in localStorage for retry on refresh
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [pendingEditorMessage, chats, isLoading]);
+
+  /**
    * Effect: Load messages when switching chats
    * Triggers when currentChatId changes to a non-null value
    */

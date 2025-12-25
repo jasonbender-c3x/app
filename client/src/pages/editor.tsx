@@ -34,8 +34,9 @@ import { useState, useEffect, useCallback } from "react";
 import Editor from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Link } from "wouter";
-import { Play, Eye, Save, Menu, FileCode, Moon, Sun, X, Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Link, useLocation } from "wouter";
+import { Play, Eye, Save, Menu, FileCode, Moon, Sun, X, Plus, Send, XCircle, SaveAll } from "lucide-react";
 
 // ============================================================================
 // TYPES
@@ -162,6 +163,16 @@ export default function EditorPage() {
    * Editor theme - Monaco's built-in themes
    */
   const [theme, setTheme] = useState<"vs-dark" | "light">("vs-dark");
+
+  /**
+   * Prompt text for sending to LLM
+   */
+  const [prompt, setPrompt] = useState<string>("");
+
+  /**
+   * Router location for navigation
+   */
+  const [, setLocation] = useLocation();
 
   /**
    * Get the currently active file
@@ -383,6 +394,62 @@ export default function EditorPage() {
     setTheme(theme === "vs-dark" ? "light" : "vs-dark");
   };
 
+  /**
+   * Cancel - close editor without saving and go back to chat
+   */
+  const handleCancel = useCallback(() => {
+    setLocation("/");
+  }, [setLocation]);
+
+  /**
+   * Save As - save current file with a new filename
+   */
+  const handleSaveAs = useCallback(() => {
+    if (!activeFile) return;
+    
+    const newFilename = window.prompt("Save as:", activeFile.filename);
+    if (!newFilename || newFilename === activeFile.filename) return;
+    
+    // Create a new file with the new name
+    const newFile: EditorFile = {
+      id: `file-${Date.now()}`,
+      filename: newFilename,
+      code: activeFile.code,
+      language: getLanguageFromFilename(newFilename) || activeFile.language,
+      isSaved: true
+    };
+    
+    setFiles(prev => {
+      const updated = [...prev, newFile];
+      localStorage.setItem("meowstik-editor-files", JSON.stringify(updated));
+      return updated;
+    });
+    setActiveFileId(newFile.id);
+  }, [activeFile]);
+
+  /**
+   * Send - save the code and send to LLM with prompt
+   */
+  const handleSend = useCallback(() => {
+    if (!activeFile) return;
+    
+    // Save current state
+    handleSave();
+    
+    // Build the message with code and optional prompt
+    const codeBlock = `\`\`\`${activeFile.language}\n${activeFile.code}\n\`\`\``;
+    const message = prompt.trim() 
+      ? `${prompt}\n\n${codeBlock}`
+      : `Here's my code:\n\n${codeBlock}`;
+    
+    // Store in localStorage for the chat to pick up
+    localStorage.setItem("meowstik-editor-send-message", message);
+    localStorage.setItem("meowstik-editor-send-filename", activeFile.filename);
+    
+    // Navigate to chat
+    setLocation("/");
+  }, [activeFile, prompt, handleSave, setLocation]);
+
   // ===========================================================================
   // RENDER
   // ===========================================================================
@@ -431,15 +498,9 @@ export default function EditorPage() {
             {theme === "vs-dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
 
-          {/* Save Button */}
-          <Button variant="outline" size="sm" className="h-8" onClick={handleSave} data-testid="button-save">
-            <Save className="h-3 w-3 mr-1" />
-            {files.every(f => f.isSaved) ? "Saved" : "Save"}
-          </Button>
-
           {/* Preview Button */}
           <Link href="/preview">
-            <Button size="sm" className="h-8 bg-primary hover:bg-primary/90" data-testid="button-preview">
+            <Button variant="ghost" size="sm" className="h-8" data-testid="button-preview">
               <Eye className="h-3 w-3 mr-1" />
               Preview
             </Button>
@@ -510,6 +571,76 @@ export default function EditorPage() {
             bracketPairColorization: { enabled: true },
           }}
         />
+      </div>
+
+      {/* Bottom Action Bar */}
+      <div className="border-t bg-card/50 backdrop-blur-md px-3 py-2">
+        <div className="flex items-center gap-2">
+          {/* Prompt Input */}
+          <Input
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Add a message for the AI (optional)..."
+            className="flex-1 h-9"
+            data-testid="input-prompt"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+          />
+          
+          {/* Action Buttons */}
+          <div className="flex items-center gap-1.5">
+            {/* Cancel Button */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-9"
+              onClick={handleCancel}
+              data-testid="button-cancel"
+            >
+              <XCircle className="h-4 w-4 mr-1" />
+              Cancel
+            </Button>
+
+            {/* Save As Button */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-9"
+              onClick={handleSaveAs}
+              data-testid="button-save-as"
+            >
+              <SaveAll className="h-4 w-4 mr-1" />
+              Save As
+            </Button>
+
+            {/* Save Button */}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-9"
+              onClick={handleSave}
+              data-testid="button-save"
+            >
+              <Save className="h-4 w-4 mr-1" />
+              {files.every(f => f.isSaved) ? "Saved" : "Save"}
+            </Button>
+
+            {/* Send Button */}
+            <Button 
+              size="sm" 
+              className="h-9 bg-primary hover:bg-primary/90"
+              onClick={handleSend}
+              data-testid="button-send"
+            >
+              <Send className="h-4 w-4 mr-1" />
+              Send
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
