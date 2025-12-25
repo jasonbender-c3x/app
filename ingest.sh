@@ -24,11 +24,15 @@ echo "Script initialized. Manifest: $MANIFEST_FILE, Log: $LOG_FILE" | tee -a "$L
 # --- Step 1: Generate File Manifest ---
 echo "Generating file manifest..." | tee -a "$LOG_FILE"
 
-# Find all files (-type f), excluding the specified directory and control files.
-find . -path "$EXCLUDE_DIR" -prune -o -type f \
+# Find all files (-type f), excluding:
+# - Directories with a dot in the name (like .git, .cache, .vscode, etc.)
+# - The prompts directory
+# - Control files (this script, manifest, log)
+find . \( -type d -name ".*" -o -path "$EXCLUDE_DIR" \) -prune -o -type f \
     ! -name "$SELF_NAME" \
     ! -name "$MANIFEST_FILE" \
     ! -name "$LOG_FILE" \
+    ! -name ".*" \
     -print > "$MANIFEST_FILE"
 
 # Check if the manifest was created and has content
