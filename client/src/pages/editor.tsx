@@ -428,7 +428,7 @@ export default function EditorPage() {
   }, [activeFile]);
 
   /**
-   * Send - save the code and send to LLM with prompt
+   * Send - save the code and send to LLM with prompt as structured JSON
    */
   const handleSend = useCallback(() => {
     if (!activeFile) return;
@@ -436,11 +436,29 @@ export default function EditorPage() {
     // Save current state
     handleSave();
     
-    // Build the message with code and optional prompt
-    const codeBlock = `\`\`\`${activeFile.language}\n${activeFile.code}\n\`\`\``;
-    const message = prompt.trim() 
-      ? `${prompt}\n\n${codeBlock}`
-      : `Here's my code:\n\n${codeBlock}`;
+    // Build structured payload with metadata
+    const payload = {
+      type: "editor_content",
+      filename: activeFile.filename,
+      language: activeFile.language,
+      code: activeFile.code,
+      prompt: prompt.trim() || null,
+      metadata: {
+        lineCount: activeFile.code.split('\n').length,
+        charCount: activeFile.code.length,
+        timestamp: new Date().toISOString(),
+        allOpenFiles: files.map(f => ({
+          filename: f.filename,
+          language: f.language,
+          isSaved: f.isSaved
+        }))
+      }
+    };
+    
+    // Format as JSON code block for the LLM to parse
+    const message = prompt.trim()
+      ? `${prompt}\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``
+      : `Here's my code from the editor:\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
     
     // Store in localStorage for the chat to pick up
     localStorage.setItem("meowstik-editor-send-message", message);
@@ -448,7 +466,7 @@ export default function EditorPage() {
     
     // Navigate to chat
     setLocation("/");
-  }, [activeFile, prompt, handleSave, setLocation]);
+  }, [activeFile, prompt, files, handleSave, setLocation]);
 
   // ===========================================================================
   // RENDER
