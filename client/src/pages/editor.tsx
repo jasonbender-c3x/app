@@ -395,14 +395,32 @@ export default function EditorPage() {
   };
 
   /**
-   * Cancel - close editor without saving and go back to chat
+   * Cancel - close editor and exit. Shows save dialog if dirty.
    */
   const handleCancel = useCallback(() => {
-    setLocation("/");
-  }, [setLocation]);
+    const hasUnsavedChanges = files.some(f => !f.isSaved);
+    
+    if (hasUnsavedChanges) {
+      // Show save/don't save/cancel dialog
+      const result = window.confirm(
+        "You have unsaved changes. Save before closing?\n\n" +
+        "Click OK to save and close, or Cancel to go back to editing."
+      );
+      
+      if (result) {
+        // User chose to save
+        handleSave();
+        setLocation("/");
+      }
+      // If cancel, stay in editor (do nothing)
+    } else {
+      // No unsaved changes, just exit
+      setLocation("/");
+    }
+  }, [files, handleSave, setLocation]);
 
   /**
-   * Save As - save current file with a new filename
+   * Save As - rename the current file and save
    */
   const handleSaveAs = useCallback(() => {
     if (!activeFile) return;
@@ -410,22 +428,23 @@ export default function EditorPage() {
     const newFilename = window.prompt("Save as:", activeFile.filename);
     if (!newFilename || newFilename === activeFile.filename) return;
     
-    // Create a new file with the new name
-    const newFile: EditorFile = {
-      id: `file-${Date.now()}`,
-      filename: newFilename,
-      code: activeFile.code,
-      language: getLanguageFromFilename(newFilename) || activeFile.language,
-      isSaved: true
-    };
-    
+    // Rename the current file and save
     setFiles(prev => {
-      const updated = [...prev, newFile];
+      const updated = prev.map(f => 
+        f.id === activeFile.id 
+          ? { 
+              ...f, 
+              filename: newFilename, 
+              language: getLanguageFromFilename(newFilename) || f.language,
+              isSaved: true 
+            }
+          : f
+      );
       localStorage.setItem("meowstik-editor-files", JSON.stringify(updated));
+      localStorage.setItem("meowstik-editor-active", activeFileId);
       return updated;
     });
-    setActiveFileId(newFile.id);
-  }, [activeFile]);
+  }, [activeFile, activeFileId]);
 
   /**
    * Send - save the code and send to LLM with prompt as structured JSON
