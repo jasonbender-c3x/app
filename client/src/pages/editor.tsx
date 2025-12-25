@@ -191,9 +191,26 @@ export default function EditorPage() {
         // Check if a file with this filename already exists
         const existingIndex = prev.findIndex(f => f.filename === filename);
         if (existingIndex >= 0) {
-          // Update existing file and focus it
+          const existingFile = prev[existingIndex];
           const updated = [...prev];
-          updated[existingIndex] = { ...updated[existingIndex], code: llmCode, isSaved: false };
+          
+          // If existing file has unsaved changes, create a backup first
+          if (!existingFile.isSaved) {
+            const bakFilename = `${existingFile.filename}~bak`;
+            // Clone the file directly to preserve exact content (even empty strings)
+            const bakFile: EditorFile = {
+              id: `file-${Date.now()}-bak`,
+              filename: bakFilename,
+              code: existingFile.code, // Preserve exact content
+              language: existingFile.language,
+              isSaved: true // Backup is considered saved
+            };
+            updated.push(bakFile);
+            console.log(`[Editor] Created backup: ${bakFilename}`);
+          }
+          
+          // Update existing file and focus it
+          updated[existingIndex] = { ...existingFile, code: llmCode, isSaved: false };
           setActiveFileId(updated[existingIndex].id); // Use existing file's ID
           return updated;
         }
@@ -246,9 +263,26 @@ export default function EditorPage() {
           // Check if a file with this filename already exists
           const existingIndex = prev.findIndex(f => f.filename === filename);
           if (existingIndex >= 0) {
-            // Update existing file and focus it
+            const existingFile = prev[existingIndex];
             const updated = [...prev];
-            updated[existingIndex] = { ...updated[existingIndex], code: e.newValue!, isSaved: false };
+            
+            // If existing file has unsaved changes, create a backup first
+            if (!existingFile.isSaved) {
+              const bakFilename = `${existingFile.filename}~bak`;
+              // Clone the file directly to preserve exact content (even empty strings)
+              const bakFile: EditorFile = {
+                id: `file-${Date.now()}-bak`,
+                filename: bakFilename,
+                code: existingFile.code, // Preserve exact content
+                language: existingFile.language,
+                isSaved: true // Backup is considered saved
+              };
+              updated.push(bakFile);
+              console.log(`[Editor] Created backup: ${bakFilename}`);
+            }
+            
+            // Update existing file and focus it
+            updated[existingIndex] = { ...existingFile, code: e.newValue!, isSaved: false };
             setActiveFileId(updated[existingIndex].id); // Use existing file's ID
             return updated;
           }
