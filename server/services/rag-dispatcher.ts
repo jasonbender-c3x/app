@@ -50,6 +50,7 @@ import { searchWeb } from "../integrations/web-scraper";
 import { browserScrape } from "../integrations/browser-scraper";
 import { tavilySearch, tavilyQnA, tavilyDeepResearch } from "../integrations/tavily";
 import { perplexitySearch, perplexityQuickAnswer, perplexityDeepResearch, perplexityNews } from "../integrations/perplexity";
+import { generateSingleSpeakerAudio, getAvailableVoices } from "../integrations/expressive-tts";
 import * as googleTasks from "../integrations/google-tasks";
 import * as gmail from "../integrations/gmail";
 import * as googleCalendar from "../integrations/google-calendar";
@@ -970,13 +971,14 @@ export class RAGDispatcher {
 
   /**
    * Say Tool - Tool for sending speech output in turn-taking voice mode
-   * Used when the LLM is in voice conversation mode and needs to speak
+   * Uses Gemini 2.5 Flash TTS for high-quality expressive speech synthesis
    */
   private async executeSay(toolCall: ToolCall): Promise<unknown> {
     const params = toolCall.parameters as {
       utterance: string;
       locale?: string;
       voiceId?: string;
+      style?: string;
       conversationalTurnId?: string;
     };
     
@@ -984,11 +986,49 @@ export class RAGDispatcher {
       throw new Error('say requires an utterance parameter');
     }
 
+    // Apply style prefix if specified (e.g., "Say cheerfully", "Whisper")
+    let textToSpeak = params.utterance;
+    if (params.style && params.style !== "natural") {
+      textToSpeak = `${params.style}: ${params.utterance}`;
+    }
+
+    // Default to Kore voice, validate if custom voice specified
+    const availableVoices = getAvailableVoices();
+    const voice = params.voiceId && availableVoices.includes(params.voiceId) 
+      ? params.voiceId 
+      : "Kore";
+
+    console.log(`[Say] Generating expressive speech with voice: ${voice}, style: ${params.style || 'natural'}`);
+
+    // Generate audio using Gemini TTS
+    const ttsResult = await generateSingleSpeakerAudio(textToSpeak, voice);
+
+    if (!ttsResult.success || !ttsResult.audioBase64) {
+      console.error(`[Say] TTS generation failed: ${ttsResult.error}`);
+      // Fall back to returning text only (client can use browser TTS)
+      return {
+        type: "say",
+        utterance: params.utterance,
+        locale: params.locale || "en-US",
+        voiceId: voice,
+        style: params.style,
+        audioGenerated: false,
+        error: ttsResult.error,
+        timestamp: new Date().toISOString(),
+        speak: true,
+      };
+    }
+
     return {
       type: "say",
       utterance: params.utterance,
       locale: params.locale || "en-US",
-      voiceId: params.voiceId,
+      voiceId: voice,
+      style: params.style,
+      audioGenerated: true,
+      audioBase64: ttsResult.audioBase64,
+      mimeType: ttsResult.mimeType || "audio/mpeg",
+      duration: ttsResult.duration,
       conversationalTurnId: params.conversationalTurnId,
       timestamp: new Date().toISOString(),
       speak: true,

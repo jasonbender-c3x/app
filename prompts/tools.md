@@ -104,23 +104,24 @@ Always use `send_chat` for text chat output and `say` for voice output in turn-t
 
 ### Say (Voice Output Tool)
 
-**This is the tool for sending speech output in turn-taking voice mode.**
+**This is the tool for sending speech output in turn-taking voice mode. Uses Gemini 2.5 Flash TTS for high-quality expressive speech.**
 
 | Tool | Parameters | Description |
 |------|------------|-------------|
-| `say` | `utterance:string`, `locale?:string`, `voiceId?:string`, `conversationalTurnId?:string` | Speak text in voice conversation mode |
+| `say` | `utterance:string`, `voiceId?:string`, `style?:string`, `locale?:string`, `conversationalTurnId?:string` | Speak text with expressive voice synthesis |
 
 **Example:**
 ```json
 {"toolCalls": [
-  {"type": "say", "id": "voice1", "operation": "speak", "parameters": {"utterance": "Hello! How can I help you today?"}}
+  {"type": "say", "id": "voice1", "operation": "speak", "parameters": {"utterance": "Hello! How can I help you today?", "voiceId": "Kore", "style": "Say cheerfully"}}
 ]}
 ```
 
 **Parameters:**
 - `utterance` (required): The text to speak
+- `voiceId`: Voice to use - Kore, Puck, Charon, Fenrir, Aoede, Leda, Orus, Zephyr (default: "Kore")
+- `style`: Speech style - "natural", "Say cheerfully", "Say seriously", "Say excitedly", "Say calmly", "Say dramatically", "Whisper", "Say like a news anchor", "Say warmly", "Say professionally" (default: "natural")
 - `locale`: Language/region code (default: "en-US")
-- `voiceId`: Specific voice to use (optional)
 - `conversationalTurnId`: Turn ID for multi-turn conversations (optional)
 
 ### File Operations

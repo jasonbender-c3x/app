@@ -550,13 +550,21 @@ export default function Home() {
 
               // Handle speech events from say tool (voice output in turn-taking mode)
               if (data.speech) {
-                const { utterance } = data.speech as { utterance: string; locale?: string; voiceId?: string };
-                if (utterance) {
-                  // Speak the utterance using TTS context
-                  speak(utterance);
+                const speechData = data.speech as { 
+                  utterance: string; 
+                  locale?: string; 
+                  voiceId?: string;
+                  style?: string;
+                  audioGenerated?: boolean;
+                  audioBase64?: string;
+                  mimeType?: string;
+                  duration?: number;
+                  error?: string;
+                };
+                if (speechData.utterance) {
                   // Also append to message content for display
-                  if (!aiMessageContent.includes(utterance)) {
-                    aiMessageContent += utterance;
+                  if (!aiMessageContent.includes(speechData.utterance)) {
+                    aiMessageContent += speechData.utterance;
                     setMessages((prev) => {
                       const filtered = prev.filter(m => !m.id.startsWith('temp-ai-'));
                       return [
@@ -570,6 +578,26 @@ export default function Home() {
                         } as Message
                       ];
                     });
+                  }
+                  
+                  // Play generated audio if available, otherwise fall back to browser TTS
+                  if (speechData.audioGenerated && speechData.audioBase64) {
+                    // Create and play audio from base64 data
+                    const audioBlob = new Blob(
+                      [Uint8Array.from(atob(speechData.audioBase64), c => c.charCodeAt(0))],
+                      { type: speechData.mimeType || 'audio/mpeg' }
+                    );
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    audio.onended = () => URL.revokeObjectURL(audioUrl);
+                    audio.play().catch(err => {
+                      console.error('[Speech] Audio playback failed:', err);
+                      // Fall back to browser TTS
+                      speak(speechData.utterance);
+                    });
+                  } else {
+                    // Fall back to browser TTS if audio generation failed
+                    speak(speechData.utterance);
                   }
                 }
               }

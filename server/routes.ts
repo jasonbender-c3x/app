@@ -822,18 +822,34 @@ export async function registerRoutes(
               }
             }
 
-            // If this is say, stream the utterance for TTS playback
+            // If this is say, stream the audio for playback
             if (toolCall.type === "say" && toolResult.success && toolResult.result) {
-              const sayResult = toolResult.result as { utterance?: string; locale?: string; voiceId?: string };
+              const sayResult = toolResult.result as { 
+                utterance?: string; 
+                locale?: string; 
+                voiceId?: string;
+                style?: string;
+                audioGenerated?: boolean;
+                audioBase64?: string;
+                mimeType?: string;
+                duration?: number;
+                error?: string;
+              };
               if (sayResult.utterance) {
                 // Store utterance as content for the message
                 cleanContentForStorage += sayResult.utterance;
-                // Stream speech event to client for TTS
+                // Stream speech event to client with audio data if generated
                 res.write(`data: ${JSON.stringify({ 
                   speech: {
                     utterance: sayResult.utterance,
                     locale: sayResult.locale || "en-US",
                     voiceId: sayResult.voiceId,
+                    style: sayResult.style,
+                    audioGenerated: sayResult.audioGenerated,
+                    audioBase64: sayResult.audioBase64,
+                    mimeType: sayResult.mimeType,
+                    duration: sayResult.duration,
+                    error: sayResult.error,
                   }
                 })}\n\n`);
               }

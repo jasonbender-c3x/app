@@ -94,7 +94,9 @@ The system has comprehensive documentation in the `docs/` folder:
 
 ### Tool Architecture
 - **send_chat**: Primary tool for LLM to send text content to chat window (single `content` string parameter)
-- **say**: Voice output tool for turn-taking mode - streams speech to client for TTS playback (parameters: `utterance`, `locale?`, `voiceId?`, `conversationalTurnId?`)
+- **say**: Voice output tool for turn-taking mode - uses Gemini 2.5 Flash TTS for high-quality expressive speech synthesis
+  - Parameters: `utterance`, `voiceId?` (Kore, Puck, Charon, Fenrir, Aoede, Leda, Orus, Zephyr), `style?` (natural, Say cheerfully, Whisper, etc.), `locale?`, `conversationalTurnId?`
+  - Streams audio as base64 MP3 to client for playback, falls back to browser TTS if generation fails
 - **file_get**: Read files from filesystem or editor canvas (use `editor:` prefix for Monaco)
 - **file_put**: Write files to filesystem or editor canvas (use `editor:` prefix for Monaco)
 
