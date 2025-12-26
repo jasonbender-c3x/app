@@ -60,6 +60,8 @@ import * as googleSheets from "../integrations/google-sheets";
 import * as googleContacts from "../integrations/google-contacts";
 import * as github from "../integrations/github";
 import * as browserbase from "../integrations/browserbase";
+import { ragService } from "./rag-service";
+import { chunkingService } from "./chunking-service";
 import { exec } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs/promises";
@@ -1265,14 +1267,33 @@ export class RAGDispatcher {
     if (params.path.startsWith("editor:")) {
       const editorPath = params.path.substring("editor:".length);
       console.log(`[RAGDispatcher] Writing to editor canvas: ${editorPath}`);
-      // Return file data for frontend to handle
+      
+      // Auto-ingest into RAG if content is text-based
+      const mimeType = params.mimeType || this.detectMimeType(editorPath);
+      let ingestResult = null;
+      if (chunkingService.supportsTextExtraction(mimeType)) {
+        try {
+          ingestResult = await ragService.ingestDocument(
+            params.content,
+            `editor-${Date.now()}`,
+            path.basename(editorPath),
+            mimeType
+          );
+          console.log(`[RAGDispatcher] Auto-ingested editor file: ${editorPath}, chunks: ${ingestResult.chunksCreated}`);
+        } catch (error) {
+          console.warn(`[RAGDispatcher] Failed to auto-ingest editor file:`, error);
+        }
+      }
+      
       return {
         type: 'file_put',
         path: editorPath,
         destination: 'editor',
         content: params.content,
-        mimeType: params.mimeType,
+        mimeType,
         summary: params.summary,
+        ingested: ingestResult?.success || false,
+        chunksCreated: ingestResult?.chunksCreated || 0,
         message: `File saved to editor canvas: ${editorPath}. View at /editor`
       };
     }
@@ -1292,14 +1313,57 @@ export class RAGDispatcher {
       }
     }
 
+    // Auto-ingest into RAG if content is text-based
+    const mimeType = params.mimeType || this.detectMimeType(sanitizedPath);
+    let ingestResult = null;
+    if (chunkingService.supportsTextExtraction(mimeType)) {
+      try {
+        ingestResult = await ragService.ingestDocument(
+          params.content,
+          `file-${Date.now()}`,
+          path.basename(sanitizedPath),
+          mimeType
+        );
+        console.log(`[RAGDispatcher] Auto-ingested file: ${sanitizedPath}, chunks: ${ingestResult.chunksCreated}`);
+      } catch (error) {
+        console.warn(`[RAGDispatcher] Failed to auto-ingest file:`, error);
+      }
+    }
+
     return {
       type: 'file_put',
       path: sanitizedPath,
       destination: 'filesystem',
-      mimeType: params.mimeType,
+      mimeType,
       summary: params.summary,
+      ingested: ingestResult?.success || false,
+      chunksCreated: ingestResult?.chunksCreated || 0,
       message: `File written to: ${sanitizedPath}`
     };
+  }
+
+  /**
+   * Detect MIME type from file extension
+   */
+  private detectMimeType(filename: string): string {
+    const ext = path.extname(filename).toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      '.js': 'application/javascript',
+      '.ts': 'application/typescript',
+      '.tsx': 'application/typescript',
+      '.jsx': 'application/javascript',
+      '.json': 'application/json',
+      '.html': 'text/html',
+      '.css': 'text/css',
+      '.md': 'text/markdown',
+      '.txt': 'text/plain',
+      '.py': 'text/x-python',
+      '.sql': 'text/x-sql',
+      '.xml': 'application/xml',
+      '.yaml': 'text/yaml',
+      '.yml': 'text/yaml',
+    };
+    return mimeTypes[ext] || 'text/plain';
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
