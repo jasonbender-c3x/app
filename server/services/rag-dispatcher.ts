@@ -40,7 +40,6 @@ import {
   type FileOperation,
   type BinaryFileOperation,
   type AutoexecScript,
-  EMOJI_SEA_DELIMITER,
   webSearchParamsSchema,
   googleSearchParamsSchema,
   duckduckgoSearchParamsSchema,
@@ -843,18 +842,6 @@ export class RAGDispatcher {
     const cleanPath = filePath.replace(/\.\./g, "").replace(/^\/+/, "");
     const cleanFilename = path.basename(filename);
     return path.join(cleanPath, cleanFilename);
-  }
-
-  /**
-   * Format a structured response using the new emoji sea delimiter format
-   * Format: [tool calls JSON] + EMOJI_SEA_DELIMITER + markdown
-   */
-  formatOutput(response: StructuredLLMResponse): string {
-    const toolCallsJson = response.toolCalls && response.toolCalls.length > 0
-      ? JSON.stringify(response.toolCalls, null, 2)
-      : "[]";
-    
-    return `${toolCallsJson}\n\n${EMOJI_SEA_DELIMITER}\n\n${response.afterRag.chatContent}`;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

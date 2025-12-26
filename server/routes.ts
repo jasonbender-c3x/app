@@ -92,8 +92,8 @@ import { GoogleGenAI } from "@google/genai";
  * Assembles core directives, personality, tools, and RAG context.
  */
 import { promptComposer } from "./services/prompt-composer";
-import { DelimiterParser } from "./services/delimiter-parser";
 import { ragDispatcher } from "./services/rag-dispatcher";
+import { structuredLLMResponseSchema, type ToolCall } from "@shared/schema";
 
 import { createApiRouter } from "./routes/index";
 
@@ -633,12 +633,11 @@ export async function registerRoutes(
       });
 
       // ─────────────────────────────────────────────────────────────────────
-      // STEP 5: Stream AI response with delimiter-aware parsing
+      // STEP 5: Stream AI response and parse structured JSON
       // ─────────────────────────────────────────────────────────────────────
 
       let fullResponse = "";
       let cleanContentForStorage = "";
-      const parser = new DelimiterParser();
       const toolResults: Array<{
         toolId: string;
         type: string;
@@ -654,52 +653,177 @@ export async function registerRoutes(
           }
         | undefined;
 
+      // Dual-path streaming with incremental JSON detection and timeout guard
+      // Buffer only until we can confirm valid structured response or fallback to streaming
+      let braceDepth = 0;
+      let bracketDepth = 0;
+      let inString = false;
+      let escapeNext = false;
+      let mightBeJson = false;
+      let confirmedPlainText = false;
+      let confirmedStructured = false;
+      let bufferedContent = "";
+      let bufferStartTime = 0;
+      let parsedResponse: { toolCalls?: ToolCall[]; afterRag?: { chatContent?: string } } | null = null;
+      const MAX_JSON_BUFFER = 4096; // Max bytes to buffer before forcing plain text mode
+      const MAX_BUFFER_TIME_MS = 250; // Max time to buffer before forcing plain text mode
+      
       for await (const chunk of result) {
         const text = chunk.text || "";
         fullResponse += text;
 
-        // Capture usage metadata from the final chunk (Gemini provides this after streaming completes)
+        // Capture usage metadata from the final chunk
         if (chunk.usageMetadata) {
           usageMetadata = chunk.usageMetadata;
         }
 
-        // Note: We no longer try to preserve individual chunk content here
-        // because each chunk only contains partial content. We build the
-        // complete geminiContent from fullResponse after streaming completes.
+        if (!text) continue;
 
-        // Parse chunk for delimited tool calls
-        if (text) {
-          const parseResult = parser.processChunk(text);
+        // Already confirmed as plain text - stream directly
+        if (confirmedPlainText) {
+          cleanContentForStorage += text;
+          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+          continue;
+        }
 
-          // Accumulate ONLY prose content for storage (excludes tool JSON)
-          cleanContentForStorage += parseResult.proseToStream;
+        // Already confirmed as structured JSON - just buffer
+        if (confirmedStructured) {
+          continue;
+        }
 
-          // Stream prose (non-tool content) to client
-          if (parseResult.proseToStream) {
-            res.write(
-              `data: ${JSON.stringify({ text: parseResult.proseToStream })}\n\n`,
-            );
+        // Buffer content and track JSON structure
+        bufferedContent += text;
+        
+        // Check first non-whitespace character to detect potential JSON
+        if (!mightBeJson && bufferedContent.trim().length > 0) {
+          const firstChar = bufferedContent.trim()[0];
+          if (firstChar === "{" || firstChar === "[") {
+            mightBeJson = true;
+            bufferStartTime = Date.now();
+            braceDepth = firstChar === "{" ? 1 : 0;
+            bracketDepth = firstChar === "[" ? 1 : 0;
+          } else {
+            // Definitely not JSON - flush buffer and stream
+            confirmedPlainText = true;
+            cleanContentForStorage += bufferedContent;
+            res.write(`data: ${JSON.stringify({ text: bufferedContent })}\n\n`);
+            continue;
           }
+        }
 
-          // Execute any completed tool calls
-          for (const toolCall of parseResult.completedToolCalls) {
-            console.log(
-              `[Routes] Executing tool call: ${toolCall.type} (${toolCall.id})`,
-            );
-            try {
-              const toolResult = await ragDispatcher.executeToolCall(
-                toolCall,
-                savedMessage.id,
-              );
-              toolResults.push({
-                toolId: toolResult.toolId,
-                type: toolResult.type,
-                success: toolResult.success,
-                result: toolResult.result,
-                error: toolResult.error,
-              });
+        // Track brace/bracket depth for JSON detection (skip first char already counted)
+        const startIdx = mightBeJson && bufferedContent.length === text.length ? 1 : 0;
+        for (let i = startIdx; i < text.length; i++) {
+          const char = text[i];
+          if (escapeNext) {
+            escapeNext = false;
+            continue;
+          }
+          if (char === "\\") {
+            escapeNext = true;
+            continue;
+          }
+          if (char === '"') {
+            inString = !inString;
+            continue;
+          }
+          if (!inString) {
+            if (char === "{") braceDepth++;
+            else if (char === "}") braceDepth--;
+            else if (char === "[") bracketDepth++;
+            else if (char === "]") bracketDepth--;
+          }
+        }
 
-              // Send tool result to client
+        // When depth returns to zero, try to validate as structured response
+        if (mightBeJson && braceDepth === 0 && bracketDepth === 0 && !inString) {
+          try {
+            const trimmed = bufferedContent.trim();
+            const jsonData = JSON.parse(trimmed);
+            const validation = structuredLLMResponseSchema.safeParse(jsonData);
+            if (validation.success && validation.data.toolCalls && validation.data.toolCalls.length > 0) {
+              parsedResponse = validation.data;
+              confirmedStructured = true;
+              continue;
+            }
+          } catch (e) {
+            // Parse failed - not valid JSON
+          }
+          
+          // Not a valid structured response - flush buffer and stream
+          confirmedPlainText = true;
+          cleanContentForStorage += bufferedContent;
+          res.write(`data: ${JSON.stringify({ text: bufferedContent })}\n\n`);
+          continue;
+        }
+
+        // Timeout guard: if buffering too long without confirmation, flush and stream
+        if (mightBeJson && (Date.now() - bufferStartTime) > MAX_BUFFER_TIME_MS) {
+          confirmedPlainText = true;
+          cleanContentForStorage += bufferedContent;
+          res.write(`data: ${JSON.stringify({ text: bufferedContent })}\n\n`);
+          continue;
+        }
+
+        // Check if buffer exceeded - force plain text mode
+        if (bufferedContent.length > MAX_JSON_BUFFER) {
+          confirmedPlainText = true;
+          cleanContentForStorage += bufferedContent;
+          res.write(`data: ${JSON.stringify({ text: bufferedContent })}\n\n`);
+          continue;
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+      // STEP 5b: Handle end of stream - execute tools or flush remaining buffer
+      // ─────────────────────────────────────────────────────────────────────
+
+      // If stream ended while still buffering, try to parse as JSON
+      if (mightBeJson && !confirmedPlainText && !confirmedStructured) {
+        try {
+          const trimmed = fullResponse.trim();
+          const jsonData = JSON.parse(trimmed);
+          const validation = structuredLLMResponseSchema.safeParse(jsonData);
+          if (validation.success && validation.data.toolCalls && validation.data.toolCalls.length > 0) {
+            parsedResponse = validation.data;
+            confirmedStructured = true;
+          }
+        } catch (e) {
+          console.log("[Routes] Response looked like JSON but failed to parse, streaming as text");
+        }
+
+        // If not valid structured response, flush the content
+        if (!confirmedStructured) {
+          cleanContentForStorage = fullResponse;
+          res.write(`data: ${JSON.stringify({ text: fullResponse })}\n\n`);
+        }
+      }
+
+      // Execute tool calls if we have a valid structured response
+      if (confirmedStructured && parsedResponse) {
+        for (const toolCall of parsedResponse.toolCalls!) {
+          console.log(`[Routes] Executing tool call: ${toolCall.type} (${toolCall.id})`);
+          try {
+            const toolResult = await ragDispatcher.executeToolCall(toolCall, savedMessage.id);
+            toolResults.push({
+              toolId: toolResult.toolId,
+              type: toolResult.type,
+              success: toolResult.success,
+              result: toolResult.result,
+              error: toolResult.error,
+            });
+
+            // If this is send_chat, extract content for display
+            if (toolCall.type === "send_chat" && toolResult.success && toolResult.result) {
+              const chatResult = toolResult.result as { content?: string };
+              if (chatResult.content) {
+                cleanContentForStorage += chatResult.content;
+                res.write(`data: ${JSON.stringify({ text: chatResult.content })}\n\n`);
+              }
+            }
+
+            // Send tool result to client (for non-send_chat tools)
+            if (toolCall.type !== "send_chat") {
               res.write(
                 `data: ${JSON.stringify({
                   toolResult: {
@@ -711,100 +835,26 @@ export async function registerRoutes(
                   },
                 })}\n\n`,
               );
-            } catch (err: any) {
-              console.error(`[Routes] Tool execution error:`, err);
-              res.write(
-                `data: ${JSON.stringify({
-                  toolResult: {
-                    id: toolCall.id,
-                    type: toolCall.type,
-                    success: false,
-                    error: err.message,
-                  },
-                })}\n\n`,
-              );
             }
-          }
-
-          // Log any parse errors
-          for (const error of parseResult.errors) {
-            console.error(`[Routes] Parser error: ${error}`);
-          }
-        }
-      }
-
-      // Flush any remaining buffered content
-      const flushResult = parser.flush();
-      cleanContentForStorage += flushResult.proseToStream;
-      if (flushResult.proseToStream) {
-        res.write(
-          `data: ${JSON.stringify({ text: flushResult.proseToStream })}\n\n`,
-        );
-      }
-
-      // ─────────────────────────────────────────────────────────────────────
-      // STEP 5b: If tools were executed, send results back to LLM for formatting
-      // ─────────────────────────────────────────────────────────────────────
-
-      if (toolResults.length > 0) {
-        // Build a follow-up message with tool results for LLM to format
-        const toolResultsSummary = toolResults
-          .map((tr) => {
-            if (tr.success) {
-              return `Tool "${tr.type}" succeeded with result:\n${JSON.stringify(tr.result, null, 2)}`;
-            } else {
-              return `Tool "${tr.type}" failed with error: ${tr.error}`;
-            }
-          })
-          .join("\n\n");
-
-        const followUpPrompt = `Tool results:\n${toolResultsSummary}\n\nSummarize for user. No tool delimiters.`;
-
-        // Send minimal follow-up to LLM to format the results (no history to save tokens)
-        const followUpResult = await genAI.models.generateContentStream({
-          model: modelMode,
-          config: {
-            systemInstruction: "Format tool results clearly. No delimiters.",
-          },
-          contents: [
-            { role: "user", parts: userParts },
-            { role: "model", parts: [{ text: "Executing tool..." }] },
-            { role: "user", parts: [{ text: followUpPrompt }] },
-          ],
-        });
-
-        // Stream the formatted response
-        let followUpUsage:
-          | {
-              promptTokenCount?: number;
-              candidatesTokenCount?: number;
-              totalTokenCount?: number;
-            }
-          | undefined;
-        for await (const chunk of followUpResult) {
-          const text = chunk.text || "";
-          if (text) {
-            cleanContentForStorage += text;
-            res.write(`data: ${JSON.stringify({ text })}\n\n`);
-          }
-          if (chunk.usageMetadata) {
-            followUpUsage = chunk.usageMetadata;
+          } catch (err: any) {
+            console.error(`[Routes] Tool execution error:`, err);
+            res.write(
+              `data: ${JSON.stringify({
+                toolResult: {
+                  id: toolCall.id,
+                  type: toolCall.type,
+                  success: false,
+                  error: err.message,
+                },
+              })}\n\n`,
+            );
           }
         }
 
-        // Accumulate follow-up usage to main usage
-        if (followUpUsage) {
-          usageMetadata = {
-            promptTokenCount:
-              (usageMetadata?.promptTokenCount || 0) +
-              (followUpUsage.promptTokenCount || 0),
-            candidatesTokenCount:
-              (usageMetadata?.candidatesTokenCount || 0) +
-              (followUpUsage.candidatesTokenCount || 0),
-            totalTokenCount:
-              (usageMetadata?.totalTokenCount || 0) +
-              (followUpUsage.totalTokenCount || 0),
-          };
+        // Also check afterRag.chatContent for backward compatibility
+        if (parsedResponse.afterRag?.chatContent) {
+          cleanContentForStorage += parsedResponse.afterRag.chatContent;
+          res.write(`data: ${JSON.stringify({ text: parsedResponse.afterRag.chatContent })}\n\n`);
         }
       }
 
@@ -874,7 +924,7 @@ export async function registerRoutes(
             mimeType: a.mimeType,
           })),
           rawResponse: fullResponse,
-          parsedToolCalls: parser.getExtractedToolCalls(),
+          parsedToolCalls: parsedResponse?.toolCalls || [],
           cleanContent: finalContent,
           toolResults,
           model: modelMode,

@@ -946,34 +946,6 @@ export const insertGoogleOAuthTokensSchema = createInsertSchema(googleOAuthToken
 export type InsertGoogleOAuthTokens = z.infer<typeof insertGoogleOAuthTokensSchema>;
 export type GoogleOAuthTokens = typeof googleOAuthTokens.$inferSelect;
 
-// =============================================================================
-// SCISSORS CAT DELIMITER - Simple Output Separation
-// =============================================================================
-/**
- * The LLM output format is simple:
- * 
- * 1. TOOL CALLS (JSON array) - All tool calls at the start
- * 2. SCISSORS CAT DELIMITER - Unmistakable separator
- * 3. MARKDOWN CONTENT - Everything for the chat window
- * 
- * Example output:
- * ```
- * [
- *   { "type": "gmail_list", "id": "001", "operation": "list emails", "parameters": {} }
- * ]
- * 
- * ✂️🐱
- * 
- * Here's what I found in your inbox...
- * ```
- * 
- * The parser simply:
- * 1. Finds the scissors cat delimiter
- * 2. Everything before = JSON tool calls (parse as array)
- * 3. Everything after = Markdown for chat display
- */
-export const EMOJI_SEA_DELIMITER = "✂️🐱" as const;
-
 /**
  * Message role enum for type safety
  */
@@ -990,62 +962,6 @@ export function generateChatFilename(): string {
   const now = new Date();
   const timestamp = now.toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
   return `Chat-${timestamp}.txt`;
-}
-
-/**
- * Parse LLM output using the emoji sea delimiter
- * 
- * @param output - Raw LLM output string
- * @returns Object with toolCalls array and markdown content
- */
-export interface ParsedLLMOutput {
-  toolCalls: ToolCall[];
-  markdown: string;
-  parseErrors: string[];
-}
-
-export function parseLLMOutput(output: string): ParsedLLMOutput {
-  const result: ParsedLLMOutput = {
-    toolCalls: [],
-    markdown: "",
-    parseErrors: [],
-  };
-
-  const delimiterIndex = output.indexOf(EMOJI_SEA_DELIMITER);
-  
-  if (delimiterIndex === -1) {
-    result.markdown = output.trim();
-    return result;
-  }
-
-  const toolCallsSection = output.substring(0, delimiterIndex).trim();
-  const markdownSection = output.substring(delimiterIndex + EMOJI_SEA_DELIMITER.length).trim();
-
-  result.markdown = markdownSection;
-
-  if (toolCallsSection) {
-    try {
-      const parsed = JSON.parse(toolCallsSection);
-      
-      if (!Array.isArray(parsed)) {
-        result.parseErrors.push("Tool calls must be a JSON array, not a single object. Expected format: [{...}]");
-        return result;
-      }
-      
-      for (const tc of parsed) {
-        const validation = toolCallSchema.safeParse(tc);
-        if (validation.success) {
-          result.toolCalls.push(validation.data);
-        } else {
-          result.parseErrors.push(`Invalid tool call in array: ${validation.error.message}`);
-        }
-      }
-    } catch (e) {
-      result.parseErrors.push(`Failed to parse tool calls JSON: ${e}`);
-    }
-  }
-
-  return result;
 }
 
 // =============================================================================
