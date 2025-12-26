@@ -1196,31 +1196,6 @@ export class RAGDispatcher {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // LEGACY EDITOR LOAD (Deprecated - use file_put with editor: prefix)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /**
-   * Legacy Editor Load - maintained for backward compatibility
-   * @deprecated Use file_put with editor: prefix instead
-   */
-  private async executeEditorLoadLegacy(toolCall: ToolCall): Promise<unknown> {
-    const params = toolCall.parameters as { code: string; language?: string; filename?: string };
-    
-    if (!params.code || typeof params.code !== 'string') {
-      throw new Error('editor_load requires a code parameter');
-    }
-
-    // Return in the legacy format for frontend compatibility
-    return {
-      type: 'editor_load',
-      code: params.code,
-      language: params.language || 'javascript',
-      filename: params.filename || null,
-      message: `Code loaded for Monaco editor${params.filename ? ` as "${params.filename}"` : ''}. View at /editor`
-    };
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
   // FILE GET/PUT HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
 

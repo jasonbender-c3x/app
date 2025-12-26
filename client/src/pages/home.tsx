@@ -552,11 +552,11 @@ export default function Home() {
               if (data.metadata) {
                 streamMetadata = data.metadata;
                 
-                // Handle tool results - check for send_chat, file_put, and legacy editor_load
+                // Handle tool results - check for send_chat and file_put
                 if (streamMetadata.toolResults) {
                   for (const toolResult of streamMetadata.toolResults) {
-                    // Handle send_chat tool (and legacy chat_window) - extract content for chat display
-                    if ((toolResult.type === 'send_chat' || toolResult.type === 'chat_window') && toolResult.success && toolResult.result) {
+                    // Handle send_chat tool - extract content for chat display
+                    if (toolResult.type === 'send_chat' && toolResult.success && toolResult.result) {
                       const { content } = toolResult.result as { content: string };
                       if (content && !aiMessageContent.includes(content)) {
                         aiMessageContent = content;
@@ -587,22 +587,6 @@ export default function Home() {
                         localStorage.setItem("meowstik-editor-llm-language", language);
                         localStorage.setItem("meowstik-editor-llm-filename", filename);
                         console.log(`[Chat] File saved to editor canvas: ${filename}, navigating to /editor`);
-                        navigate("/editor");
-                      }
-                    }
-                    
-                    // Legacy editor_load support (deprecated, use file_put with editor: prefix)
-                    if (toolResult.type === 'editor_load' && toolResult.success && toolResult.result) {
-                      const { code, language, filename } = toolResult.result as { code: string; language?: string; filename?: string };
-                      if (code) {
-                        localStorage.setItem("meowstik-editor-llm-code", code);
-                        if (language) {
-                          localStorage.setItem("meowstik-editor-llm-language", language);
-                        }
-                        if (filename) {
-                          localStorage.setItem("meowstik-editor-llm-filename", filename);
-                        }
-                        console.log(`[Chat] Legacy editor_load: Code loaded for Monaco editor${filename ? ` as "${filename}"` : ''}, navigating to /editor`);
                         navigate("/editor");
                       }
                     }

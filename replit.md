@@ -96,10 +96,6 @@ The system has comprehensive documentation in the `docs/` folder:
 - **send_chat**: Primary tool for LLM to send content to chat window (single `content` string parameter)
 - **file_get**: Read files from filesystem or editor canvas (use `editor:` prefix for Monaco)
 - **file_put**: Write files to filesystem or editor canvas (use `editor:` prefix for Monaco)
-- **Legacy tools** (deprecated, maintained for backward compatibility):
-  - `chat_window` → maps to `send_chat`
-  - `editor_load` → maps to `file_put` with editor destination
-  - `file_upload` → maps to `file_ingest`
 
 ## Developer Tools
 
