@@ -585,6 +585,9 @@ export const ToolTypes = {
   // Chat output - primary tool for sending content to chat window
   SEND_CHAT: "send_chat",
   
+  // Voice output - tool for sending speech in turn-taking voice mode
+  SAY: "say",
+  
   // File operations
   FILE_GET: "file_get",
   FILE_PUT: "file_put",
@@ -603,6 +606,8 @@ export const toolCallSchema = z.object({
     "api_call", "file_ingest", "search", "web_search", "custom",
     // Chat output - primary tool for sending content to chat window
     "send_chat",
+    // Voice output - tool for sending speech in turn-taking voice mode
+    "say",
     // File operations
     "file_get", "file_put",
     // Search & Scraping

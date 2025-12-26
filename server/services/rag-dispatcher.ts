@@ -280,6 +280,9 @@ export class RAGDispatcher {
         case "send_chat":
           result = await this.executeSendChat(toolCall);
           break;
+        case "say":
+          result = await this.executeSay(toolCall);
+          break;
         case "tasks_list":
           result = await this.executeTasksList(toolCall);
           break;
@@ -958,6 +961,37 @@ export class RAGDispatcher {
       content: params.content,
       timestamp: new Date().toISOString(),
       display: true,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SAY HANDLER (VOICE OUTPUT)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Say Tool - Tool for sending speech output in turn-taking voice mode
+   * Used when the LLM is in voice conversation mode and needs to speak
+   */
+  private async executeSay(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as {
+      utterance: string;
+      locale?: string;
+      voiceId?: string;
+      conversationalTurnId?: string;
+    };
+    
+    if (!params.utterance || typeof params.utterance !== 'string') {
+      throw new Error('say requires an utterance parameter');
+    }
+
+    return {
+      type: "say",
+      utterance: params.utterance,
+      locale: params.locale || "en-US",
+      voiceId: params.voiceId,
+      conversationalTurnId: params.conversationalTurnId,
+      timestamp: new Date().toISOString(),
+      speak: true,
     };
   }
 

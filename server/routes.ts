@@ -822,8 +822,25 @@ export async function registerRoutes(
               }
             }
 
-            // Send tool result to client (for non-send_chat tools)
-            if (toolCall.type !== "send_chat") {
+            // If this is say, stream the utterance for TTS playback
+            if (toolCall.type === "say" && toolResult.success && toolResult.result) {
+              const sayResult = toolResult.result as { utterance?: string; locale?: string; voiceId?: string };
+              if (sayResult.utterance) {
+                // Store utterance as content for the message
+                cleanContentForStorage += sayResult.utterance;
+                // Stream speech event to client for TTS
+                res.write(`data: ${JSON.stringify({ 
+                  speech: {
+                    utterance: sayResult.utterance,
+                    locale: sayResult.locale || "en-US",
+                    voiceId: sayResult.voiceId,
+                  }
+                })}\n\n`);
+              }
+            }
+
+            // Send tool result to client (for non-output tools)
+            if (toolCall.type !== "send_chat" && toolCall.type !== "say") {
               res.write(
                 `data: ${JSON.stringify({
                   toolResult: {

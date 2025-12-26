@@ -2,12 +2,16 @@
 
 ## Output Format
 
-Your response MUST follow this structure:
-1. **Tool calls JSON array** (NO markdown fences)
-2. **Delimiter** `✂️🐱`
-3. **Markdown content** for user
+Your response MUST be a JSON object with this structure:
+```json
+{
+  "toolCalls": [
+    {"type": "send_chat", "id": "chat1", "operation": "respond", "parameters": {"content": "Your markdown response..."}}
+  ]
+}
+```
 
-Even with no tools, use: `[]` then `✂️🐱` then your response.
+Always use `send_chat` for text chat output and `say` for voice output in turn-taking mode.
 
 ---
 
@@ -83,7 +87,7 @@ Even with no tools, use: `[]` then `✂️🐱` then your response.
 | `contacts_update` | `resourceName:string`, `givenName?:string`, `familyName?:string`, `email?:string`, `phoneNumber?:string` | Update contact |
 | `contacts_delete` | `resourceName:string` | Delete contact |
 
-### Send Chat (Primary Output Tool)
+### Send Chat (Primary Text Output Tool)
 
 **This is the primary tool for sending content to the chat window.**
 
@@ -93,10 +97,31 @@ Even with no tools, use: `[]` then `✂️🐱` then your response.
 
 **Example:**
 ```json
-[
+{"toolCalls": [
   {"type": "send_chat", "id": "chat1", "operation": "respond", "parameters": {"content": "Here's what I found..."}}
-]
+]}
 ```
+
+### Say (Voice Output Tool)
+
+**This is the tool for sending speech output in turn-taking voice mode.**
+
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `say` | `utterance:string`, `locale?:string`, `voiceId?:string`, `conversationalTurnId?:string` | Speak text in voice conversation mode |
+
+**Example:**
+```json
+{"toolCalls": [
+  {"type": "say", "id": "voice1", "operation": "speak", "parameters": {"utterance": "Hello! How can I help you today?"}}
+]}
+```
+
+**Parameters:**
+- `utterance` (required): The text to speak
+- `locale`: Language/region code (default: "en-US")
+- `voiceId`: Specific voice to use (optional)
+- `conversationalTurnId`: Turn ID for multi-turn conversations (optional)
 
 ### File Operations
 
