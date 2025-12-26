@@ -84,6 +84,9 @@ Even with no tools, use: `[]` then `✂️🐱` then your response.
 | `contacts_delete` | `resourceName:string` | Delete contact |
 
 ### File Operations
+
+**IMPORTANT:** Files are sent via **structured response** (not tool calls). See "File Send Protocol" below.
+
 | Tool | Parameters | Description |
 |------|------------|-------------|
 | `file_ingest` | `content:string`, `filename:string`, `mimeType?:string` | Ingest file for RAG processing |
@@ -243,3 +246,121 @@ I can help you with that! Here's what I know...
 ✂️🐱
 Let me check your emails and calendar...
 ```
+
+---
+
+## File Send Protocol
+
+**The LLM creates/modifies files via the structured response, NOT tool calls.**
+
+### Format
+
+Include files in your response structure under `afterRag`:
+
+```json
+{
+  "toolCalls": [...],
+  "afterRag": {
+    "chatContent": "Your message here",
+    "textFiles": [
+      {
+        "action": "create" | "replace" | "append",
+        "filename": "app.js",
+        "path": "/app/src/app.js",
+        "mimeType": "text/javascript",
+        "permissions": "644",
+        "summary": "Application entry point with express server",
+        "content": "const express = require('express');...",
+        "encoding": "utf8"
+      }
+    ],
+    "binaryFiles": [
+      {
+        "action": "create" | "replace",
+        "filename": "image.png",
+        "path": "/app/assets/image.png",
+        "mimeType": "image/png",
+        "permissions": "644",
+        "summary": "Product screenshot",
+        "base64Content": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+      }
+    ],
+    "appendFiles": [
+      {
+        "filename": "log.txt",
+        "path": "/app/logs/log.txt",
+        "content": "\n[2024-01-15] New log entry",
+        "encoding": "utf8"
+      }
+    ]
+  }
+}
+```
+
+### Protocol Details
+
+**All file operations require 6 fields:**
+
+1. **mimeType**: File type (e.g., `"text/javascript"`, `"image/png"`, `"application/pdf"`)
+2. **path**: File location
+   - Normal path: `/app/src/app.js` → writes to filesystem
+   - Editor path: `editor:/app.js` → saves to Monaco editor canvas (frontend)
+3. **filename.ext**: Full filename with extension
+4. **permissions**: Unix octal permissions (e.g., `"644"`, `"755"`)
+5. **summary**: Brief description of file purpose/changes
+6. **content** (text) or **base64Content** (binary): File data
+
+### Editor Integration
+
+If `path` starts with `editor:`, the file is saved to the Monaco editor canvas:
+- `editor:/component.tsx` → Creates tab in editor
+- LLM can ingest from `editor:` paths and modify them
+
+### Examples
+
+**Create JavaScript file:**
+```json
+{
+  "filename": "index.js",
+  "path": "/app/src/index.js",
+  "mimeType": "text/javascript",
+  "permissions": "644",
+  "summary": "Main application file with HTTP server",
+  "content": "const app = require('./app');\napp.listen(3000);",
+  "encoding": "utf8",
+  "action": "create"
+}
+```
+
+**Save code to editor:**
+```json
+{
+  "filename": "Component.tsx",
+  "path": "editor:/Component.tsx",
+  "mimeType": "text/typescript",
+  "permissions": "644",
+  "summary": "React component for user dashboard",
+  "content": "export function Dashboard() { ... }",
+  "encoding": "utf8",
+  "action": "create"
+}
+```
+
+**Append to log:**
+```json
+{
+  "filename": "debug.log",
+  "path": "/app/logs/debug.log",
+  "summary": "Debug output",
+  "content": "\n[ERROR] Failed to connect to database",
+  "encoding": "utf8",
+  "action": "append"
+}
+```
+
+### Rules
+
+- **Replace vs Create**: Both overwrite existing files. Use "replace" if the file exists, "create" for new files.
+- **Size limit**: 5MB per file
+- **Encoding**: "utf8" (default) or "base64"
+- **Editor files**: Automatically appear in Monaco tabs; LLM can receive and modify them

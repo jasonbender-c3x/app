@@ -763,12 +763,23 @@ export type BrowserScrapeParams = z.infer<typeof browserScrapeParamsSchema>;
 /**
  * File Operation Schema
  * Defines a file to be created, replaced, or appended
+ * 
+ * PROTOCOL:
+ * - mimeType: Indicates file type (e.g. "text/javascript", "text/plain")
+ * - path: File location; if starts with "editor:" → save to Monaco editor canvas
+ * - filename.ext: Full filename with extension
+ * - permissions: Unix-style permissions (octal string, e.g. "644")
+ * - summary: Short description of file purpose/changes
+ * - content: File content
+ * - encoding: How content is encoded (utf8 or base64)
  */
 export const fileOperationSchema = z.object({
   action: z.enum(["create", "replace", "append"]),
   filename: z.string(),
   path: z.string(),
+  mimeType: z.string().optional(),
   permissions: z.string().optional().default("644"),
+  summary: z.string().optional(),
   content: z.string(),
   encoding: z.enum(["utf8", "base64"]).default("utf8"),
 });
@@ -777,14 +788,23 @@ export type FileOperation = z.infer<typeof fileOperationSchema>;
 /**
  * Binary File Operation Schema
  * For creating binary files from base64 encoded content
+ * 
+ * PROTOCOL:
+ * - mimeType: Required for binary files (e.g. "image/png", "application/pdf")
+ * - path: File location; if starts with "editor:" → save to Monaco editor canvas
+ * - filename.ext: Full filename with extension
+ * - permissions: Unix-style permissions (octal string, e.g. "644")
+ * - summary: Short description of file purpose/changes
+ * - base64Content: Binary content as base64 string
  */
 export const binaryFileOperationSchema = z.object({
   action: z.enum(["create", "replace"]),
   filename: z.string(),
   path: z.string(),
+  mimeType: z.string(),
   permissions: z.string().optional().default("644"),
+  summary: z.string().optional(),
   base64Content: z.string(),
-  mimeType: z.string().optional(),
 });
 export type BinaryFileOperation = z.infer<typeof binaryFileOperationSchema>;
 

@@ -662,6 +662,10 @@ export class RAGDispatcher {
 
   /**
    * Process a text file creation/replacement
+   * 
+   * PROTOCOL:
+   * - If path starts with "editor:" → save to Monaco editor canvas (frontend handling)
+   * - Otherwise → write to filesystem
    */
   private async processTextFile(fileOp: FileOperation): Promise<string> {
     const content = fileOp.encoding === "base64" 
@@ -672,6 +676,15 @@ export class RAGDispatcher {
       throw new Error(`File content exceeds ${MAX_FILE_SIZE_BYTES / 1024 / 1024}MB limit`);
     }
 
+    // Handle editor: prefix - files meant for Monaco editor canvas
+    if (fileOp.path.startsWith("editor:")) {
+      const editorPath = fileOp.path.substring("editor:".length) || `/${fileOp.filename}`;
+      console.log(`[RAGDispatcher] Targeting file to editor canvas: ${editorPath}`);
+      // Return editor path for frontend processing
+      return editorPath;
+    }
+
+    // Standard filesystem write
     const sanitizedPath = this.sanitizePath(fileOp.path, fileOp.filename);
     const fullPath = path.join(this.workspaceDir, sanitizedPath);
 
@@ -707,6 +720,10 @@ export class RAGDispatcher {
 
   /**
    * Process a binary file creation
+   * 
+   * PROTOCOL:
+   * - If path starts with "editor:" → save to Monaco editor canvas (frontend handling)
+   * - Otherwise → write to filesystem
    */
   private async processBinaryFile(binOp: BinaryFileOperation): Promise<string> {
     const buffer = Buffer.from(binOp.base64Content, "base64");
@@ -715,6 +732,15 @@ export class RAGDispatcher {
       throw new Error(`Binary file exceeds ${MAX_FILE_SIZE_BYTES / 1024 / 1024}MB limit`);
     }
 
+    // Handle editor: prefix - files meant for Monaco editor canvas
+    if (binOp.path.startsWith("editor:")) {
+      const editorPath = binOp.path.substring("editor:".length) || `/${binOp.filename}`;
+      console.log(`[RAGDispatcher] Targeting binary file to editor canvas: ${editorPath}`);
+      // Return editor path for frontend processing
+      return editorPath;
+    }
+
+    // Standard filesystem write
     const sanitizedPath = this.sanitizePath(binOp.path, binOp.filename);
     const fullPath = path.join(this.workspaceDir, sanitizedPath);
 
