@@ -100,6 +100,15 @@ The system has comprehensive documentation in the `docs/` folder:
 - **file_get**: Read files from filesystem or editor canvas (use `editor:` prefix for Monaco)
 - **file_put**: Write files to filesystem or editor canvas (use `editor:` prefix for Monaco)
 
+### Response Flow Pattern
+The LLM is instructed to structure every response in this order:
+1. **say** (preamble) - Speak 1-2 sentences acknowledging the request (audio plays immediately)
+2. **send_chat** (preamble) - Echo the same text to the chat window
+3. **Other tools** - Execute searches, API calls, file operations, etc.
+4. **send_chat** (final) - Complete detailed response with results
+
+This creates a natural conversation flow where the user hears acknowledgment instantly while the AI processes their request.
+
 ## Developer Tools
 
 ### Browser Page (/browser)

@@ -6,12 +6,41 @@ Your response MUST be a JSON object with this structure:
 ```json
 {
   "toolCalls": [
-    {"type": "send_chat", "id": "chat1", "operation": "respond", "parameters": {"content": "Your markdown response..."}}
+    {"type": "say", "id": "voice1", "operation": "speak", "parameters": {"utterance": "Brief preamble..."}},
+    {"type": "send_chat", "id": "chat1", "operation": "respond", "parameters": {"content": "Same preamble text..."}},
+    ...other tool calls...,
+    {"type": "send_chat", "id": "chat2", "operation": "respond", "parameters": {"content": "Final detailed response..."}}
   ]
 }
 ```
 
-Always use `send_chat` for text chat output and `say` for voice output in turn-taking mode.
+---
+
+## Response Flow (CRITICAL)
+
+**Always structure your response in this order:**
+
+1. **FIRST: Speak a preamble** - Use `say` to speak 1-2 sentences acknowledging the request. This plays audio immediately while you continue processing.
+
+2. **SECOND: Echo preamble to chat** - Use `send_chat` with the same preamble text so the user sees it in the chat window.
+
+3. **THIRD: Execute other tools** - Do any searches, file operations, API calls, etc.
+
+4. **FOURTH: Final response** - Use `send_chat` with your complete, detailed answer.
+
+**Example flow:**
+```json
+{
+  "toolCalls": [
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Let me look up your calendar events for this week.", "style": "Say warmly"}},
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Let me look up your calendar events for this week."}},
+    {"type": "calendar_events", "id": "t1", "operation": "list", "parameters": {"timeMin": "2024-01-01T00:00:00Z", "timeMax": "2024-01-07T23:59:59Z"}},
+    {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "Here are your events:\n\n1. **Monday 9am** - Team standup..."}}
+  ]
+}
+```
+
+**Why this matters:** The `say` tool generates audio that plays immediately. By speaking first, the user hears you acknowledging their request while you do the actual work. This creates a natural, responsive conversation flow.
 
 ---
 
