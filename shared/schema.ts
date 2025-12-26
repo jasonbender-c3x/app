@@ -582,10 +582,16 @@ export const ToolTypes = {
   // Debug operations
   DEBUG_ECHO: "debug_echo",
   
-  // Chat output
+  // Chat output - primary tool for sending content to chat window
+  SEND_CHAT: "send_chat",
+  // Legacy chat output (deprecated, use SEND_CHAT)
   CHAT_WINDOW: "chat_window",
   
-  // Monaco Editor
+  // File operations
+  FILE_GET: "file_get",
+  FILE_PUT: "file_put",
+  
+  // Legacy editor (deprecated, use FILE_PUT with editor: prefix)
   EDITOR_LOAD: "editor_load",
 } as const;
 
@@ -600,6 +606,14 @@ export const toolCallSchema = z.object({
   type: z.enum([
     // Core
     "api_call", "file_ingest", "file_upload", "search", "web_search", "custom",
+    // Chat output - primary tool for sending content to chat window
+    "send_chat",
+    // Legacy chat output (deprecated, use send_chat)
+    "chat_window",
+    // File operations
+    "file_get", "file_put",
+    // Monaco Editor (deprecated, use file_put with editor: prefix)
+    "editor_load",
     // Search & Scraping
     "google_search", "duckduckgo_search", "browser_scrape",
     // Gmail
@@ -616,8 +630,6 @@ export const toolCallSchema = z.object({
     "tasks_list", "tasks_get", "tasks_create", "tasks_update", "tasks_complete", "tasks_delete",
     // Terminal
     "terminal_execute",
-    // Monaco Editor
-    "editor_load",
     // Tavily deep research
     "tavily_search", "tavily_qna", "tavily_research",
     // Perplexity AI search
@@ -633,8 +645,6 @@ export const toolCallSchema = z.object({
     "queue_create", "queue_batch", "queue_list", "queue_start",
     // Debug
     "debug_echo",
-    // Chat output - all markdown for the chat window goes through this tool
-    "chat_window",
     // Contacts
     "contacts_list", "contacts_search", "contacts_get", "contacts_create", "contacts_update", "contacts_delete",
   ]),
@@ -643,6 +653,43 @@ export const toolCallSchema = z.object({
   priority: z.number().optional().default(0),
 });
 export type ToolCall = z.infer<typeof toolCallSchema>;
+
+// =============================================================================
+// CHAT OUTPUT PARAMETER SCHEMA
+// =============================================================================
+
+/**
+ * Send Chat Parameters
+ * The primary tool for sending content to the chat window
+ * All chat output should go through this tool
+ */
+export const sendChatParamsSchema = z.object({
+  content: z.string().min(1, "Content cannot be empty"),
+});
+export type SendChatParams = z.infer<typeof sendChatParamsSchema>;
+
+/**
+ * File Get Parameters
+ * Read a file from filesystem or editor canvas
+ */
+export const fileGetParamsSchema = z.object({
+  path: z.string().min(1, "Path is required"),
+  encoding: z.enum(["utf8", "base64"]).optional().default("utf8"),
+});
+export type FileGetParams = z.infer<typeof fileGetParamsSchema>;
+
+/**
+ * File Put Parameters
+ * Write/create a file to filesystem or editor canvas
+ */
+export const filePutParamsSchema = z.object({
+  path: z.string().min(1, "Path is required"),
+  content: z.string(),
+  mimeType: z.string().optional(),
+  permissions: z.string().optional().default("644"),
+  summary: z.string().optional(),
+});
+export type FilePutParams = z.infer<typeof filePutParamsSchema>;
 
 // =============================================================================
 // GOOGLE WORKSPACE PARAMETER SCHEMAS
@@ -829,7 +876,8 @@ export const structuredLLMResponseSchema = z.object({
   toolCalls: z.array(toolCallSchema).optional().default([]),
   
   afterRag: z.object({
-    chatContent: z.string(),
+    /** @deprecated Use send_chat tool instead. Kept for backwards compatibility. */
+    chatContent: z.string().optional().default(""),
     textFiles: z.array(fileOperationSchema).optional().default([]),
     appendFiles: z.array(fileOperationSchema).optional().default([]),
     binaryFiles: z.array(binaryFileOperationSchema).optional().default([]),

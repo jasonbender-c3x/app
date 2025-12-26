@@ -552,9 +552,46 @@ export default function Home() {
               if (data.metadata) {
                 streamMetadata = data.metadata;
                 
-                // Check for editor_load tool results - store code for Monaco editor and navigate
+                // Handle tool results - check for send_chat, file_put, and legacy editor_load
                 if (streamMetadata.toolResults) {
                   for (const toolResult of streamMetadata.toolResults) {
+                    // Handle send_chat tool (and legacy chat_window) - extract content for chat display
+                    if ((toolResult.type === 'send_chat' || toolResult.type === 'chat_window') && toolResult.success && toolResult.result) {
+                      const { content } = toolResult.result as { content: string };
+                      if (content && !aiMessageContent.includes(content)) {
+                        aiMessageContent = content;
+                      }
+                    }
+                    
+                    // Handle file_put tool - save to editor when destination is 'editor'
+                    if (toolResult.type === 'file_put' && toolResult.success && toolResult.result) {
+                      const result = toolResult.result as { 
+                        path: string; 
+                        destination: string; 
+                        content: string;
+                        mimeType?: string;
+                      };
+                      if (result.destination === 'editor' && result.content) {
+                        // Extract filename from path
+                        const filename = result.path.split('/').pop() || 'untitled';
+                        // Detect language from mimeType or filename
+                        const ext = filename.split('.').pop()?.toLowerCase() || '';
+                        const langMap: Record<string, string> = {
+                          'js': 'javascript', 'ts': 'typescript', 'tsx': 'typescript',
+                          'jsx': 'javascript', 'py': 'python', 'css': 'css', 'html': 'html',
+                          'json': 'json', 'md': 'markdown', 'sql': 'sql'
+                        };
+                        const language = langMap[ext] || 'plaintext';
+                        
+                        localStorage.setItem("meowstik-editor-llm-code", result.content);
+                        localStorage.setItem("meowstik-editor-llm-language", language);
+                        localStorage.setItem("meowstik-editor-llm-filename", filename);
+                        console.log(`[Chat] File saved to editor canvas: ${filename}, navigating to /editor`);
+                        navigate("/editor");
+                      }
+                    }
+                    
+                    // Legacy editor_load support (deprecated, use file_put with editor: prefix)
                     if (toolResult.type === 'editor_load' && toolResult.success && toolResult.result) {
                       const { code, language, filename } = toolResult.result as { code: string; language?: string; filename?: string };
                       if (code) {
@@ -565,8 +602,7 @@ export default function Home() {
                         if (filename) {
                           localStorage.setItem("meowstik-editor-llm-filename", filename);
                         }
-                        console.log(`[Chat] Code loaded for Monaco editor${filename ? ` as "${filename}"` : ''}, navigating to /editor`);
-                        // Auto-navigate to editor when LLM sends code
+                        console.log(`[Chat] Legacy editor_load: Code loaded for Monaco editor${filename ? ` as "${filename}"` : ''}, navigating to /editor`);
                         navigate("/editor");
                       }
                     }

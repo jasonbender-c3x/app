@@ -268,8 +268,18 @@ export class RAGDispatcher {
           result = await this.executeBrowserScrape(toolCall);
           break;
         case "file_ingest":
-        case "file_upload":
+        case "file_upload": // Legacy, kept for backward compatibility
           result = await this.executeFileOperation(toolCall);
+          break;
+        case "file_get":
+          result = await this.executeFileGet(toolCall);
+          break;
+        case "file_put":
+          result = await this.executeFilePut(toolCall);
+          break;
+        case "send_chat":
+        case "chat_window": // Legacy alias, kept for backward compatibility
+          result = await this.executeSendChat(toolCall);
           break;
         case "tasks_list":
           result = await this.executeTasksList(toolCall);
@@ -364,8 +374,8 @@ export class RAGDispatcher {
         case "terminal_execute":
           result = await this.executeTerminal(toolCall);
           break;
-        case "editor_load":
-          result = await this.executeEditorLoad(toolCall);
+        case "editor_load": // Legacy, use file_put with editor: prefix
+          result = await this.executeEditorLoadLegacy(toolCall);
           break;
         case "tavily_search":
           result = await this.executeTavilySearch(toolCall);
@@ -459,10 +469,6 @@ export class RAGDispatcher {
           break;
         case "contacts_delete":
           result = await this.executeContactsDelete(toolCall);
-          break;
-        case "chat_window":
-          // Chat window tool is handled specially - content goes directly to chat
-          result = await this.executeChatWindow(toolCall);
           break;
         case "debug_echo":
           result = await this.executeDebugEcho(toolCall);
@@ -949,19 +955,24 @@ export class RAGDispatcher {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // CHAT WINDOW HANDLER
+  // SEND CHAT HANDLER
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Chat Window Tool - Displays markdown content in the chat window
-   * This is the primary output mechanism - all user-facing content goes through this tool
+   * Send Chat Tool - Primary tool for sending content to the chat window
+   * All user-facing markdown content should go through this tool
    */
-  private async executeChatWindow(toolCall: ToolCall): Promise<unknown> {
-    const params = toolCall.parameters as { content: string; timestamp?: string };
+  private async executeSendChat(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { content: string };
+    
+    if (!params.content || typeof params.content !== 'string') {
+      throw new Error('send_chat requires a content parameter');
+    }
+
     return {
-      type: "chat_window",
+      type: "send_chat",
       content: params.content,
-      timestamp: params.timestamp || new Date().toISOString(),
+      timestamp: new Date().toISOString(),
       display: true,
     };
   }
@@ -1190,33 +1201,134 @@ export class RAGDispatcher {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // EDITOR HANDLER
+  // LEGACY EDITOR LOAD (Deprecated - use file_put with editor: prefix)
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Load code into the Monaco editor on the client.
-   * The code is passed through to the frontend which stores it in localStorage.
-   * User can view/edit the code at /editor.
-   * 
-   * Parameters:
-   * - code: The code content to load
-   * - language: Optional language for syntax highlighting
-   * - filename: Optional filename for the tab (e.g., "app.js", "styles.css")
+   * Legacy Editor Load - maintained for backward compatibility
+   * @deprecated Use file_put with editor: prefix instead
    */
-  private async executeEditorLoad(toolCall: ToolCall): Promise<unknown> {
+  private async executeEditorLoadLegacy(toolCall: ToolCall): Promise<unknown> {
     const params = toolCall.parameters as { code: string; language?: string; filename?: string };
     
     if (!params.code || typeof params.code !== 'string') {
       throw new Error('editor_load requires a code parameter');
     }
 
-    // Simply return the code - frontend will handle storing it
+    // Return in the legacy format for frontend compatibility
     return {
       type: 'editor_load',
       code: params.code,
       language: params.language || 'javascript',
       filename: params.filename || null,
       message: `Code loaded for Monaco editor${params.filename ? ` as "${params.filename}"` : ''}. View at /editor`
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FILE GET/PUT HANDLERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * File Get Tool - Read a file from filesystem or editor canvas
+   * If path starts with "editor:", reads from Monaco editor canvas
+   * Otherwise reads from filesystem
+   */
+  private async executeFileGet(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { path: string; encoding?: string };
+    
+    if (!params.path || typeof params.path !== 'string') {
+      throw new Error('file_get requires a path parameter');
+    }
+
+    // Handle editor: prefix - files from Monaco editor canvas
+    if (params.path.startsWith("editor:")) {
+      const editorPath = params.path.substring("editor:".length);
+      console.log(`[RAGDispatcher] Reading from editor canvas: ${editorPath}`);
+      // Return metadata for frontend to handle
+      return {
+        type: 'file_get',
+        path: editorPath,
+        source: 'editor',
+        encoding: params.encoding || 'utf8',
+        message: `Request to read file from editor canvas: ${editorPath}`
+      };
+    }
+
+    // Read from filesystem
+    const sanitizedPath = this.sanitizePath(params.path, path.basename(params.path));
+    const fullPath = path.join(this.workspaceDir, sanitizedPath);
+    
+    const content = await fs.readFile(fullPath, params.encoding === 'base64' ? 'base64' : 'utf8');
+    
+    return {
+      type: 'file_get',
+      path: sanitizedPath,
+      source: 'filesystem',
+      content,
+      encoding: params.encoding || 'utf8'
+    };
+  }
+
+  /**
+   * File Put Tool - Write/create a file to filesystem or editor canvas
+   * If path starts with "editor:", saves to Monaco editor canvas
+   * Otherwise writes to filesystem
+   */
+  private async executeFilePut(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { 
+      path: string; 
+      content: string; 
+      mimeType?: string;
+      permissions?: string;
+      summary?: string;
+    };
+    
+    if (!params.path || typeof params.path !== 'string') {
+      throw new Error('file_put requires a path parameter');
+    }
+    if (!params.content && params.content !== '') {
+      throw new Error('file_put requires a content parameter');
+    }
+
+    // Handle editor: prefix - files for Monaco editor canvas
+    if (params.path.startsWith("editor:")) {
+      const editorPath = params.path.substring("editor:".length);
+      console.log(`[RAGDispatcher] Writing to editor canvas: ${editorPath}`);
+      // Return file data for frontend to handle
+      return {
+        type: 'file_put',
+        path: editorPath,
+        destination: 'editor',
+        content: params.content,
+        mimeType: params.mimeType,
+        summary: params.summary,
+        message: `File saved to editor canvas: ${editorPath}. View at /editor`
+      };
+    }
+
+    // Write to filesystem
+    const sanitizedPath = this.sanitizePath(params.path, path.basename(params.path));
+    const fullPath = path.join(this.workspaceDir, sanitizedPath);
+    
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, params.content, 'utf8');
+    
+    if (params.permissions) {
+      try {
+        await fs.chmod(fullPath, parseInt(params.permissions, 8));
+      } catch (error) {
+        console.warn(`[RAGDispatcher] Failed to set permissions on ${sanitizedPath}:`, error);
+      }
+    }
+
+    return {
+      type: 'file_put',
+      path: sanitizedPath,
+      destination: 'filesystem',
+      mimeType: params.mimeType,
+      summary: params.summary,
+      message: `File written to: ${sanitizedPath}`
     };
   }
 

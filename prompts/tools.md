@@ -83,15 +83,32 @@ Even with no tools, use: `[]` then `✂️🐱` then your response.
 | `contacts_update` | `resourceName:string`, `givenName?:string`, `familyName?:string`, `email?:string`, `phoneNumber?:string` | Update contact |
 | `contacts_delete` | `resourceName:string` | Delete contact |
 
-### File Operations
+### Send Chat (Primary Output Tool)
 
-**IMPORTANT:** Files are sent via **structured response** (not tool calls). See "File Send Protocol" below.
+**This is the primary tool for sending content to the chat window.**
+
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `send_chat` | `content:string` | Send markdown content to the chat window |
+
+**Example:**
+```json
+[
+  {"type": "send_chat", "id": "chat1", "operation": "respond", "parameters": {"content": "Here's what I found..."}}
+]
+```
+
+### File Operations
 
 | Tool | Parameters | Description |
 |------|------------|-------------|
 | `file_ingest` | `content:string`, `filename:string`, `mimeType?:string` | Ingest file for RAG processing |
-| `file_get` | `path:string`, `encoding?:string` | Read file from filesystem/editor |
-| `file_put` | `path:string`, `content:string`, `mimeType?:string`, `permissions?:string`, `summary?:string` | Write/create file to filesystem or editor canvas |
+| `file_get` | `path:string`, `encoding?:string` | Read file from filesystem or editor canvas (`editor:/path`) |
+| `file_put` | `path:string`, `content:string`, `mimeType?:string`, `permissions?:string`, `summary?:string` | Write file to filesystem or editor canvas (`editor:/path`) |
+
+**Path prefix:**
+- Normal path: `/app/src/file.js` → filesystem
+- Editor path: `editor:/app/src/file.js` → Monaco editor canvas
 
 ### Terminal
 | Tool | Parameters | Description |
