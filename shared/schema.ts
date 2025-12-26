@@ -584,15 +584,10 @@ export const ToolTypes = {
   
   // Chat output - primary tool for sending content to chat window
   SEND_CHAT: "send_chat",
-  // Legacy chat output (deprecated, use SEND_CHAT)
-  CHAT_WINDOW: "chat_window",
   
   // File operations
   FILE_GET: "file_get",
   FILE_PUT: "file_put",
-  
-  // Legacy editor (deprecated, use FILE_PUT with editor: prefix)
-  EDITOR_LOAD: "editor_load",
 } as const;
 
 export type ToolType = typeof ToolTypes[keyof typeof ToolTypes];
@@ -605,15 +600,11 @@ export const toolCallSchema = z.object({
   id: z.string(),
   type: z.enum([
     // Core
-    "api_call", "file_ingest", "file_upload", "search", "web_search", "custom",
+    "api_call", "file_ingest", "search", "web_search", "custom",
     // Chat output - primary tool for sending content to chat window
     "send_chat",
-    // Legacy chat output (deprecated, use send_chat)
-    "chat_window",
     // File operations
     "file_get", "file_put",
-    // Monaco Editor (deprecated, use file_put with editor: prefix)
-    "editor_load",
     // Search & Scraping
     "google_search", "duckduckgo_search", "browser_scrape",
     // Gmail

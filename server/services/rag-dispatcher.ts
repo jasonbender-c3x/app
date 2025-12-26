@@ -268,7 +268,6 @@ export class RAGDispatcher {
           result = await this.executeBrowserScrape(toolCall);
           break;
         case "file_ingest":
-        case "file_upload": // Legacy, kept for backward compatibility
           result = await this.executeFileOperation(toolCall);
           break;
         case "file_get":
@@ -278,7 +277,6 @@ export class RAGDispatcher {
           result = await this.executeFilePut(toolCall);
           break;
         case "send_chat":
-        case "chat_window": // Legacy alias, kept for backward compatibility
           result = await this.executeSendChat(toolCall);
           break;
         case "tasks_list":
@@ -373,9 +371,6 @@ export class RAGDispatcher {
           break;
         case "terminal_execute":
           result = await this.executeTerminal(toolCall);
-          break;
-        case "editor_load": // Legacy, use file_put with editor: prefix
-          result = await this.executeEditorLoadLegacy(toolCall);
           break;
         case "tavily_search":
           result = await this.executeTavilySearch(toolCall);
