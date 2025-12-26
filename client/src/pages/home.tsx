@@ -548,6 +548,32 @@ export default function Home() {
                 });
               }
 
+              // Handle speech events from say tool (voice output in turn-taking mode)
+              if (data.speech) {
+                const { utterance } = data.speech as { utterance: string; locale?: string; voiceId?: string };
+                if (utterance) {
+                  // Speak the utterance using TTS context
+                  speak(utterance);
+                  // Also append to message content for display
+                  if (!aiMessageContent.includes(utterance)) {
+                    aiMessageContent += utterance;
+                    setMessages((prev) => {
+                      const filtered = prev.filter(m => !m.id.startsWith('temp-ai-'));
+                      return [
+                        ...filtered,
+                        {
+                          id: `temp-ai-${Date.now()}`,
+                          chatId: chatId,
+                          role: "ai",
+                          content: aiMessageContent,
+                          createdAt: new Date(),
+                        } as Message
+                      ];
+                    });
+                  }
+                }
+              }
+
               // Handle metadata event (tool results, file ops, autoexec)
               if (data.metadata) {
                 streamMetadata = data.metadata;

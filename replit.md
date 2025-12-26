@@ -85,7 +85,7 @@ The system has comprehensive documentation in the `docs/` folder:
 - **02-ui-architecture.md** - Frontend architecture
 - **03-prompt-lifecycle.md** - Prompt processing flow
 - **04-system-prompt.md** - System prompt structure
-- **05-tool-call-schema.md** - Tool call format (`✂️🐱` delimiter)
+- **05-tool-call-schema.md** - Tool call format (structured JSON)
 
 ### Prompt Files
 - **prompts/README.md** - Prompt system overview
@@ -93,7 +93,8 @@ The system has comprehensive documentation in the `docs/` folder:
 - **prompts/tools.md** - Tool definitions with examples
 
 ### Tool Architecture
-- **send_chat**: Primary tool for LLM to send content to chat window (single `content` string parameter)
+- **send_chat**: Primary tool for LLM to send text content to chat window (single `content` string parameter)
+- **say**: Voice output tool for turn-taking mode - streams speech to client for TTS playback (parameters: `utterance`, `locale?`, `voiceId?`, `conversationalTurnId?`)
 - **file_get**: Read files from filesystem or editor canvas (use `editor:` prefix for Monaco)
 - **file_put**: Write files to filesystem or editor canvas (use `editor:` prefix for Monaco)
 
