@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["ffmpeg", "alsa-utils", "lsof", "jq"]
+packages = ["ffmpeg", "alsa-utils", "lsof", "jq", "unixtools.netstat", "openssh_hpn"]
 
 [deployment]
 deploymentTarget = "autoscale"
