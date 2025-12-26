@@ -664,6 +664,67 @@ export const sendChatParamsSchema = z.object({
 });
 export type SendChatParams = z.infer<typeof sendChatParamsSchema>;
 
+// =============================================================================
+// VOICE OUTPUT PARAMETER SCHEMA
+// =============================================================================
+
+/**
+ * Available voice options for expressive speech synthesis
+ * Each voice has unique characteristics suitable for different use cases
+ */
+export const SayVoiceIds = [
+  "Kore",    // Default female voice - warm and professional
+  "Puck",    // Energetic and playful
+  "Charon",  // Deep and authoritative
+  "Fenrir",  // Bold and dramatic
+  "Aoede",   // Melodic and soothing
+  "Leda",    // Clear and articulate
+  "Orus",    // Calm and measured
+  "Zephyr",  // Light and airy
+] as const;
+export type SayVoiceId = typeof SayVoiceIds[number];
+
+/**
+ * Speaking style options that affect how the text is delivered
+ * These modify the emotional tone and delivery of the speech
+ */
+export const SayStyles = [
+  "natural",              // Default conversational tone
+  "Say cheerfully",       // Upbeat and positive
+  "Say seriously",        // Formal and grave
+  "Say excitedly",        // High energy and enthusiastic
+  "Say calmly",           // Relaxed and soothing
+  "Say dramatically",     // Theatrical with emphasis
+  "Whisper",              // Soft and quiet
+  "Say like a news anchor", // Professional broadcast style
+  "Say warmly",           // Friendly and inviting
+  "Say professionally",   // Business-appropriate tone
+] as const;
+export type SayStyle = typeof SayStyles[number];
+
+/**
+ * Say Parameters
+ * Voice output tool for turn-taking mode with expressive speech synthesis
+ * Uses Gemini 2.5 Flash TTS for high-quality audio generation
+ */
+export const sayParamsSchema = z.object({
+  /** The text content to be spoken aloud */
+  utterance: z.string().min(1, "Utterance cannot be empty"),
+  
+  /** Voice to use for speech synthesis (default: "Kore") */
+  voiceId: z.enum(SayVoiceIds).optional().default("Kore"),
+  
+  /** Speaking style that affects emotional tone and delivery (default: "natural") */
+  style: z.enum(SayStyles).optional().default("natural"),
+  
+  /** Language/region code for pronunciation (default: "en-US") */
+  locale: z.string().optional().default("en-US"),
+  
+  /** Turn ID for tracking multi-turn voice conversations */
+  conversationalTurnId: z.string().optional(),
+});
+export type SayParams = z.infer<typeof sayParamsSchema>;
+
 /**
  * File Get Parameters
  * Read a file from filesystem or editor canvas

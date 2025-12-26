@@ -974,17 +974,15 @@ export class RAGDispatcher {
    * Uses Gemini 2.5 Flash TTS for high-quality expressive speech synthesis
    */
   private async executeSay(toolCall: ToolCall): Promise<unknown> {
-    const params = toolCall.parameters as {
-      utterance: string;
-      locale?: string;
-      voiceId?: string;
-      style?: string;
-      conversationalTurnId?: string;
-    };
+    // Import the schema for validation
+    const { sayParamsSchema, SayVoiceIds } = await import("@shared/schema");
     
-    if (!params.utterance || typeof params.utterance !== 'string') {
-      throw new Error('say requires an utterance parameter');
+    // Validate parameters against schema
+    const validation = sayParamsSchema.safeParse(toolCall.parameters);
+    if (!validation.success) {
+      throw new Error(`say parameter validation failed: ${validation.error.message}`);
     }
+    const params = validation.data;
 
     // Apply style prefix if specified (e.g., "Say cheerfully", "Whisper")
     let textToSpeak = params.utterance;
