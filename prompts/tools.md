@@ -336,7 +336,7 @@ If `path` starts with `editor:`, the file is saved to the Monaco editor canvas:
 ```json
 {
   "filename": "Component.tsx",
-  "path": "editor:/Component.tsx",
+  "path": "editor:/app/src/components/Component.tsx",
   "mimeType": "text/typescript",
   "permissions": "644",
   "summary": "React component for user dashboard",
