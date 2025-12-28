@@ -346,18 +346,11 @@ const response = await genAI.models.generateContent({
 
 ### Expected Response Structure
 
-The LLM returns a structured response:
+The LLM returns a structured response with tool calls:
 
 ```typescript
 interface StructuredLLMResponse {
-  toolCalls: ToolCall[];        // Operations to execute
-  afterRag: {
-    chatContent: string;        // Message to display
-    textFiles: FileOperation[];
-    appendFiles: FileOperation[];
-    binaryFiles: BinaryFileOperation[];
-    autoexec?: AutoexecScript;
-  };
+  toolCalls: ToolCall[];        // Operations to execute (send_chat, say, file_put, etc.)
   metadata?: {
     processingTime: number;
     modelUsed: string;
@@ -365,6 +358,12 @@ interface StructuredLLMResponse {
   };
 }
 ```
+
+**All output goes through tool calls:**
+- `send_chat` → Display text in chat
+- `say` → Voice output
+- `file_put` → Create/update files
+- `terminal_execute` → Run commands
 
 ---
 
@@ -385,22 +384,21 @@ async dispatch(response: unknown, messageId: string): Promise<DispatchResult> {
 
   const structured = parseResult.data;
 
-  // Execute tool calls
+  // Execute tool calls (including file_put for file operations)
   for (const toolCall of structured.toolCalls) {
     const result = await this.executeToolCall(toolCall, messageId);
     toolResults.push(result);
   }
 
-  // Process file operations
-  for (const fileOp of structured.afterRag.textFiles) {
-    const filePath = await this.processTextFile(fileOp);
-    filesCreated.push(filePath);
-  }
+  // Extract chat content from send_chat tool results
+  const chatContent = toolResults
+    .filter(r => r.type === 'send_chat')
+    .map(r => r.result?.content)
+    .join('\n\n');
 
   return {
     success: errors.length === 0,
-    chatContent: structured.afterRag.chatContent,
-    filesCreated,
+    chatContent,
     toolResults,
     errors
   };

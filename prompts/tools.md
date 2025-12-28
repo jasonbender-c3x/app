@@ -328,7 +328,7 @@ Action types: `{ type: "click", selector }`, `{ type: "type", selector, text }`,
 
 ## File Operations
 
-**All file operations use the `file_put` tool call.** Do NOT use `afterRag` - that field is deprecated.
+**All file operations use the `file_put` tool call.**
 
 ### Format
 

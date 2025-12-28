@@ -447,9 +447,15 @@ async dispatch(response: unknown, messageId: string): Promise<DispatchResult> {
     toolResults.push(result);
   }
 
+  // Extract chat content from send_chat tool results
+  const chatContent = toolResults
+    .filter(r => r.type === 'send_chat')
+    .map(r => r.result?.content)
+    .join('\n\n');
+
   return {
     success: errors.length === 0,
-    chatContent: structured.afterRag.chatContent,
+    chatContent,
     toolResults,
   };
 }
@@ -512,14 +518,6 @@ export const toolCallSchema = z.object({
 export const structuredLLMResponseSchema = z.object({
   toolCalls: z.array(toolCallSchema).optional().default([]),
   
-  afterRag: z.object({
-    chatContent: z.string(),                                    // Display text
-    textFiles: z.array(fileOperationSchema).optional(),         // Files to create
-    appendFiles: z.array(fileOperationSchema).optional(),       // Files to append
-    binaryFiles: z.array(binaryFileOperationSchema).optional(), // Binary files
-    autoexec: autoexecSchema.optional().nullable(),             // Script to execute
-  }),
-  
   metadata: z.object({
     processingTime: z.number().optional(),
     modelUsed: z.string().optional(),
@@ -527,6 +525,12 @@ export const structuredLLMResponseSchema = z.object({
   }).optional(),
 });
 ```
+
+**All output goes through tool calls:**
+- `send_chat` → Display text in chat
+- `say` → Voice output  
+- `file_put` → Create/update files
+- `terminal_execute` → Run commands
 
 ---
 
