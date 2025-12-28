@@ -326,80 +326,49 @@ Action types: `{ type: "click", selector }`, `{ type: "type", selector, text }`,
 
 ---
 
-## File Send Protocol
+## File Operations
 
-**The LLM creates/modifies files via the structured response, NOT tool calls.**
+**All file operations use the `file_put` tool call.** Do NOT use `afterRag` - that field is deprecated.
 
 ### Format
 
-Include files in your response structure under `afterRag`:
+Include file operations as tool calls:
 
 ```json
 {
-  "toolCalls": [...],
-  "afterRag": {
-    "chatContent": "Your message here",
-    "textFiles": [
-      {
-        "action": "create" | "replace" | "append",
-        "filename": "app.js",
-        "path": "/app/src/app.js",
-        "mimeType": "text/javascript",
-        "permissions": "644",
-        "summary": "Application entry point with express server",
-        "content": "const express = require('express');...",
-        "encoding": "utf8"
-      }
-    ],
-    "binaryFiles": [
-      {
-        "action": "create" | "replace",
-        "filename": "image.png",
-        "path": "/app/assets/image.png",
-        "mimeType": "image/png",
-        "permissions": "644",
-        "summary": "Product screenshot",
-        "base64Content": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-      }
-    ],
-    "appendFiles": [
-      {
-        "filename": "log.txt",
-        "path": "/app/logs/log.txt",
-        "content": "\n[2024-01-15] New log entry",
-        "encoding": "utf8"
-      }
-    ]
-  }
+  "toolCalls": [
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Creating that file now..."}},
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Creating that file now..."}},
+    {"type": "file_put", "id": "f1", "operation": "write", "parameters": {
+      "path": "/app/src/app.js",
+      "content": "const express = require('express');...",
+      "mimeType": "text/javascript",
+      "permissions": "644",
+      "summary": "Application entry point with express server"
+    }},
+    {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "Done! I've created app.js with the express server setup."}}
+  ]
 }
 ```
 
-### Protocol Details
+### Path Prefixes
 
-**All file operations require 6 fields:**
-
-1. **mimeType**: File type (e.g., `"text/javascript"`, `"image/png"`, `"application/pdf"`)
-2. **path**: File location
-   - Normal path: `/app/src/app.js` → writes to filesystem
-   - Editor path: `editor:/app.js` → saves to Monaco editor canvas (frontend)
-3. **filename.ext**: Full filename with extension
-4. **permissions**: Unix octal permissions (e.g., `"644"`, `"755"`)
-5. **summary**: Brief description of file purpose/changes
-6. **content** (text) or **base64Content** (binary): File data
+- **Normal path**: `/app/src/app.js` → writes to filesystem
+- **Editor path**: `editor:/app.js` → saves to Monaco editor canvas (frontend)
 
 ### Editor Integration
 
 If `path` starts with `editor:`, the file is saved to the Monaco editor canvas:
 - `editor:/component.tsx` → Creates tab in editor
-- LLM can ingest from `editor:` paths and modify them
+- LLM can read from `editor:` paths using `file_get` and modify them with `file_put`
 
 ### Examples
 
 **Create JavaScript file:**
 ```json
-{
-  "filename": "index.js",
+{"type": "file_put", "id": "f1", "operation": "write", "parameters": {
   "path": "/app/src/index.js",
+  "content": "console.log('Hello');",
   "mimeType": "text/javascript",
   "permissions": "644",
   "summary": "Main application file with HTTP server",

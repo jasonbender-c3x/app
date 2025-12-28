@@ -80,18 +80,22 @@ To test prompt changes:
 
 ## Response Schema
 
-All Nebula responses must conform to this JSON structure:
+All responses must be a JSON object with tool calls:
 
 ```json
 {
-  "toolCalls": [...],
-  "afterRag": {
-    "chatContent": "...",
-    "textFiles": [...],
-    "binaryFiles": [...],
-    "autoexec": null
-  }
+  "toolCalls": [
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "..."}},
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "..."}},
+    ...other tool calls...
+  ]
 }
 ```
 
-See `tools.md` for complete schema documentation.
+**All output goes through tools:**
+- Text to chat → `send_chat`
+- Voice output → `say`
+- File operations → `file_put`
+- Commands → `terminal_execute`
+
+See `tools.md` for complete tool documentation.
