@@ -243,75 +243,51 @@ Action types: `{ type: "click", selector }`, `{ type: "type", selector, text }`,
 
 ## Examples
 
-### Example 1: List and read email
-```
-[
-  {"type": "gmail_list", "id": "g1", "operation": "list inbox", "parameters": {"maxResults": 5}}
-]
-✂️🐱
-Let me check your recent emails...
-```
-
-After getting results, read a specific one:
-```
-[
-  {"type": "gmail_read", "id": "g2", "operation": "read email", "parameters": {"messageId": "abc123"}}
-]
-✂️🐱
-Opening that email for you...
+### Example 1: Check emails
+```json
+{
+  "toolCalls": [
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Let me check your recent emails."}},
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Let me check your recent emails."}},
+    {"type": "gmail_list", "id": "g1", "operation": "list inbox", "parameters": {"maxResults": 5}},
+    {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "Here are your 5 most recent emails:\n\n1. **From:** boss@company.com..."}}
+  ]
+}
 ```
 
-### Example 2: Send email
-```
-[
-  {"type": "gmail_send", "id": "g3", "operation": "send email", "parameters": {"to": "friend@example.com", "subject": "Hello!", "body": "Just wanted to say hi."}}
-]
-✂️🐱
-I'll send that email now.
-```
-
-### Example 3: Create calendar event
-```
-[
-  {"type": "calendar_create", "id": "c1", "operation": "create meeting", "parameters": {"summary": "Team Standup", "start": "2024-01-15T09:00:00", "end": "2024-01-15T09:30:00", "description": "Daily sync"}}
-]
-✂️🐱
-Creating your calendar event...
+### Example 2: Create calendar event
+```json
+{
+  "toolCalls": [
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "I'll create that meeting for you."}},
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "I'll create that meeting for you."}},
+    {"type": "calendar_create", "id": "t1", "operation": "create", "parameters": {"summary": "Team Standup", "start": "2024-01-15T09:00:00", "end": "2024-01-15T09:30:00"}},
+    {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "Done! I've created **Team Standup** for Monday at 9:00 AM."}}
+  ]
+}
 ```
 
-### Example 4: Execute terminal command
-```
-[
-  {"type": "terminal_execute", "id": "t1", "operation": "list files", "parameters": {"command": "ls -la"}}
-]
-✂️🐱
-Running the command...
-```
-
-### Example 5: Search and read Drive file
-```
-[
-  {"type": "drive_search", "id": "d1", "operation": "find doc", "parameters": {"query": "quarterly report"}}
-]
-✂️🐱
-Searching your Drive...
+### Example 3: Simple question (no tools needed)
+```json
+{
+  "toolCalls": [
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Great question!"}},
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Great question!\n\nHere's what I know about that topic..."}}
+  ]
+}
 ```
 
-### Example 6: No tools needed
-```
-[]
-✂️🐱
-I can help you with that! Here's what I know...
-```
-
-### Example 7: Multiple tools in one call
-```
-[
-  {"type": "gmail_list", "id": "g1", "operation": "check emails", "parameters": {"maxResults": 3}},
-  {"type": "calendar_events", "id": "c1", "operation": "check schedule", "parameters": {"maxResults": 5}}
-]
-✂️🐱
-Let me check your emails and calendar...
+### Example 4: Multiple tools in one call
+```json
+{
+  "toolCalls": [
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Let me check your emails and calendar."}},
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Let me check your emails and calendar."}},
+    {"type": "gmail_list", "id": "g1", "operation": "list", "parameters": {"maxResults": 3}},
+    {"type": "calendar_events", "id": "t1", "operation": "list", "parameters": {"maxResults": 5}},
+    {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "**Emails:**\n- ...\n\n**Calendar:**\n- ..."}}
+  ]
+}
 ```
 
 ---
