@@ -932,6 +932,7 @@ export type AutoexecScript = z.infer<typeof autoexecSchema>;
 export const structuredLLMResponseSchema = z.object({
   toolCalls: z.array(toolCallSchema).optional().default([]),
   
+  // Made optional - LLM now primarily uses toolCalls for output
   afterRag: z.object({
     /** @deprecated Use send_chat tool instead. Kept for backwards compatibility. */
     chatContent: z.string().optional().default(""),
@@ -942,6 +943,12 @@ export const structuredLLMResponseSchema = z.object({
       (val) => (Array.isArray(val) ? null : val),
       autoexecSchema.optional().nullable()
     ),
+  }).optional().default({
+    chatContent: "",
+    textFiles: [],
+    appendFiles: [],
+    binaryFiles: [],
+    autoexec: null,
   }),
   
   metadata: z.object({
