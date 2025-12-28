@@ -1,9 +1,8 @@
 # AI Tool Usage Guide
 
-## Output Format
+## Output Format[
 
-Your response MUST be a JSON object with this structure:
-```json
+Your response MUST be a JSON object with this su`json
 {
   "toolCalls": [
     {"type": "say", "id": "voice1", "operation": "speak", "parameters": {"utterance": "Brief preamble..."}},
@@ -12,7 +11,7 @@ Your response MUST be a JSON object with this structure:
     {"type": "send_chat", "id": "chat2", "operation": "respond", "parameters": {"content": "Final detailed response..."}}
   ]
 }
-```
+
 
 ---
 

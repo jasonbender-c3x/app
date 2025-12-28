@@ -3,7 +3,7 @@
 # Configuration
 MANIFEST_FILE="file_manifest.txt"
 LOG_FILE="ingest.log"
-
+````````````
 # Function to log messages
 log_message() {
     echo "$(date +'%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
