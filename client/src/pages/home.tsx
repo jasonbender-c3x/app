@@ -505,6 +505,7 @@ export default function Home() {
       let aiMessageContent = '';
       let buffer = '';
       let streamMetadata: any = null;
+      let hdAudioPlayed = false; // Track if HD audio was played via say tool
 
       // Read the stream until done
       while (true) {
@@ -582,6 +583,7 @@ export default function Home() {
                   
                   // Play generated audio if available, otherwise fall back to browser TTS
                   if (speechData.audioGenerated && speechData.audioBase64) {
+                    hdAudioPlayed = true; // Mark that HD audio will be played (suppress browser TTS)
                     // Create and play audio from base64 data
                     const audioBlob = new Blob(
                       [Uint8Array.from(atob(speechData.audioBase64), c => c.charCodeAt(0))],
@@ -667,8 +669,8 @@ export default function Home() {
               // Step 6: Stream complete - reload final messages and speak response
               if (data.done) {
                 setIsLoading(false);
-                // Speak the AI response using TTS
-                if (aiMessageContent) {
+                // Only use browser TTS if HD audio wasn't already played via say tool
+                if (aiMessageContent && !hdAudioPlayed) {
                   speak(aiMessageContent);
                 }
                 // Get actual stored messages with real IDs
