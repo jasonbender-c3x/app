@@ -6,54 +6,41 @@ Meowstik uses a structured tool call system that allows the AI to request operat
 
 ---
 
-## LLM Output Format: Scissors Cat Delimiter
+## LLM Output Format
 
-The LLM uses a simple, unmistakable delimiter format:
+The LLM outputs a JSON object containing tool calls. Code fences are optional but allowed.
 
-```
-[TOOL CALLS JSON ARRAY]
+### Format
 
-✂️🐱
-
-[MARKDOWN CONTENT FOR CHAT]
+```json
+{
+  "toolCalls": [
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Let me check..."}},
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Let me check..."}},
+    {"type": "gmail_list", "id": "g1", "operation": "list", "parameters": {"maxResults": 10}},
+    {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "Here are your emails..."}}
+  ]
+}
 ```
 
 ### Format Rules
 
-1. **Tool Calls First**: If the LLM needs to execute tools, it outputs a JSON array of tool call objects at the very start (NO markdown code fences around JSON)
-2. **Scissors Cat Delimiter**: The unmistakable separator `✂️🐱` separates tool calls from markdown
-3. **Markdown Last**: Everything after the delimiter is markdown content for the chat window
+1. **No text before JSON** - Response must start with `{` or `` ```json ``
+2. **All output through tools** - Use `send_chat` for text, `say` for voice, `file_put` for files
+3. **Code fences optional** - Both raw JSON and `` ```json {...} ``` `` are valid
 
 ### Example Output
 
+```json
+{
+  "toolCalls": [
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Checking your emails now."}},
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Checking your emails now."}},
+    {"type": "gmail_list", "id": "g1", "operation": "list", "parameters": {"maxResults": 10}},
+    {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "Here are your recent emails:\n\n1. ..."}}
+  ]
+}
 ```
-[
-  {
-    "type": "gmail_list",
-    "id": "gmail-001",
-    "operation": "List recent emails",
-    "parameters": { "maxResults": 10 }
-  }
-]
-
-✂️🐱
-
-Let me check your recent emails...
-```
-
-### No Tool Calls
-
-When no tools are needed, the LLM can output markdown directly:
-
-```
-[]
-
-✂️🐱
-
-Here's your answer...
-```
-
-Or simply respond with plain markdown (the parser handles this gracefully).
 
 ---
 
@@ -175,53 +162,40 @@ export type ToolCall = z.infer<typeof toolCallSchema>;
 
 ---
 
-## Delimiter Constant
-
-```typescript
-export const SCISSORS_CAT_DELIMITER = "✂️🐱" as const;
-```
-
----
-
 ## Parser Implementation
 
-The `parseLLMOutput` function in `shared/schema.ts` handles parsing:
+The parser in `server/services/rag-dispatcher.ts` handles both raw JSON and code-fenced JSON:
 
 ```typescript
 export interface ParsedLLMOutput {
   toolCalls: ToolCall[];
-  markdown: string;
   parseErrors: string[];
 }
 
 export function parseLLMOutput(output: string): ParsedLLMOutput {
   const result: ParsedLLMOutput = {
     toolCalls: [],
-    markdown: "",
     parseErrors: [],
   };
 
-  const delimiterIndex = output.indexOf(SCISSORS_CAT_DELIMITER);
-  
-  if (delimiterIndex === -1) {
-    // No delimiter found - treat as pure markdown
-    result.markdown = output.trim();
-    return result;
+  // Strip code fences if present
+  let jsonStr = output.trim();
+  if (jsonStr.startsWith('```json')) {
+    jsonStr = jsonStr.slice(7);
+  } else if (jsonStr.startsWith('```')) {
+    jsonStr = jsonStr.slice(3);
   }
+  if (jsonStr.endsWith('```')) {
+    jsonStr = jsonStr.slice(0, -3);
+  }
+  jsonStr = jsonStr.trim();
 
-  // Split at delimiter
-  const toolCallsSection = output.substring(0, delimiterIndex).trim();
-  const markdownSection = output.substring(delimiterIndex + SCISSORS_CAT_DELIMITER.length).trim();
-
-  result.markdown = markdownSection;
-
-  // Parse tool calls JSON
-  if (toolCallsSection) {
-    try {
-      const parsed = JSON.parse(toolCallsSection);
-      const toolCallsArray = Array.isArray(parsed) ? parsed : [parsed];
-      
-      for (const tc of toolCallsArray) {
+  // Parse JSON object
+  try {
+    const parsed = JSON.parse(jsonStr);
+    
+    if (parsed.toolCalls && Array.isArray(parsed.toolCalls)) {
+      for (const tc of parsed.toolCalls) {
         const validation = toolCallSchema.safeParse(tc);
         if (validation.success) {
           result.toolCalls.push(validation.data);
@@ -229,9 +203,9 @@ export function parseLLMOutput(output: string): ParsedLLMOutput {
           result.parseErrors.push(`Invalid tool call: ${validation.error.message}`);
         }
       }
-    } catch (e) {
-      result.parseErrors.push(`Failed to parse tool calls JSON: ${e}`);
     }
+  } catch (e) {
+    result.parseErrors.push(`Failed to parse JSON: ${e}`);
   }
 
   return result;
@@ -242,31 +216,26 @@ export function parseLLMOutput(output: string): ParsedLLMOutput {
 
 ## Streaming Parser
 
-For streaming responses, `server/services/delimiter-parser.ts` provides a stateful parser:
+For streaming responses, tool calls are extracted from the accumulated JSON after the stream completes:
 
 ```typescript
-import { DelimiterParser } from "./services/delimiter-parser";
-
-const parser = new DelimiterParser();
-
+// Accumulate streamed chunks
+let accumulated = "";
 for await (const chunk of stream) {
-  const result = parser.processChunk(chunk.text);
-  
-  // Stream markdown to client immediately
-  if (result.proseToStream) {
-    sendToClient(result.proseToStream);
-  }
-  
-  // Execute any completed tool calls
-  for (const toolCall of result.completedToolCalls) {
-    await executeToolCall(toolCall);
-  }
+  accumulated += chunk.text;
 }
 
-// Flush remaining content
-const final = parser.flush();
-if (final.proseToStream) {
-  sendToClient(final.proseToStream);
+// Parse complete JSON response
+const parsed = parseLLMOutput(accumulated);
+
+// Execute tool calls in order
+for (const toolCall of parsed.toolCalls) {
+  await executeToolCall(toolCall);
+  
+  // send_chat tool calls update the chat window
+  if (toolCall.type === 'send_chat') {
+    sendToClient(toolCall.parameters.content);
+  }
 }
 ```
 

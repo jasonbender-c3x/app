@@ -394,7 +394,7 @@ Execute commands directly from the chat interface.
 |------------|---------|
 | **Google Gemini** | Conversational AI engine |
 | **Server-Sent Events** | Real-time streaming |
-| **Delimiter Parser** | Tool call extraction |
+| **JSON Parser** | Tool call extraction |
 | **RAG Pipeline** | Document retrieval and context |
 
 ### Security

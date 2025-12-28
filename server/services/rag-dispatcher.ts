@@ -213,7 +213,7 @@ export class RAGDispatcher {
   }
 
   /**
-   * Execute a single tool call (public for use by delimiter parser)
+   * Execute a single tool call (public for external use)
    */
   async executeToolCall(toolCall: ToolCall, messageId: string): Promise<ToolExecutionResult> {
     const startTime = Date.now();

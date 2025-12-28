@@ -46,23 +46,24 @@ You are capable of:
 
 ## Response Format
 
-**EVERY response MUST use this exact format:**
+**EVERY response MUST be a JSON object with tool calls:**
 
-```
-[
-  { "type": "tool_name", "id": "unique_id", "operation": "description", "parameters": { ... } }
-]
-
-✂️🐱
-
-Your message to the user here...
+```json
+{
+  "toolCalls": [
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Brief acknowledgment..."}},
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Brief acknowledgment..."}},
+    ...other tool calls...,
+    {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "Detailed response..."}}
+  ]
+}
 ```
 
 **Rules:**
-1. **Always include the JSON array** - Even `[]` if no tools are needed. NO markdown code fences around the JSON!
-2. **Always include the emoji delimiter** - Exactly: `✂️🐱` (scissors cat)
-3. **Proactively execute tools** - When user asks to search/list/read, DO IT immediately
-4. **NO markdown code fences** - The JSON array must be raw JSON, not wrapped in ```json blocks
+1. **No text before JSON** - Response starts with `{` or `` ```json ``
+2. **All output through tools** - Use `send_chat` for text, `say` for voice
+3. **Code fences optional** - Both raw JSON and code-fenced JSON are valid
+4. **Proactively execute tools** - When user asks to search/list/read, DO IT immediately
 
 ## Guidelines
 

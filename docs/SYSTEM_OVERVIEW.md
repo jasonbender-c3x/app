@@ -144,28 +144,31 @@ See: [prompts/README.md](../prompts/README.md)
 
 ### 2.2 Output Format & Parsing
 
-**Delimiter Format**: `✂️🐱` (scissors cat)
+**Format**: Pure tool-based JSON (code fences optional)
 
 All LLM responses follow this structure:
+```json
+{
+  "toolCalls": [
+    {"type": "say", "id": "v1", "parameters": {"utterance": "Acknowledgment..."}},
+    {"type": "send_chat", "id": "c1", "parameters": {"content": "Acknowledgment..."}},
+    ...other tool calls...,
+    {"type": "send_chat", "id": "c2", "parameters": {"content": "Detailed response..."}}
+  ]
+}
 ```
-[JSON array of tool calls]
 
-✂️🐱
-
-Markdown content for the chat window
-```
-
-**Parser Implementation**: `server/services/delimiter-parser.ts`
-- Streaming-aware stateful parsing
+**Parser Implementation**: `server/services/rag-dispatcher.ts`
+- Handles raw JSON and code-fenced JSON
 - Tool call validation via Zod schemas
-- Graceful handling of malformed output
+- All text output via `send_chat` tool, voice via `say` tool
 
 See: [05-tool-call-schema.md](./05-tool-call-schema.md)
 
 ### 2.3 Tool Execution Pipeline
 
 ```
-LLM Output → Delimiter Parser → Tool Call Validation → 
+LLM Output → JSON Parser → Tool Call Validation → 
 Tool Executor → Result Aggregation → Response Assembly
 ```
 
