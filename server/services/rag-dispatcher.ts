@@ -105,7 +105,7 @@ export interface AutoexecExecutionResult {
  */
 export interface DispatchResult {
   success: boolean;
-  chatContent: string;
+  chatContent?: string;
   filesCreated: string[];
   filesModified: string[];
   toolResults: ToolExecutionResult[];
@@ -171,6 +171,7 @@ export class RAGDispatcher {
 
     const structured = parseResult.data;
 
+    // Execute all tool calls - file operations are now done via file_put tool
     if (structured.toolCalls && structured.toolCalls.length > 0) {
       for (const toolCall of structured.toolCalls) {
         const result = await this.executeToolCall(toolCall, messageId);
@@ -178,59 +179,36 @@ export class RAGDispatcher {
         if (!result.success && result.error) {
           errors.push(`Tool ${toolCall.id}: ${result.error}`);
         }
-      }
-    }
-
-    if (structured.afterRag.textFiles) {
-      for (const fileOp of structured.afterRag.textFiles) {
-        try {
-          const filePath = await this.processTextFile(fileOp);
-          if (fileOp.action === "create") {
+        // Track file operations from file_put tool results
+        if (toolCall.type === "file_put" && result.success) {
+          const filePath = (toolCall.parameters as { path?: string })?.path;
+          if (filePath) {
             filesCreated.push(filePath);
-          } else {
-            filesModified.push(filePath);
           }
-        } catch (error: any) {
-          errors.push(`File ${fileOp.filename}: ${error.message}`);
         }
       }
     }
 
-    if (structured.afterRag.appendFiles) {
-      for (const fileOp of structured.afterRag.appendFiles) {
-        try {
-          const filePath = await this.processAppendFile(fileOp);
-          filesModified.push(filePath);
-        } catch (error: any) {
-          errors.push(`Append ${fileOp.filename}: ${error.message}`);
+    // Extract chat content from send_chat tool results
+    let chatContent = "";
+    for (const result of toolResults) {
+      if (result.type === "send_chat" && result.success && result.result) {
+        const sendChatResult = result.result as { content?: string };
+        if (sendChatResult.content) {
+          chatContent += sendChatResult.content + "\n";
         }
       }
     }
-
-    if (structured.afterRag.binaryFiles) {
-      for (const binOp of structured.afterRag.binaryFiles) {
-        try {
-          const filePath = await this.processBinaryFile(binOp);
-          filesCreated.push(filePath);
-        } catch (error: any) {
-          errors.push(`Binary ${binOp.filename}: ${error.message}`);
-        }
-      }
-    }
-
-    // Note: autoexec is now handled asynchronously in routes.ts
-    // We just return the autoexec script info if present, but don't execute it here
-    const pendingAutoexec = structured.afterRag.autoexec || null;
 
     return {
       success: errors.length === 0,
-      chatContent: structured.afterRag.chatContent,
+      chatContent: chatContent.trim() || undefined,
       filesCreated,
       filesModified,
       toolResults,
       errors,
       executionTime: Date.now() - startTime,
-      pendingAutoexec
+      pendingAutoexec: null
     };
   }
 

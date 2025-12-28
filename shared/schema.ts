@@ -927,30 +927,10 @@ export type AutoexecScript = z.infer<typeof autoexecSchema>;
 
 /**
  * Complete Structured LLM Response Schema
- * This is the full output format the LLM must return
+ * LLM returns toolCalls array - all output goes through tools (send_chat, say, file_put, etc.)
  */
 export const structuredLLMResponseSchema = z.object({
   toolCalls: z.array(toolCallSchema).optional().default([]),
-  
-  // Made optional - LLM now primarily uses toolCalls for output
-  afterRag: z.object({
-    /** @deprecated Use send_chat tool instead. Kept for backwards compatibility. */
-    chatContent: z.string().optional().default(""),
-    textFiles: z.array(fileOperationSchema).optional().default([]),
-    appendFiles: z.array(fileOperationSchema).optional().default([]),
-    binaryFiles: z.array(binaryFileOperationSchema).optional().default([]),
-    autoexec: z.preprocess(
-      (val) => (Array.isArray(val) ? null : val),
-      autoexecSchema.optional().nullable()
-    ),
-  }).optional().default({
-    chatContent: "",
-    textFiles: [],
-    appendFiles: [],
-    binaryFiles: [],
-    autoexec: null,
-  }),
-  
   metadata: z.object({
     processingTime: z.number().optional(),
     modelUsed: z.string().optional(),
@@ -1077,18 +1057,11 @@ export function parseStructuredResponse(response: string): StructuredLLMResponse
     }
     console.error("Schema validation failed:", JSON.stringify(result.error.errors, null, 2));
     
-    // Try to extract chatContent even if full validation fails
-    if (parsed?.afterRag?.chatContent && typeof parsed.afterRag.chatContent === 'string') {
-      console.log("Extracting chatContent from partially valid response");
+    // Try to extract toolCalls even if full validation fails
+    if (Array.isArray(parsed?.toolCalls)) {
+      console.log("Extracting toolCalls from partially valid response");
       return {
-        toolCalls: Array.isArray(parsed.toolCalls) ? parsed.toolCalls : [],
-        afterRag: {
-          chatContent: parsed.afterRag.chatContent,
-          textFiles: Array.isArray(parsed.afterRag?.textFiles) ? parsed.afterRag.textFiles : [],
-          appendFiles: Array.isArray(parsed.afterRag?.appendFiles) ? parsed.afterRag.appendFiles : [],
-          binaryFiles: Array.isArray(parsed.afterRag?.binaryFiles) ? parsed.afterRag.binaryFiles : [],
-          autoexec: null,
-        },
+        toolCalls: parsed.toolCalls,
       };
     }
     
@@ -1101,16 +1074,17 @@ export function parseStructuredResponse(response: string): StructuredLLMResponse
 
 /**
  * Create a fallback structured response when LLM returns plain text
+ * Plain text is converted to a send_chat tool call
  */
 export function createFallbackResponse(plainText: string): StructuredLLMResponse {
   return {
-    toolCalls: [],
-    afterRag: {
-      chatContent: plainText,
-      textFiles: [],
-      appendFiles: [],
-      binaryFiles: [],
-    },
+    toolCalls: [{
+      id: "fallback_chat",
+      type: "send_chat" as const,
+      operation: "respond",
+      parameters: { content: plainText },
+      priority: 0,
+    }],
   };
 }
 
@@ -1122,8 +1096,7 @@ export function isStructuredResponse(response: string): boolean {
   return (
     trimmed.startsWith("{") ||
     trimmed.startsWith("```json") ||
-    trimmed.includes('"toolCalls"') ||
-    trimmed.includes('"afterRag"')
+    trimmed.includes('"toolCalls"')
   );
 }
 

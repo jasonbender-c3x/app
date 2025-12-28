@@ -680,7 +680,7 @@ export async function registerRoutes(
       let confirmedStructured = false;
       let bufferedContent = "";
       let bufferStartTime = 0;
-      let parsedResponse: { toolCalls?: ToolCall[]; afterRag?: { chatContent?: string } } | null = null;
+      let parsedResponse: { toolCalls?: ToolCall[] } | null = null;
       let hasCodeFence = false; // Track if response uses code fences
       const MAX_JSON_BUFFER = 16384; // Max bytes to buffer before forcing plain text mode (16KB for structured)
       const MAX_BUFFER_TIME_MS = 10000; // Max time to buffer (10s - structured responses can be large)
@@ -930,11 +930,6 @@ export async function registerRoutes(
           }
         }
 
-        // Also check afterRag.chatContent for backward compatibility
-        if (parsedResponse.afterRag?.chatContent) {
-          cleanContentForStorage += parsedResponse.afterRag.chatContent;
-          res.write(`data: ${JSON.stringify({ text: parsedResponse.afterRag.chatContent })}\n\n`);
-        }
       }
 
       // ─────────────────────────────────────────────────────────────────────
