@@ -636,6 +636,22 @@ export async function registerRoutes(
       // STEP 5: Stream AI response and parse structured JSON
       // ─────────────────────────────────────────────────────────────────────
 
+      // Helper to strip markdown code fences from JSON responses
+      const stripCodeFences = (text: string): string => {
+        let result = text.trim();
+        // Strip opening fence (```json, ```JSON, ``` etc.)
+        const openFenceMatch = result.match(/^```(?:json|JSON)?\s*\n?/);
+        if (openFenceMatch) {
+          result = result.slice(openFenceMatch[0].length);
+        }
+        // Strip closing fence
+        const closeFenceMatch = result.match(/\n?```\s*$/);
+        if (closeFenceMatch) {
+          result = result.slice(0, -closeFenceMatch[0].length);
+        }
+        return result.trim();
+      };
+
       let fullResponse = "";
       let cleanContentForStorage = "";
       const toolResults: Array<{
@@ -665,8 +681,9 @@ export async function registerRoutes(
       let bufferedContent = "";
       let bufferStartTime = 0;
       let parsedResponse: { toolCalls?: ToolCall[]; afterRag?: { chatContent?: string } } | null = null;
-      const MAX_JSON_BUFFER = 4096; // Max bytes to buffer before forcing plain text mode
-      const MAX_BUFFER_TIME_MS = 250; // Max time to buffer before forcing plain text mode
+      let hasCodeFence = false; // Track if response uses code fences
+      const MAX_JSON_BUFFER = 16384; // Max bytes to buffer before forcing plain text mode (16KB for structured)
+      const MAX_BUFFER_TIME_MS = 10000; // Max time to buffer (10s - structured responses can be large)
       
       for await (const chunk of result) {
         const text = chunk.text || "";
@@ -695,13 +712,24 @@ export async function registerRoutes(
         bufferedContent += text;
         
         // Check first non-whitespace character to detect potential JSON
+        // Handle markdown code fences (```json...```)
         if (!mightBeJson && bufferedContent.trim().length > 0) {
-          const firstChar = bufferedContent.trim()[0];
+          const trimmed = bufferedContent.trim();
+          const firstChar = trimmed[0];
+          
+          // Check for code fence or direct JSON
           if (firstChar === "{" || firstChar === "[") {
             mightBeJson = true;
             bufferStartTime = Date.now();
             braceDepth = firstChar === "{" ? 1 : 0;
             bracketDepth = firstChar === "[" ? 1 : 0;
+          } else if (trimmed.startsWith("```")) {
+            // Markdown code fence detected - wait for complete JSON inside
+            mightBeJson = true;
+            hasCodeFence = true;
+            bufferStartTime = Date.now();
+            console.log("[Routes] Detected code fence wrapper, buffering for structured response");
+            // Don't track depth yet - we'll parse when we see closing fence
           } else {
             // Definitely not JSON - flush buffer and stream
             confirmedPlainText = true;
@@ -736,21 +764,36 @@ export async function registerRoutes(
         }
 
         // When depth returns to zero, try to validate as structured response
-        if (mightBeJson && braceDepth === 0 && bracketDepth === 0 && !inString) {
+        // Also check for closing code fence which indicates complete JSON block
+        const hasClosingFence = bufferedContent.trim().endsWith("```");
+        if (mightBeJson && ((braceDepth === 0 && bracketDepth === 0 && !inString) || hasClosingFence)) {
           try {
-            const trimmed = bufferedContent.trim();
-            const jsonData = JSON.parse(trimmed);
+            const stripped = stripCodeFences(bufferedContent);
+            const jsonData = JSON.parse(stripped);
             const validation = structuredLLMResponseSchema.safeParse(jsonData);
             if (validation.success && validation.data.toolCalls && validation.data.toolCalls.length > 0) {
               parsedResponse = validation.data;
               confirmedStructured = true;
+              console.log(`[Routes] Parsed structured response with ${validation.data.toolCalls.length} tool calls`);
               continue;
             }
           } catch (e) {
-            // Parse failed - not valid JSON
+            // Parse failed - not valid JSON (may still be incomplete)
+            if (hasClosingFence) {
+              console.log("[Routes] Code fence closed but JSON parse failed, flushing as text");
+              // Code fence closed but invalid JSON - flush as plain text
+              confirmedPlainText = true;
+              cleanContentForStorage += bufferedContent;
+              res.write(`data: ${JSON.stringify({ text: bufferedContent })}\n\n`);
+              continue;
+            }
+            // For code fences, continue buffering until closing fence
+            if (hasCodeFence) {
+              continue;
+            }
           }
           
-          // Not a valid structured response - flush buffer and stream
+          // Not a valid structured response (and not code fence) - flush buffer and stream
           confirmedPlainText = true;
           cleanContentForStorage += bufferedContent;
           res.write(`data: ${JSON.stringify({ text: bufferedContent })}\n\n`);
@@ -758,7 +801,9 @@ export async function registerRoutes(
         }
 
         // Timeout guard: if buffering too long without confirmation, flush and stream
-        if (mightBeJson && (Date.now() - bufferStartTime) > MAX_BUFFER_TIME_MS) {
+        // Skip timeout for code-fenced responses - wait for closing fence
+        if (mightBeJson && !hasCodeFence && (Date.now() - bufferStartTime) > MAX_BUFFER_TIME_MS) {
+          console.log("[Routes] Buffer timeout reached, flushing as plain text");
           confirmedPlainText = true;
           cleanContentForStorage += bufferedContent;
           res.write(`data: ${JSON.stringify({ text: bufferedContent })}\n\n`);
@@ -781,12 +826,13 @@ export async function registerRoutes(
       // If stream ended while still buffering, try to parse as JSON
       if (mightBeJson && !confirmedPlainText && !confirmedStructured) {
         try {
-          const trimmed = fullResponse.trim();
-          const jsonData = JSON.parse(trimmed);
+          const stripped = stripCodeFences(fullResponse);
+          const jsonData = JSON.parse(stripped);
           const validation = structuredLLMResponseSchema.safeParse(jsonData);
           if (validation.success && validation.data.toolCalls && validation.data.toolCalls.length > 0) {
             parsedResponse = validation.data;
             confirmedStructured = true;
+            console.log(`[Routes] End-of-stream parsed ${validation.data.toolCalls.length} tool calls`);
           }
         } catch (e) {
           console.log("[Routes] Response looked like JSON but failed to parse, streaming as text");
