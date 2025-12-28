@@ -1,8 +1,34 @@
 # AI Tool Usage Guide
 
-## Output Format[
+## ⚠️ CRITICAL: Pure JSON Output Only
 
-Your response MUST be a JSON object with this su`json
+**Your ENTIRE response must be a single JSON object. No text before. No text after. No markdown code fences.**
+
+❌ WRONG:
+```
+Let me help you with that.
+{"toolCalls": [...]}
+```
+
+❌ WRONG:
+```
+```json
+{"toolCalls": [...]}
+```
+```
+
+✅ CORRECT (your ENTIRE response is just this):
+```
+{"toolCalls": [...]}
+```
+
+**The very first character of your response must be `{` and the last must be `}`.**
+
+## Output Format
+
+Your response must be this exact JSON structure:
+
+```json
 {
   "toolCalls": [
     {"type": "say", "id": "voice1", "operation": "speak", "parameters": {"utterance": "Brief preamble..."}},
@@ -11,6 +37,7 @@ Your response MUST be a JSON object with this su`json
     {"type": "send_chat", "id": "chat2", "operation": "respond", "parameters": {"content": "Final detailed response..."}}
   ]
 }
+```
 
 
 ---
