@@ -1,32 +1,39 @@
 # AI Tool Usage Guide
 
-## ⚠️ CRITICAL: Pure JSON Output Only
+## ⚠️ CRITICAL: No Text Before JSON
 
-**Your ENTIRE response must be a single JSON object. No text before. No text after. No markdown code fences.**
+**Your response must START with the JSON (or a code fence containing JSON). NO explanatory text before it.**
 
-❌ WRONG:
+❌ WRONG - text before JSON:
 ```
 Let me help you with that.
-{"toolCalls": [...]}
-```
-
-❌ WRONG:
-```
 ```json
 {"toolCalls": [...]}
 ```
 ```
 
-✅ CORRECT (your ENTIRE response is just this):
+❌ WRONG - text before and after:
+```
+Here's my response:
+{"toolCalls": [...]}
+Hope that helps!
+```
+
+✅ CORRECT - JSON only (code fence optional):
+```json
+{"toolCalls": [...]}
+```
+
+✅ ALSO CORRECT - raw JSON:
 ```
 {"toolCalls": [...]}
 ```
 
-**The very first character of your response must be `{` and the last must be `}`.**
+**All conversational text goes INSIDE the `send_chat` tool, not outside the JSON.**
 
 ## Output Format
 
-Your response must be this exact JSON structure:
+Your response must be this JSON structure:
 
 ```json
 {
