@@ -25,6 +25,7 @@ import { embeddingService } from "./embedding-service";
 const CODE_EXTENSIONS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
   ".py", ".rb", ".go", ".rs", ".java", ".kt",
+  ".c", ".h", ".cpp", ".hpp", ".cc", ".hh",  // C/C++ support
   ".css", ".scss", ".less", ".html", ".vue", ".svelte",
   ".json", ".yaml", ".yml", ".toml", ".md", ".mdx",
   ".sql", ".sh", ".bash", ".zsh",
@@ -39,7 +40,7 @@ const SKIP_DIRS = new Set([
 
 export interface CodeEntity {
   name: string;
-  type: "function" | "class" | "interface" | "type" | "const" | "variable" | "export" | "import";
+  type: "function" | "class" | "interface" | "type" | "const" | "variable" | "export" | "import" | "struct" | "typedef" | "macro" | "enum";
   file: string;
   line: number;
   signature?: string;
@@ -105,8 +106,10 @@ export class CodebaseAnalyzer {
 
   /**
    * Analyze an entire codebase
+   * @param rootPath - Root directory to analyze
+   * @param skipIngestion - Skip RAG ingestion (useful for external codebases without DB attachments)
    */
-  async analyzeCodebase(rootPath: string): Promise<AnalysisResult> {
+  async analyzeCodebase(rootPath: string, skipIngestion = false): Promise<AnalysisResult> {
     const startTime = Date.now();
     const files: FileAnalysis[] = [];
     const glossary = new Map<string, CodeEntity[]>();
@@ -144,19 +147,21 @@ export class CodebaseAnalyzer {
         }
       }
 
-      // Phase 3: RAG Ingestion
-      this.updateProgress({ phase: "ingestion" });
+      // Phase 3: RAG Ingestion (skip for external codebases)
       let totalChunks = 0;
-      for (const file of files) {
-        try {
-          const result = await this.ingestFile(file);
-          if (result) {
-            totalChunks += result.chunksCreated;
-            this.updateProgress({ chunksIngested: totalChunks });
+      if (!skipIngestion) {
+        this.updateProgress({ phase: "ingestion" });
+        for (const file of files) {
+          try {
+            const result = await this.ingestFile(file);
+            if (result) {
+              totalChunks += result.chunksCreated;
+              this.updateProgress({ chunksIngested: totalChunks });
+            }
+          } catch (err) {
+            const errorMsg = `Error ingesting ${file.relativePath}: ${err instanceof Error ? err.message : String(err)}`;
+            errors.push(errorMsg);
           }
-        } catch (err) {
-          const errorMsg = `Error ingesting ${file.relativePath}: ${err instanceof Error ? err.message : String(err)}`;
-          errors.push(errorMsg);
         }
       }
 
@@ -245,6 +250,10 @@ export class CodebaseAnalyzer {
     // Python analysis
     else if (ext === ".py") {
       this.extractPythonEntities(content, lines, relativePath, entities, imports, exports);
+    }
+    // C/C++ analysis
+    else if ([".c", ".h", ".cpp", ".hpp", ".cc", ".hh"].includes(ext)) {
+      this.extractCEntities(content, lines, relativePath, entities, imports);
     }
     // Generic extraction for other file types
     else {
@@ -407,6 +416,540 @@ export class CodebaseAnalyzer {
     while ((match = importPattern.exec(content)) !== null) {
       imports.push(match[1] || match[2]);
     }
+  }
+
+  /**
+   * Check if a position in the content is inside a comment (single-line // or block)
+   */
+  private isInsideComment(content: string, pos: number): boolean {
+    // Check for single-line comment: find start of line, look for //
+    let lineStart = pos;
+    while (lineStart > 0 && content[lineStart - 1] !== '\n') lineStart--;
+    const lineToPos = content.slice(lineStart, pos);
+    if (lineToPos.includes('//')) return true;
+    
+    // Check for multi-line comment: look back for /* without closing */
+    const beforePos = content.slice(0, pos);
+    const lastBlockStart = beforePos.lastIndexOf('/*');
+    if (lastBlockStart !== -1) {
+      const lastBlockEnd = beforePos.lastIndexOf('*/');
+      if (lastBlockEnd < lastBlockStart) return true; // Inside /* ... */
+    }
+    return false;
+  }
+
+  /**
+   * Extract struct names with brace-balanced requires clause support.
+   * Uses a tokenizer approach to handle arbitrary nesting depth.
+   */
+  private extractCStructs(
+    content: string,
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Find all struct keyword positions (not preceded by "enum ")
+    const structKeyword = /(?<!enum\s)\bstruct\b/g;
+    let structMatch;
+    
+    while ((structMatch = structKeyword.exec(content)) !== null) {
+      // Skip structs in comments
+      if (this.isInsideComment(content, structMatch.index)) continue;
+      
+      const startIdx = structMatch.index + 6; // After "struct"
+      let idx = startIdx;
+      
+      // Skip whitespace and attributes before name
+      while (idx < content.length) {
+        // Skip whitespace
+        while (idx < content.length && /\s/.test(content[idx])) idx++;
+        
+        // Skip C++11 [[...]] attributes with brace balancing
+        if (content.slice(idx, idx + 2) === '[[') {
+          let bracketDepth = 0;
+          while (idx < content.length) {
+            if (content[idx] === '[') bracketDepth++;
+            if (content[idx] === ']') bracketDepth--;
+            idx++;
+            if (bracketDepth === 0) break;
+          }
+          continue;
+        }
+        
+        // Skip __attribute__((...))
+        if (content.slice(idx).startsWith('__attribute__')) {
+          idx += 13; // Skip "__attribute__"
+          while (idx < content.length && /\s/.test(content[idx])) idx++;
+          if (content.slice(idx, idx + 2) === '((') {
+            let parenDepth = 0;
+            while (idx < content.length) {
+              if (content[idx] === '(') parenDepth++;
+              if (content[idx] === ')') parenDepth--;
+              idx++;
+              if (parenDepth === 0) break;
+            }
+          }
+          continue;
+        }
+        
+        // Skip alignas(...), __declspec(...), __packed, __aligned(...)
+        const skipPatterns = [/^alignas\s*\([^)]*\)/, /^__declspec\s*\([^)]*(?:\([^)]*\)[^)]*)*\)/, /^__packed/, /^__aligned\s*\([^)]*\)/];
+        let skipped = false;
+        for (const pat of skipPatterns) {
+          const m = content.slice(idx).match(pat);
+          if (m) {
+            idx += m[0].length;
+            skipped = true;
+            break;
+          }
+        }
+        if (skipped) continue;
+        
+        break; // No more attributes to skip
+      }
+      
+      // Now we should be at the struct name
+      const nameMatch = content.slice(idx).match(/^(\w+)/);
+      if (!nameMatch) continue;
+      const structName = nameMatch[1];
+      if (this.isCKeyword(structName)) continue;
+      idx += structName.length;
+      
+      // Skip specifiers, attributes, inheritance, and requires clause until we find struct body {
+      // We need to track if we're inside a requires clause (brace-balanced) vs finding the body
+      let braceDepth = 0;
+      let foundBody = false;
+      while (idx < content.length && !foundBody) {
+        // Skip whitespace
+        while (idx < content.length && /\s/.test(content[idx])) idx++;
+        if (idx >= content.length) break;
+        
+        const ch = content[idx];
+        
+        // Check for "requires" keyword - skip its clause with brace balancing
+        if (content.slice(idx).match(/^requires\b/)) {
+          idx += 8; // Skip "requires"
+          // Skip whitespace
+          while (idx < content.length && /\s/.test(content[idx])) idx++;
+          
+          // If followed by {, balance the requires clause braces (compound requirement)
+          if (content[idx] === '{') {
+            let reqBraceDepth = 0;
+            while (idx < content.length) {
+              if (content[idx] === '{') reqBraceDepth++;
+              if (content[idx] === '}') reqBraceDepth--;
+              idx++;
+              if (reqBraceDepth === 0) break;
+            }
+          } else if (content.slice(idx).match(/^requires\b/)) {
+            // "requires requires { ... }" pattern - skip both requires and balance braces
+            idx += 8; // Skip second "requires"
+            while (idx < content.length && /\s/.test(content[idx])) idx++;
+            if (content[idx] === '{') {
+              let reqBraceDepth = 0;
+              while (idx < content.length) {
+                if (content[idx] === '{') reqBraceDepth++;
+                if (content[idx] === '}') reqBraceDepth--;
+                idx++;
+                if (reqBraceDepth === 0) break;
+              }
+            }
+          }
+          // For simple requires (requires Concept<T>), the { after it is the struct body
+          // so we just continue to let the main loop handle it
+          continue;
+        }
+        
+        if (ch === '{') {
+          if (braceDepth === 0) {
+            foundBody = true;
+            break;
+          }
+          braceDepth++;
+        } else if (ch === '}') {
+          braceDepth--;
+        } else if (ch === ';' && braceDepth === 0) {
+          // Forward declaration or requires-only (no body)
+          break;
+        }
+        idx++;
+      }
+      
+      if (foundBody) {
+        entities.push({
+          name: structName,
+          type: "struct",
+          file,
+          line: this.getLineNumber(content, structMatch.index),
+        });
+      }
+    }
+  }
+
+  /**
+   * Extract entities from C/C++ files
+   */
+  private extractCEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[],
+    imports: string[]
+  ): void {
+    // Typedef struct with body: captures comma-separated aliases
+    const typedefStructBodyPattern = /\btypedef\s+struct\s*(?:\w+\s*)?\{[\s\S]*?\}\s*([\w\s,*]+)\s*;/gm;
+    // Forward typedef: typedef struct foo bar_t; or typedef struct foo *bar_ptr;
+    const typedefForwardStructPattern = /\btypedef\s+(?:const\s+)?(?:volatile\s+)?struct\s+\w+\s*\**\s*(?:const\s+)?(\w+)\s*;/gm;
+
+    // Typedef pattern - for simple type aliases (not struct/enum/union with braces)
+    const typedefPattern = /\btypedef\s+(?!struct|enum|union)[\w\s\*]+\s+(\w+)\s*;/gm;
+
+    // Enum pattern: enum [class|struct] name { - supports C++11 scoped enums
+    const enumPattern = /\benum\s+(?:class\s+|struct\s+)?(\w+)\s*(?::\s*\w+)?\s*\{/gm;
+    // Typedef enum with body: captures comma-separated aliases
+    const typedefEnumBodyPattern = /\btypedef\s+enum\s*(?:\w+\s*)?\{[\s\S]*?\}\s*([\w\s,*]+)\s*;/gm;
+    // Forward typedef: typedef enum foo bar_e; or typedef enum foo *bar_ptr;
+    const typedefForwardEnumPattern = /\btypedef\s+(?:const\s+)?(?:volatile\s+)?enum\s+\w+\s*\**\s*(?:const\s+)?(\w+)\s*;/gm;
+
+    // Union patterns
+    const typedefUnionBodyPattern = /\btypedef\s+union\s*(?:\w+\s*)?\{[\s\S]*?\}\s*([\w\s,*]+)\s*;/gm;
+    const typedefForwardUnionPattern = /\btypedef\s+(?:const\s+)?(?:volatile\s+)?union\s+\w+\s*\**\s*(?:const\s+)?(\w+)\s*;/gm;
+
+    // Macro pattern: #define NAME (value or function-like), but skip guards
+    const macroPattern = /^\s*#define\s+(\w+)(?:\([^)]*\))?(?:\s+|$)/gm;
+
+    // Include pattern: #include <file.h> or #include "file.h"
+    const includePattern = /^\s*#include\s+[<"]([^>"]+)[>"]/gm;
+
+    let match;
+
+    // Track seen function names to deduplicate declarations/definitions
+    const seenFunctions = new Set<string>();
+
+    // Extract functions using balanced parentheses approach
+    this.extractCFunctions(content, file, entities, seenFunctions);
+
+    // Extract structs using brace-balanced tokenizer (handles arbitrary requires clause nesting)
+    this.extractCStructs(content, file, entities);
+
+    // Extract typedef structs with comma-separated aliases
+    while ((match = typedefStructBodyPattern.exec(content)) !== null) {
+      const aliasesPart = match[1];
+      const lineNum = this.getLineNumber(content, match.index);
+      this.parseTypedefAliases(aliasesPart, file, lineNum, entities);
+    }
+
+    // Extract forward typedef structs (typedef struct foo bar_t; or typedef struct foo *bar_ptr;)
+    while ((match = typedefForwardStructPattern.exec(content)) !== null) {
+      const aliasName = match[1];
+      if (aliasName && !this.isCKeyword(aliasName)) {
+        entities.push({
+          name: aliasName,
+          type: "typedef",
+          file,
+          line: this.getLineNumber(content, match.index),
+        });
+      }
+    }
+
+    // Extract typedefs (non-struct) - filter out keywords
+    while ((match = typedefPattern.exec(content)) !== null) {
+      const name = match[1];
+      if (name && !this.isCKeyword(name)) {
+        entities.push({
+          name,
+          type: "typedef",
+          file,
+          line: this.getLineNumber(content, match.index),
+        });
+      }
+    }
+
+    // Extract enums (including C++11 enum class/struct, skip if name is a keyword)
+    while ((match = enumPattern.exec(content)) !== null) {
+      const name = match[1];
+      if (name && !this.isCKeyword(name)) {
+        entities.push({
+          name,
+          type: "enum",
+          file,
+          line: this.getLineNumber(content, match.index),
+        });
+      }
+    }
+
+    // Extract typedef enums with comma-separated aliases
+    while ((match = typedefEnumBodyPattern.exec(content)) !== null) {
+      const aliasesPart = match[1];
+      const lineNum = this.getLineNumber(content, match.index);
+      this.parseTypedefAliases(aliasesPart, file, lineNum, entities, "enum");
+    }
+
+    // Extract forward typedef enums (typedef enum foo bar_e; or typedef enum foo *bar_ptr;)
+    while ((match = typedefForwardEnumPattern.exec(content)) !== null) {
+      const aliasName = match[1];
+      if (aliasName && !this.isCKeyword(aliasName)) {
+        entities.push({
+          name: aliasName,
+          type: "typedef",
+          file,
+          line: this.getLineNumber(content, match.index),
+        });
+      }
+    }
+
+    // Extract typedef unions with comma-separated aliases
+    while ((match = typedefUnionBodyPattern.exec(content)) !== null) {
+      const aliasesPart = match[1];
+      const lineNum = this.getLineNumber(content, match.index);
+      this.parseTypedefAliases(aliasesPart, file, lineNum, entities);
+    }
+
+    // Extract forward typedef unions (typedef union foo bar_u; or typedef union foo *bar_ptr;)
+    while ((match = typedefForwardUnionPattern.exec(content)) !== null) {
+      const aliasName = match[1];
+      if (aliasName && !this.isCKeyword(aliasName)) {
+        entities.push({
+          name: aliasName,
+          type: "typedef",
+          file,
+          line: this.getLineNumber(content, match.index),
+        });
+      }
+    }
+
+    // Extract macros - improved guard detection
+    while ((match = macroPattern.exec(content)) !== null) {
+      const name = match[1];
+      // Skip include guards and internal macros
+      if (name && !this.isIncludeGuard(name, file)) {
+        entities.push({
+          name,
+          type: "macro",
+          file,
+          line: this.getLineNumber(content, match.index),
+        });
+      }
+    }
+
+    // Extract includes
+    while ((match = includePattern.exec(content)) !== null) {
+      imports.push(match[1]);
+    }
+  }
+
+  /**
+   * Extract C/C++ functions handling nested parentheses and multi-line declarations
+   */
+  private extractCFunctions(
+    content: string,
+    file: string,
+    entities: CodeEntity[],
+    seenFunctions: Set<string>
+  ): void {
+    const lines = content.split('\n');
+    
+    // Track brace depth to ignore struct/union/enum members
+    let braceDepth = 0;
+    // Stack of brace depths where struct/union/enum bodies start
+    const structBraceStack: number[] = [];
+    let pendingStructStart = false; // Saw struct/union/enum, waiting for {
+    let pendingDeclaration = "";
+    let pendingStartLine = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      
+      // Track struct/union/enum depth - including when { is on a separate line
+      // Matches: struct foo, struct __attribute__((packed)) foo, struct foo __attribute__((packed)), etc.
+      // Allow attributes before and/or after the name
+      const attrPattern = '(?:__attribute__\\s*\\(\\([^)]*\\)\\)\\s*|alignas\\s*\\([^)]*\\)\\s*|__packed\\s*|__aligned\\s*\\([^)]*\\)\\s*|__declspec\\s*\\([^)]*\\)\\s*)*';
+      // Pattern allows: struct [attrs] [name] [attrs] [: base] [attrs] [{]
+      const structDeclRegex = new RegExp(`\\b(struct|union|enum)\\s+${attrPattern}(?:class\\s+|struct\\s+)?(?:\\w+)?\\s*${attrPattern}(?:\\s*:\\s*\\w+)?\\s*${attrPattern}$`);
+      const structDeclWithBraceRegex = new RegExp(`\\b(struct|union|enum)\\s+${attrPattern}(?:class\\s+|struct\\s+)?(?:\\w+)?\\s*${attrPattern}(?:\\s*:\\s*\\w+)?\\s*${attrPattern}\\{`);
+      const structDecl = structDeclRegex.test(trimmed);
+      const structDeclWithBrace = structDeclWithBraceRegex.test(trimmed);
+      
+      if (structDeclWithBrace) {
+        // struct foo { on same line - push to stack after brace is counted
+        pendingStructStart = true;
+      } else if (structDecl) {
+        // struct foo (brace on next line)
+        pendingStructStart = true;
+      }
+      
+      // Count braces
+      for (const char of line) {
+        if (char === '{') {
+          braceDepth++;
+          if (pendingStructStart) {
+            structBraceStack.push(braceDepth);
+            pendingStructStart = false;
+          }
+        }
+        if (char === '}') {
+          // Check if we're exiting a struct/union/enum
+          if (structBraceStack.length > 0 && braceDepth === structBraceStack[structBraceStack.length - 1]) {
+            structBraceStack.pop();
+          }
+          braceDepth--;
+        }
+      }
+      
+      // Skip preprocessor, comments, and lines inside struct/union bodies
+      if (trimmed.startsWith('#') || trimmed.startsWith('//') || 
+          trimmed.startsWith('/*') || trimmed.startsWith('*') ||
+          trimmed === '' || trimmed === '{' || trimmed === '}') continue;
+      
+      // Skip struct/union member declarations (function pointers inside structs)
+      // Check if we're inside ANY struct body in the stack
+      const insideStruct = structBraceStack.some(startDepth => braceDepth >= startDepth);
+      if (insideStruct) continue;
+      
+      // Accumulate potential multi-line declarations
+      // A declaration might span lines like: static int\nfoo(void);
+      if (pendingDeclaration) {
+        pendingDeclaration += " " + trimmed;
+      } else {
+        // Start new potential declaration
+        pendingDeclaration = trimmed;
+        pendingStartLine = i;
+      }
+      
+      // Check if we have a complete function declaration/definition
+      // Look for identifier followed by ( ... ) and then { or ;
+      const hasOpenParen = pendingDeclaration.includes('(');
+      if (!hasOpenParen) {
+        // If line doesn't end with common type parts, reset
+        if (!trimmed.match(/[\w*]$/) || trimmed.endsWith(';') || trimmed.endsWith('{') || trimmed.endsWith('}')) {
+          pendingDeclaration = "";
+        }
+        continue;
+      }
+      
+      // Count parentheses
+      let parenCount = 0;
+      for (const char of pendingDeclaration) {
+        if (char === '(') parenCount++;
+        if (char === ')') parenCount--;
+      }
+      
+      // If parentheses aren't balanced, continue accumulating
+      if (parenCount !== 0) continue;
+      
+      // Check if it ends with { or ;
+      const declaration = pendingDeclaration;
+      const rest = declaration.substring(declaration.lastIndexOf(')') + 1).trim();
+      const isFunctionEnd = rest.match(/^(const|override|final|noexcept|throw)?\s*[\{;]/);
+      
+      if (isFunctionEnd) {
+        // Extract function name: identifier immediately before first (
+        // Handle: void foo(...), int *bar(...), uint32_t\nmyfunc(...)
+        const beforeParen = declaration.substring(0, declaration.indexOf('('));
+        const funcMatch = beforeParen.match(/(\w+)\s*$/);
+        
+        if (funcMatch) {
+          const funcName = funcMatch[1];
+          if (funcName && !this.isCKeyword(funcName) && !seenFunctions.has(funcName + file)) {
+            seenFunctions.add(funcName + file);
+            entities.push({
+              name: funcName,
+              type: "function",
+              file,
+              line: pendingStartLine + 1,
+              signature: this.extractSignature(declaration.replace(/\{.*$/, '').replace(/;$/, '').trim()),
+            });
+          }
+        }
+      }
+      
+      pendingDeclaration = "";
+    }
+  }
+
+  /**
+   * Parse comma-separated typedef aliases: "Foo_t, *FooPtr, **FooPtrPtr"
+   */
+  private parseTypedefAliases(
+    aliasesPart: string,
+    file: string,
+    line: number,
+    entities: CodeEntity[],
+    entityType: "typedef" | "enum" = "typedef"
+  ): void {
+    // Split by comma, extract identifier from each
+    const aliases = aliasesPart.split(',');
+    for (const alias of aliases) {
+      // Extract the identifier (last word, ignoring * pointers)
+      const match = alias.trim().match(/\*?\s*(\w+)\s*$/);
+      if (match && match[1] && !this.isCKeyword(match[1])) {
+        entities.push({
+          name: match[1],
+          type: entityType,
+          file,
+          line,
+        });
+      }
+    }
+  }
+
+  /**
+   * Check if name is a common C keyword/type to skip
+   */
+  private isCKeyword(name: string): boolean {
+    const keywords = new Set([
+      // Control flow
+      "if", "else", "for", "while", "do", "switch", "case", "break",
+      "continue", "return", "goto", "default",
+      // Operators
+      "sizeof", "typeof", "alignof", "offsetof",
+      // Basic types
+      "void", "int", "char", "short", "long", "float", "double",
+      // Type qualifiers
+      "signed", "unsigned", "const", "static", "extern", "inline",
+      "volatile", "register", "auto", "restrict", "_Atomic",
+      // Compound types
+      "struct", "union", "enum", "typedef",
+      // Boolean
+      "bool", "_Bool", "true", "false",
+      // NULL and special
+      "NULL", "nullptr",
+      // Fixed-width integers
+      "int8_t", "int16_t", "int32_t", "int64_t",
+      "uint8_t", "uint16_t", "uint32_t", "uint64_t",
+      // Size types
+      "size_t", "ssize_t", "ptrdiff_t", "intptr_t", "uintptr_t",
+      // Common embedded types
+      "u8", "u16", "u32", "u64", "s8", "s16", "s32", "s64",
+      "UINT8", "UINT16", "UINT32", "UINT64", "INT8", "INT16", "INT32", "INT64",
+    ]);
+    return keywords.has(name);
+  }
+
+  /**
+   * Check if macro name is likely an include guard
+   */
+  private isIncludeGuard(name: string, file: string): boolean {
+    // Leading underscores - common guard pattern
+    if (name.startsWith("__")) return true;
+    
+    // Common guard suffixes
+    if (name.endsWith("_H") || name.endsWith("_H_") || name.endsWith("_H__")) return true;
+    if (name.endsWith("_HPP") || name.endsWith("_HPP_") || name.endsWith("_HPP__")) return true;
+    if (name.endsWith("_INCLUDED") || name.endsWith("_INCLUDED_")) return true;
+    if (name.endsWith("_HH") || name.endsWith("_HH_")) return true;
+    
+    // Only match filename-based guards if they exactly match the pattern: FILENAME_H
+    // Extract just the filename without path (e.g., "gpio.h" -> "GPIO")
+    const fileName = file.split(/[\/\\]/).pop() || "";
+    const baseNameOnly = fileName.replace(/\.[ch](?:pp|h)?$/i, "").toUpperCase().replace(/[^A-Z0-9]/g, "_");
+    
+    // Only match if it's exactly FILENAME_H or __FILENAME_H__ pattern
+    const exactGuard = baseNameOnly + "_H";
+    const exactGuardUnderscore = "__" + baseNameOnly + "_H__";
+    if (name.toUpperCase() === exactGuard || name.toUpperCase() === exactGuardUnderscore) return true;
+    
+    return false;
   }
 
   /**

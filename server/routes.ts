@@ -1404,10 +1404,14 @@ ${summary}`,
   app.post("/api/codebase/analyze", async (req, res) => {
     try {
       const { codebaseAnalyzer } = await import("./services/codebase-analyzer");
-      const { path: rootPath = "." } = req.body;
+      const { path: rootPath = ".", skipIngestion } = req.body;
+
+      // Skip RAG ingestion for external codebases (paths outside the project)
+      const isExternal = rootPath.startsWith("/tmp") || rootPath.startsWith("/home") || rootPath.includes("github");
+      const shouldSkipIngestion = skipIngestion === true || isExternal;
 
       // Start analysis (may take time for large codebases)
-      const result = await codebaseAnalyzer.analyzeCodebase(rootPath);
+      const result = await codebaseAnalyzer.analyzeCodebase(rootPath, shouldSkipIngestion);
 
       // Convert Map to object for JSON serialization
       const glossaryObj: Record<string, any[]> = {};

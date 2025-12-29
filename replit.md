@@ -49,9 +49,12 @@ Preferred communication style: Simple, everyday language.
   - Auto-detection based on environment variables (DATABASE_URL, GOOGLE_CLOUD_PROJECT)
   - Location: `server/services/vector-store/`
 - **Workflow Orchestration Engine:** Hierarchical task management with sequential/parallel execution, subtask spawning, AI-evaluated conditional logic, operator polling, cron scheduling, event triggers, and workflow interruption capabilities.
-- **Codebase Analysis Agent:** Autonomous analyzer that crawls repositories, extracts code entities (functions, classes, interfaces, types), ingests files into RAG for semantic search, and generates glossary documentation.
+- **Codebase Analysis Agent:** Autonomous analyzer that crawls repositories, extracts code entities (functions, classes, interfaces, types, structs, macros, enums), ingests files into RAG for semantic search, and generates glossary documentation.
+  - **Supported Languages:** TypeScript, JavaScript, Python, C, C++, Markdown, JSON
+  - **C/C++ Extraction:** Functions (with signatures), structs, typedefs, enums, macros, #include imports
   - API: `POST /api/codebase/analyze`, `GET /api/codebase/progress`
   - Tool: `codebase_analyze`, `codebase_progress`
+  - Options: `skipIngestion` for external codebases (auto-enabled for /tmp paths)
   - Location: `server/services/codebase-analyzer.ts`
 - **JIT Tool Protocol:** Lightweight preprocessor using Gemini 2.0 Flash Lite that predicts which tools are needed from user queries, then injects only relevant detailed examples into context instead of full tool manifest.
   - Fast keyword-based prediction with LLM fallback
