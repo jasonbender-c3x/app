@@ -159,6 +159,21 @@ export default function CollaboratePage() {
             }]);
             break;
           case "frame":
+            const frameData = message.data as { width: number; height: number; data: string };
+            if (canvasRef.current && frameData.data) {
+              const ctx = canvasRef.current.getContext("2d");
+              if (ctx) {
+                const img = new Image();
+                img.onload = () => {
+                  if (canvasRef.current) {
+                    canvasRef.current.width = frameData.width || img.width;
+                    canvasRef.current.height = frameData.height || img.height;
+                    ctx.drawImage(img, 0, 0);
+                  }
+                };
+                img.src = `data:image/png;base64,${frameData.data}`;
+              }
+            }
             break;
           case "control_changed":
             setSession(prev => ({ ...prev, controlling: message.data.controlling }));

@@ -34,10 +34,21 @@ export function setupDesktopWebSocket(httpServer: Server): void {
 
   httpServer.on("upgrade", (request: IncomingMessage, socket: Duplex, head: Buffer) => {
     const url = request.url || "";
+    const urlObj = new URL(url, `http://${request.headers.host}`);
+    const token = urlObj.searchParams.get("token");
 
     if (url.startsWith("/ws/desktop/agent/")) {
-      const sessionId = url.split("/ws/desktop/agent/")[1]?.split("?")[0];
+      if (!token) {
+        console.log("[Desktop WS] Agent connection rejected: no token");
+        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+
+      const sessionId = desktopRelayService.getSessionIdByToken(token);
       if (!sessionId) {
+        console.log("[Desktop WS] Agent connection rejected: invalid token");
+        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
         socket.destroy();
         return;
       }
@@ -49,6 +60,14 @@ export function setupDesktopWebSocket(httpServer: Server): void {
     } else if (url.startsWith("/ws/desktop/browser/")) {
       const sessionId = url.split("/ws/desktop/browser/")[1]?.split("?")[0];
       if (!sessionId) {
+        socket.destroy();
+        return;
+      }
+
+      const session = desktopRelayService.getSession(sessionId);
+      if (!session) {
+        console.log(`[Desktop WS] Browser connection rejected: session not found ${sessionId}`);
+        socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
         socket.destroy();
         return;
       }

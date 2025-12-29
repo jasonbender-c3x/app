@@ -26,6 +26,7 @@ import WebSocket from 'ws';
 
 interface DesktopSession {
   id: string;
+  token: string;
   agentWs: WebSocket | null;
   browserWs: Set<WebSocket>;
   systemInfo: SystemInfo | null;
@@ -82,6 +83,7 @@ class DesktopRelayService {
     const sessionId = this.generateSessionId();
     const session: DesktopSession = {
       id: sessionId,
+      token,
       agentWs: null,
       browserWs: new Set(),
       systemInfo: null,
@@ -110,6 +112,16 @@ class DesktopRelayService {
 
   getSession(sessionId: string): DesktopSession | undefined {
     return this.sessions.get(sessionId);
+  }
+
+  validateToken(sessionId: string, token: string): boolean {
+    const session = this.sessions.get(sessionId);
+    if (!session) return false;
+    return session.token === token;
+  }
+
+  getSessionIdByToken(token: string): string | undefined {
+    return this.tokenToSession.get(token);
   }
 
   registerAgent(sessionId: string, ws: WebSocket, systemInfo: SystemInfo): void {
