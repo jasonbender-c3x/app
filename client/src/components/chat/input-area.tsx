@@ -909,21 +909,6 @@ export function ChatInputArea({ onSend, isLoading, promptHistory = [] }: InputAr
         </div>
       </div>
       
-      {/* 
-       * Developer Status Message
-       * Shows system status and connection info
-       * Centered below the input area
-       */}
-      <div className="text-center mt-3 text-xs text-muted-foreground flex items-center justify-center gap-2">
-        <span className="inline-flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          Connected
-        </span>
-        <span className="text-muted-foreground/50">•</span>
-        <span>Gemini 2.0 Flash</span>
-        <span className="text-muted-foreground/50">•</span>
-        <span>v1.0.0</span>
-      </div>
     </div>
   );
 }
