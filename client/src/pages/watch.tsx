@@ -3,6 +3,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, Watch, Mic, Bell, Calendar, Mail, Heart, Zap, Smartphone, Clock } from "lucide-react";
 import { Link } from "wouter";
 
+import watchHeroImage from "@assets/generated_images/watch_hero_banner_with_ai_features.png";
+import watchChatImage from "@assets/generated_images/smartwatch_with_ai_chat_interface.png";
+import watchVoiceImage from "@assets/generated_images/watch_voice_command_interface.png";
+
 export default function WatchPage() {
   const features = [
     {
@@ -66,18 +70,21 @@ export default function WatchPage() {
 
         <ScrollArea className="h-[calc(100vh-200px)]">
           <div className="space-y-8">
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-background p-8 border border-primary/20">
-              <div className="absolute top-4 right-4 opacity-10">
-                <Watch className="h-48 w-48" />
-              </div>
-              <div className="relative z-10 max-w-xl">
-                <h2 className="text-2xl font-bold mb-4">Your AI Companion, On Your Wrist</h2>
-                <p className="text-lg text-muted-foreground mb-6">
+            <div className="relative overflow-hidden rounded-2xl border border-primary/20">
+              <img 
+                src={watchHeroImage} 
+                alt="Meowstik Watch - AI on your wrist" 
+                className="w-full h-48 md:h-64 object-cover"
+                data-testid="img-watch-hero"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
+                <h2 className="text-2xl font-bold mb-2">Your AI Companion, On Your Wrist</h2>
+                <p className="text-muted-foreground mb-4 max-w-xl">
                   Meowstik Watch brings the power of your AI assistant to your smartwatch. 
-                  Stay connected, get intelligent notifications, and interact with voice commands 
-                  — all without pulling out your phone.
+                  Stay connected, get intelligent notifications, and interact with voice commands.
                 </p>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-4">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Smartphone className="h-4 w-4" />
                     <span>Requires Meowstik phone app</span>
@@ -86,6 +93,33 @@ export default function WatchPage() {
                     <Clock className="h-4 w-4" />
                     <span>Q1 2025</span>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-xl overflow-hidden border border-border">
+                <img 
+                  src={watchChatImage} 
+                  alt="Smartwatch with AI chat interface" 
+                  className="w-full h-48 object-cover"
+                  data-testid="img-watch-chat"
+                />
+                <div className="p-4 bg-secondary/20">
+                  <h4 className="font-semibold">Chat Interface</h4>
+                  <p className="text-sm text-muted-foreground">Full AI conversations from your wrist</p>
+                </div>
+              </div>
+              <div className="rounded-xl overflow-hidden border border-border">
+                <img 
+                  src={watchVoiceImage} 
+                  alt="Voice command interface" 
+                  className="w-full h-48 object-cover"
+                  data-testid="img-watch-voice"
+                />
+                <div className="p-4 bg-secondary/20">
+                  <h4 className="font-semibold">Voice Commands</h4>
+                  <p className="text-sm text-muted-foreground">Hands-free AI interaction anywhere</p>
                 </div>
               </div>
             </div>
