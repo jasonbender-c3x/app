@@ -35,7 +35,9 @@ Preferred communication style: Simple, everyday language.
 - **Embedding Service:** Google Gemini `text-embedding-004` model.
 - **Modular Vector Store:** Pluggable storage for RAG with adapters for `pgvector`, Vertex AI, and in-memory.
 - **Workflow Orchestration Engine:** Hierarchical task management with sequential/parallel execution, AI-evaluated conditional logic, cron scheduling, and event triggers.
-- **Codebase Analysis Agent:** Crawls repositories, extracts code entities (functions, classes, etc.) from various languages, ingests them into RAG, and generates documentation.
+- **Codebase Analysis Agent:** Crawls repositories, extracts code entities from 20+ languages, ingests them into RAG, and generates documentation.
+  - **Supported Languages:** TypeScript/JavaScript, Python, C/C++, PHP, Java/Kotlin/Scala, Go, Rust, C#, Swift, Ruby, Visual Basic, Lua, R, Perl, Dart, Groovy, MATLAB/Octave, Bash/Shell
+  - **Dependency Files:** package.json, requirements.txt, Cargo.toml, go.mod, Gemfile, composer.json, build.gradle, pom.xml, pubspec.yaml
 - **JIT Tool Protocol:** Lightweight preprocessor using Gemini 2.0 Flash Lite to predict and inject relevant tool examples into context.
 - **LLM Token Usage Tracking:** Tracks input/output tokens for all Gemini API calls.
 

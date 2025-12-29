@@ -31,9 +31,28 @@ const CODE_EXTENSIONS = new Set([
   ".swift",  // Swift support
   ".vb", ".vbs", ".bas",  // Visual Basic support
   ".lua",  // Lua support
+  ".r", ".R",  // R support
+  ".pl", ".pm",  // Perl support
+  ".dart",  // Dart/Flutter support
+  ".groovy", ".gradle",  // Groovy support
+  ".m", ".mat",  // MATLAB/Octave support
   ".css", ".scss", ".less", ".html", ".vue", ".svelte",
   ".json", ".yaml", ".yml", ".toml", ".md", ".mdx",
   ".sql", ".sh", ".bash", ".zsh",
+]);
+
+// Dependency/library manifest files
+const DEPENDENCY_FILES = new Set([
+  "package.json", "package-lock.json",  // npm/Node.js
+  "requirements.txt", "Pipfile", "pyproject.toml", "setup.py",  // Python
+  "Cargo.toml", "Cargo.lock",  // Rust
+  "go.mod", "go.sum",  // Go
+  "Gemfile", "Gemfile.lock",  // Ruby
+  "composer.json", "composer.lock",  // PHP
+  "build.gradle", "build.gradle.kts", "pom.xml",  // Java/Kotlin
+  "Package.swift",  // Swift
+  "pubspec.yaml",  // Dart/Flutter
+  "*.csproj", "*.fsproj", "packages.config",  // .NET
 ]);
 
 // Directories to skip
@@ -299,6 +318,26 @@ export class CodebaseAnalyzer {
     // Lua analysis
     else if (ext === ".lua") {
       this.extractLuaEntities(content, lines, relativePath, entities);
+    }
+    // R analysis
+    else if ([".r", ".R"].includes(ext)) {
+      this.extractREntities(content, lines, relativePath, entities);
+    }
+    // Perl analysis
+    else if ([".pl", ".pm"].includes(ext)) {
+      this.extractPerlEntities(content, lines, relativePath, entities);
+    }
+    // Dart analysis
+    else if (ext === ".dart") {
+      this.extractDartEntities(content, lines, relativePath, entities);
+    }
+    // Groovy analysis
+    else if ([".groovy", ".gradle"].includes(ext)) {
+      this.extractGroovyEntities(content, lines, relativePath, entities);
+    }
+    // MATLAB/Octave analysis
+    else if ([".m", ".mat"].includes(ext)) {
+      this.extractMatlabEntities(content, lines, relativePath, entities);
     }
     // Generic extraction for other file types
     else {
@@ -970,6 +1009,157 @@ export class CodebaseAnalyzer {
     }
     while ((match = assignFuncPattern.exec(content)) !== null) {
       entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+    }
+  }
+
+  /**
+   * Extract entities from R files
+   */
+  private extractREntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Function pattern: name <- function(...) or name = function(...)
+    const funcPattern = /(\w+)\s*(?:<-|=)\s*function\s*\(/gm;
+    // S4 class pattern: setClass("Name", ...)
+    const classPattern = /setClass\s*\(\s*["'](\w+)["']/gm;
+    // S3 method pattern: name.class <- function
+    const methodPattern = /(\w+\.\w+)\s*(?:<-|=)\s*function\s*\(/gm;
+
+    let match;
+    while ((match = funcPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = classPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+    }
+  }
+
+  /**
+   * Extract entities from Perl files
+   */
+  private extractPerlEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Subroutine pattern: sub name { or sub name :attr {
+    const subPattern = /\bsub\s+(\w+)/gm;
+    // Package pattern: package Name;
+    const packagePattern = /\bpackage\s+([\w:]+)/gm;
+
+    let match;
+    while ((match = subPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = packagePattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+    }
+  }
+
+  /**
+   * Extract entities from Dart files
+   */
+  private extractDartEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Class pattern
+    const classPattern = /(?:abstract\s+)?class\s+(\w+)(?:<[^>]+>)?(?:\s+extends\s+\w+)?(?:\s+implements\s+[\w,\s]+)?(?:\s+with\s+[\w,\s]+)?/gm;
+    // Mixin pattern
+    const mixinPattern = /mixin\s+(\w+)(?:\s+on\s+[\w,\s]+)?/gm;
+    // Extension pattern
+    const extensionPattern = /extension\s+(\w+)\s+on/gm;
+    // Enum pattern
+    const enumPattern = /enum\s+(\w+)/gm;
+    // Function pattern (top-level and methods)
+    const funcPattern = /(?:static\s+)?(?:Future|Stream|void|int|double|String|bool|dynamic|var|\w+(?:<[^>]+>)?)\s+(\w+)\s*\([^)]*\)\s*(?:async\s*)?[{=]/gm;
+
+    let match;
+    while ((match = classPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = mixinPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = extensionPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = enumPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "enum", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = funcPattern.exec(content)) !== null) {
+      if (!["if", "while", "for", "switch", "catch"].includes(match[1])) {
+        entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+      }
+    }
+  }
+
+  /**
+   * Extract entities from Groovy files
+   */
+  private extractGroovyEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Class pattern
+    const classPattern = /(?:public|private|protected)?\s*(?:abstract)?\s*class\s+(\w+)/gm;
+    // Interface pattern
+    const interfacePattern = /(?:public|private|protected)?\s*interface\s+(\w+)/gm;
+    // Trait pattern
+    const traitPattern = /trait\s+(\w+)/gm;
+    // Method pattern: def name(...) or ReturnType name(...)
+    const methodPattern = /(?:def|void|int|String|boolean|Object|\w+)\s+(\w+)\s*\([^)]*\)\s*\{/gm;
+    // Closure assignment: def name = { ... }
+    const closurePattern = /(?:def|final)\s+(\w+)\s*=\s*\{/gm;
+
+    let match;
+    while ((match = classPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = interfacePattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "interface", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = traitPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = methodPattern.exec(content)) !== null) {
+      if (!["if", "while", "for", "switch", "catch"].includes(match[1])) {
+        entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+      }
+    }
+    while ((match = closurePattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+    }
+  }
+
+  /**
+   * Extract entities from MATLAB/Octave files
+   */
+  private extractMatlabEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Function pattern: function [outputs] = name(inputs) or function name(inputs)
+    const funcPattern = /\bfunction\s+(?:\[[^\]]*\]\s*=\s*)?(\w+)\s*\(/gm;
+    // Classdef pattern: classdef Name
+    const classPattern = /\bclassdef\s+(?:\([^)]*\)\s+)?(\w+)/gm;
+
+    let match;
+    while ((match = funcPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = classPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
     }
   }
 
