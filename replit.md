@@ -49,6 +49,10 @@ Preferred communication style: Simple, everyday language.
   - Auto-detection based on environment variables (DATABASE_URL, GOOGLE_CLOUD_PROJECT)
   - Location: `server/services/vector-store/`
 - **Workflow Orchestration Engine:** Hierarchical task management with sequential/parallel execution, subtask spawning, AI-evaluated conditional logic, operator polling, cron scheduling, event triggers, and workflow interruption capabilities.
+- **Codebase Analysis Agent:** Autonomous analyzer that crawls repositories, extracts code entities (functions, classes, interfaces, types), ingests files into RAG for semantic search, and generates glossary documentation.
+  - API: `POST /api/codebase/analyze`, `GET /api/codebase/progress`
+  - Tool: `codebase_analyze`, `codebase_progress`
+  - Location: `server/services/codebase-analyzer.ts`
 - **LLM Token Usage Tracking:** All Gemini API calls logged with input/output token counts.
   - Captured from streaming `usageMetadata`
   - Stored in `llm_usage` table

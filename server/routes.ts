@@ -1348,6 +1348,61 @@ ${summary}`,
   });
 
   // ═════════════════════════════════════════════════════════════════════════
+  // CODEBASE ANALYSIS ENDPOINTS
+  // ═════════════════════════════════════════════════════════════════════════
+
+  app.post("/api/codebase/analyze", async (req, res) => {
+    try {
+      const { codebaseAnalyzer } = await import("./services/codebase-analyzer");
+      const { path: rootPath = "." } = req.body;
+
+      // Start analysis (may take time for large codebases)
+      const result = await codebaseAnalyzer.analyzeCodebase(rootPath);
+
+      // Convert Map to object for JSON serialization
+      const glossaryObj: Record<string, any[]> = {};
+      result.glossary.forEach((value, key) => {
+        glossaryObj[key] = value;
+      });
+
+      res.json({
+        success: true,
+        rootPath: result.rootPath,
+        totalFiles: result.totalFiles,
+        totalEntities: result.totalEntities,
+        totalChunks: result.totalChunks,
+        duration: result.duration,
+        errors: result.errors,
+        files: result.files.map(f => ({
+          path: f.relativePath,
+          extension: f.extension,
+          lineCount: f.lineCount,
+          entityCount: f.entities.length,
+        })),
+        glossary: glossaryObj,
+        documentation: result.documentation,
+      });
+    } catch (error) {
+      console.error("Error analyzing codebase:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to analyze codebase",
+      });
+    }
+  });
+
+  app.get("/api/codebase/progress", async (_req, res) => {
+    try {
+      const { codebaseAnalyzer } = await import("./services/codebase-analyzer");
+      const progress = codebaseAnalyzer.getProgress();
+      res.json({ success: true, progress });
+    } catch (error) {
+      console.error("Error getting analysis progress:", error);
+      res.status(500).json({ success: false, error: "Failed to get progress" });
+    }
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════
   // BROWSER ENDPOINTS
   // ═════════════════════════════════════════════════════════════════════════
 

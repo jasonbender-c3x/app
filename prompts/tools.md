@@ -268,6 +268,22 @@ Action types: `{ type: "click", selector }`, `{ type: "type", selector, text }`,
 | `queue_list` | none | List queued items |
 | `queue_start` | `queueId:string` | Start queue processing |
 
+### Codebase Analysis
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `codebase_analyze` | `path?:string` | Analyze codebase: crawl files, extract entities, ingest to RAG, generate glossary |
+| `codebase_progress` | none | Get current analysis progress |
+
+**Example:**
+```json
+{"toolCalls": [
+  {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "I'll analyze the codebase now. This may take a moment."}},
+  {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "I'll analyze the codebase now. This may take a moment."}},
+  {"type": "codebase_analyze", "id": "a1", "operation": "analyze", "parameters": {"path": "."}},
+  {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "Analysis complete! Found **X files** with **Y entities**. Here's the summary..."}}
+]}
+```
+
 ### Debug
 | Tool | Parameters | Description |
 |------|------------|-------------|
