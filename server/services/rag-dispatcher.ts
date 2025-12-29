@@ -1264,8 +1264,8 @@ export class RAGDispatcher {
       };
     }
 
-    // Read from filesystem
-    const sanitizedPath = this.sanitizePath(params.path, path.basename(params.path));
+    // Read from filesystem - sanitize path directly (don't use sanitizePath which is for dir+filename)
+    const sanitizedPath = params.path.replace(/\.\./g, "").replace(/^\/+/, "");
     const fullPath = path.join(this.workspaceDir, sanitizedPath);
     
     const content = await fs.readFile(fullPath, params.encoding === 'base64' ? 'base64' : 'utf8');
@@ -1335,8 +1335,8 @@ export class RAGDispatcher {
       };
     }
 
-    // Write to filesystem
-    const sanitizedPath = this.sanitizePath(params.path, path.basename(params.path));
+    // Write to filesystem - sanitize path directly (don't use sanitizePath which is for dir+filename)
+    const sanitizedPath = params.path.replace(/\.\./g, "").replace(/^\/+/, "");
     const fullPath = path.join(this.workspaceDir, sanitizedPath);
     
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
