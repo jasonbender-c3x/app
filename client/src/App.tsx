@@ -101,6 +101,7 @@ import DatabaseExplorerPage from "@/pages/database-explorer";
 import LivePage from "@/pages/live";
 import WatchPage from "@/pages/watch";
 import GlassesPage from "@/pages/glasses";
+import CollaboratePage from "@/pages/collaborate";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -208,6 +209,9 @@ function Router() {
       {/* Watch App Route - Upcoming Wear OS companion app info */}
       <Route path="/watch" component={WatchPage} />
       <Route path="/glasses" component={GlassesPage} />
+      
+      {/* AI Desktop Collaboration - TeamViewer-style AI collaboration */}
+      <Route path="/collaborate" component={CollaboratePage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything

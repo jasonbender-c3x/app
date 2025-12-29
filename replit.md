@@ -51,6 +51,12 @@ Preferred communication style: Simple, everyday language.
 - **say:** Voice output tool using Gemini 2.5 Flash TTS for expressive speech.
 - **file_get/file_put:** Tools for reading and writing files.
 
+### AI Desktop Collaboration
+- **Collaborate Page (`/collaborate`):** TeamViewer-style AI collaboration hub with headless browser or full desktop modes.
+- **Desktop Relay Service:** Cloud relay that fans screen frames to both Gemini Vision and browser, routes input events.
+- **Desktop Agent:** Standalone Node.js package (`meowstik-agent`) for running on user's computer - captures screen/audio, injects mouse/keyboard.
+- **Data Flow:** Bidirectional - LLM sends mouse/keyboard commands, desktop sends video/audio to both user and LLM.
+
 ### Developer Tools
 - **Browser Page (`/browser`):** Full web browser with Browserbase integration for screenshot capture.
 - **Database Explorer (`/database`):** UI for viewing, editing, and deleting database records.
