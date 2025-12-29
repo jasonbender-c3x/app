@@ -8,6 +8,9 @@ import watchChatImage from "@assets/generated_images/smartwatch_with_ai_chat_int
 import watchVoiceImage from "@assets/generated_images/watch_voice_command_interface.png";
 import watchCollabImage from "@assets/generated_images/watch_and_laptop_collaborative_editing.png";
 import arGlassesImage from "@assets/generated_images/ar_smart_glasses_with_holographic_display.png";
+import arRouterImage from "@assets/generated_images/ar_glasses_identifying_router_model.png";
+import arRackImage from "@assets/generated_images/ar_glasses_scanning_server_rack_back.png";
+import arCableImage from "@assets/generated_images/ar_tracing_cable_through_rats_nest.png";
 
 export default function WatchPage() {
   const features = [
@@ -273,6 +276,46 @@ export default function WatchPage() {
                   One mind, many nodes. Your devices become extensions of a unified intelligence — 
                   working together, adapting together, evolving together. Resistance to productivity loss is futile.
                 </p>
+
+                <h4 className="font-semibold mt-6 mb-4 text-lg">Real-World Use Cases</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="rounded-lg overflow-hidden border border-cyan-500/20">
+                    <img 
+                      src={arRouterImage} 
+                      alt="AR glasses identifying router model" 
+                      className="w-full h-40 object-cover"
+                      data-testid="img-ar-router"
+                    />
+                    <div className="p-3 bg-background/30">
+                      <p className="text-sm font-medium text-cyan-400">"What model is this router?"</p>
+                      <p className="text-xs text-muted-foreground mt-1">Instant equipment identification with specs overlay</p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg overflow-hidden border border-purple-500/20">
+                    <img 
+                      src={arRackImage} 
+                      alt="AR glasses scanning server rack" 
+                      className="w-full h-40 object-cover"
+                      data-testid="img-ar-rack"
+                    />
+                    <div className="p-3 bg-background/30">
+                      <p className="text-sm font-medium text-purple-400">"Show me the port mappings"</p>
+                      <p className="text-xs text-muted-foreground mt-1">Annotated overlays on complex infrastructure</p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg overflow-hidden border border-pink-500/20">
+                    <img 
+                      src={arCableImage} 
+                      alt="AR tracing cable through cable mess" 
+                      className="w-full h-40 object-cover"
+                      data-testid="img-ar-cable"
+                    />
+                    <div className="p-3 bg-background/30">
+                      <p className="text-sm font-medium text-pink-400">"Where does this cable go?"</p>
+                      <p className="text-xs text-muted-foreground mt-1">Trace cables through the chaos to their destination</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
