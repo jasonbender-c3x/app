@@ -99,6 +99,7 @@ import SchedulesPage from "@/pages/schedules";
 import BrowserPage from "@/pages/browser";
 import DatabaseExplorerPage from "@/pages/database-explorer";
 import LivePage from "@/pages/live";
+import WatchPage from "@/pages/watch";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -202,6 +203,9 @@ function Router() {
       
       {/* Live Voice Route - Real-time voice conversation with Gemini */}
       <Route path="/live" component={LivePage} />
+      
+      {/* Watch App Route - Upcoming Wear OS companion app info */}
+      <Route path="/watch" component={WatchPage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything
