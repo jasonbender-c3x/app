@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Watch, Mic, Bell, Calendar, Mail, Heart, Zap, Smartphone, Clock } from "lucide-react";
+import { ArrowLeft, Watch, Mic, Bell, Calendar, Mail, Heart, Zap, Smartphone, Clock, Glasses, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 
 import watchHeroImage from "@assets/generated_images/watch_hero_banner_with_ai_features.png";
@@ -8,9 +8,6 @@ import watchChatImage from "@assets/generated_images/smartwatch_with_ai_chat_int
 import watchVoiceImage from "@assets/generated_images/watch_voice_command_interface.png";
 import watchCollabImage from "@assets/generated_images/watch_and_laptop_collaborative_editing.png";
 import arGlassesImage from "@assets/generated_images/ar_smart_glasses_with_holographic_display.png";
-import arRouterImage from "@assets/generated_images/ar_glasses_identifying_router_model.png";
-import arRackImage from "@assets/generated_images/ar_glasses_scanning_server_rack_back.png";
-import arCableImage from "@assets/generated_images/ar_tracing_cable_through_rats_nest.png";
 
 export default function WatchPage() {
   const features = [
@@ -238,86 +235,34 @@ export default function WatchPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl overflow-hidden border border-cyan-500/30">
-              <img 
-                src={arGlassesImage} 
-                alt="AR smart glasses with holographic display" 
-                className="w-full h-56 md:h-80 object-cover"
-                data-testid="img-ar-glasses"
-              />
-              <div className="p-6 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-pink-500/10">
-                <h3 className="text-xl font-semibold mb-3">Future Vision: Unified Perception</h3>
-                <p className="text-muted-foreground mb-4">
-                  Beyond the wrist lies a more seamless integration. Eye-worn displays with embedded cameras 
-                  will bring Meowstik directly into your field of view — seeing what you see, offering 
-                  contextual guidance overlaid on reality itself.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  <div className="p-4 rounded-lg bg-background/30 border border-cyan-500/20">
-                    <h4 className="font-semibold text-cyan-400 mb-2">Camera Integration</h4>
-                    <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• Real-time visual context awareness</li>
-                      <li>• Object and text recognition</li>
-                      <li>• Navigation overlay assistance</li>
-                      <li>• Instant translation of signage</li>
-                    </ul>
-                  </div>
-                  <div className="p-4 rounded-lg bg-background/30 border border-purple-500/20">
-                    <h4 className="font-semibold text-purple-400 mb-2">Holographic Interface</h4>
-                    <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• Ambient notifications at a glance</li>
-                      <li>• Floating code editor windows</li>
-                      <li>• Contextual AI suggestions</li>
-                      <li>• Subtle, always-present guidance</li>
-                    </ul>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground/70 mt-4 italic">
-                  One mind, many nodes. Your devices become extensions of a unified intelligence — 
-                  working together, adapting together, evolving together. Resistance to productivity loss is futile.
-                </p>
-
-                <h4 className="font-semibold mt-6 mb-4 text-lg">Real-World Use Cases</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="rounded-lg overflow-hidden border border-cyan-500/20">
-                    <img 
-                      src={arRouterImage} 
-                      alt="AR glasses identifying router model" 
-                      className="w-full h-40 object-cover"
-                      data-testid="img-ar-router"
-                    />
-                    <div className="p-3 bg-background/30">
-                      <p className="text-sm font-medium text-cyan-400">"What model is this router?"</p>
-                      <p className="text-xs text-muted-foreground mt-1">Instant equipment identification with specs overlay</p>
+            <Link href="/glasses">
+              <div className="rounded-2xl overflow-hidden border border-cyan-500/30 hover:border-cyan-500/50 transition-colors cursor-pointer group">
+                <img 
+                  src={arGlassesImage} 
+                  alt="AR smart glasses with holographic display" 
+                  className="w-full h-48 md:h-56 object-cover group-hover:opacity-90 transition-opacity"
+                  data-testid="img-ar-glasses"
+                />
+                <div className="p-6 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-pink-500/10">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-cyan-500/20">
+                        <Glasses className="h-5 w-5 text-cyan-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold">Meowstik Vision</h3>
+                        <p className="text-sm text-muted-foreground">AR Glasses • Future Vision</p>
+                      </div>
                     </div>
+                    <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-cyan-400 transition-colors" />
                   </div>
-                  <div className="rounded-lg overflow-hidden border border-purple-500/20">
-                    <img 
-                      src={arRackImage} 
-                      alt="AR glasses scanning server rack" 
-                      className="w-full h-40 object-cover"
-                      data-testid="img-ar-rack"
-                    />
-                    <div className="p-3 bg-background/30">
-                      <p className="text-sm font-medium text-purple-400">"Show me the port mappings"</p>
-                      <p className="text-xs text-muted-foreground mt-1">Annotated overlays on complex infrastructure</p>
-                    </div>
-                  </div>
-                  <div className="rounded-lg overflow-hidden border border-pink-500/20">
-                    <img 
-                      src={arCableImage} 
-                      alt="AR tracing cable through cable mess" 
-                      className="w-full h-40 object-cover"
-                      data-testid="img-ar-cable"
-                    />
-                    <div className="p-3 bg-background/30">
-                      <p className="text-sm font-medium text-pink-400">"Where does this cable go?"</p>
-                      <p className="text-xs text-muted-foreground mt-1">Trace cables through the chaos to their destination</p>
-                    </div>
-                  </div>
+                  <p className="text-muted-foreground mt-4">
+                    Beyond the wrist lies unified perception. Eye-worn displays with cameras bring AI directly 
+                    into your field of view — seeing what you see, guiding you through chaos.
+                  </p>
                 </div>
               </div>
-            </div>
+            </Link>
 
             <div className="p-6 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 text-center">
               <h3 className="text-xl font-semibold mb-2">Stay Updated</h3>
