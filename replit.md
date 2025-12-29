@@ -50,8 +50,12 @@ Preferred communication style: Simple, everyday language.
   - Location: `server/services/vector-store/`
 - **Workflow Orchestration Engine:** Hierarchical task management with sequential/parallel execution, subtask spawning, AI-evaluated conditional logic, operator polling, cron scheduling, event triggers, and workflow interruption capabilities.
 - **Codebase Analysis Agent:** Autonomous analyzer that crawls repositories, extracts code entities (functions, classes, interfaces, types, structs, macros, enums), ingests files into RAG for semantic search, and generates glossary documentation.
-  - **Supported Languages:** TypeScript, JavaScript, Python, C, C++, Markdown, JSON
-  - **C/C++ Extraction:** Functions (with signatures), structs, typedefs, enums, macros, #include imports
+  - **Supported Languages:** TypeScript, JavaScript, Python, C, C++, Bash/Shell, Markdown, JSON
+  - **Language-Specific Extraction:**
+    - TypeScript/JavaScript: functions, classes, interfaces, types, imports/exports
+    - Python: functions, classes
+    - C/C++: functions (with signatures), structs (including C++20 requires clauses), typedefs, enums, macros, #include imports
+    - Bash/Shell (.sh, .bash, .zsh): functions
   - API: `POST /api/codebase/analyze`, `GET /api/codebase/progress`
   - Tool: `codebase_analyze`, `codebase_progress`
   - Options: `skipIngestion` for external codebases (auto-enabled for /tmp paths)

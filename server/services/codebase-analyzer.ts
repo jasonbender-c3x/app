@@ -255,6 +255,10 @@ export class CodebaseAnalyzer {
     else if ([".c", ".h", ".cpp", ".hpp", ".cc", ".hh"].includes(ext)) {
       this.extractCEntities(content, lines, relativePath, entities, imports);
     }
+    // Bash/Shell analysis
+    else if ([".sh", ".bash", ".zsh"].includes(ext)) {
+      this.extractBashEntities(content, lines, relativePath, entities);
+    }
     // Generic extraction for other file types
     else {
       this.extractGenericEntities(content, lines, relativePath, ext, entities);
@@ -583,6 +587,54 @@ export class CodebaseAnalyzer {
         });
       }
     }
+  }
+
+  /**
+   * Extract entities from Bash/Shell files
+   */
+  private extractBashEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Function patterns for Bash:
+    // 1. function name() { ... }
+    // 2. function name { ... }
+    // 3. name() { ... }
+    const functionPatterns = [
+      /^\s*function\s+(\w+)\s*\(\s*\)/gm,
+      /^\s*function\s+(\w+)\s*\{/gm,
+      /^\s*(\w+)\s*\(\s*\)\s*\{/gm,
+    ];
+
+    for (const pattern of functionPatterns) {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        const name = match[1];
+        // Skip common shell keywords that might match
+        if (!["if", "while", "for", "until", "case", "select"].includes(name)) {
+          entities.push({
+            name,
+            type: "function",
+            file,
+            line: this.getLineNumber(content, match.index),
+          });
+        }
+      }
+    }
+
+    // Deduplicate by name (same function might match multiple patterns)
+    const seen = new Set<string>();
+    const uniqueEntities: CodeEntity[] = [];
+    for (const entity of entities) {
+      if (!seen.has(entity.name)) {
+        seen.add(entity.name);
+        uniqueEntities.push(entity);
+      }
+    }
+    entities.length = 0;
+    entities.push(...uniqueEntities);
   }
 
   /**
