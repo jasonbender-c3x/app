@@ -5,9 +5,9 @@ import { ArrowLeft, Glasses, Camera, Eye, Cpu, Wifi, Zap, Brain, Scan } from "lu
 import { Link } from "wouter";
 
 import arGlassesImage from "@assets/generated_images/ar_smart_glasses_with_holographic_display.png";
-import arRouterImage from "@assets/generated_images/ar_glasses_identifying_router_model.png";
-import arCableImage from "@assets/generated_images/ar_tracing_cable_through_rats_nest.png";
-import arChaosImage from "@assets/generated_images/ar_cutting_through_cable_chaos_nightmare.png";
+import arRouterImage from "@assets/generated_images/realistic_ar_router_identification_pov.png";
+import arCableImage from "@assets/generated_images/realistic_rack_back_with_ar_overlay.png";
+import arChaosImage from "@assets/generated_images/realistic_cable_nightmare_with_ar_trace.png";
 
 export default function GlassesPage() {
   const features = [
