@@ -7,6 +7,7 @@ import watchHeroImage from "@assets/generated_images/watch_hero_banner_with_ai_f
 import watchChatImage from "@assets/generated_images/smartwatch_with_ai_chat_interface.png";
 import watchVoiceImage from "@assets/generated_images/watch_voice_command_interface.png";
 import watchCollabImage from "@assets/generated_images/watch_and_laptop_collaborative_editing.png";
+import arGlassesImage from "@assets/generated_images/ar_smart_glasses_with_holographic_display.png";
 
 export default function WatchPage() {
   const features = [
@@ -231,6 +232,47 @@ export default function WatchPage() {
                     <p className="text-sm text-muted-foreground">Quick-access widgets for watch face and app drawer</p>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden border border-cyan-500/30">
+              <img 
+                src={arGlassesImage} 
+                alt="AR smart glasses with holographic display" 
+                className="w-full h-56 md:h-80 object-cover"
+                data-testid="img-ar-glasses"
+              />
+              <div className="p-6 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-pink-500/10">
+                <h3 className="text-xl font-semibold mb-3">Future Vision: Unified Perception</h3>
+                <p className="text-muted-foreground mb-4">
+                  Beyond the wrist lies a more seamless integration. Eye-worn displays with embedded cameras 
+                  will bring Meowstik directly into your field of view — seeing what you see, offering 
+                  contextual guidance overlaid on reality itself.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div className="p-4 rounded-lg bg-background/30 border border-cyan-500/20">
+                    <h4 className="font-semibold text-cyan-400 mb-2">Camera Integration</h4>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li>• Real-time visual context awareness</li>
+                      <li>• Object and text recognition</li>
+                      <li>• Navigation overlay assistance</li>
+                      <li>• Instant translation of signage</li>
+                    </ul>
+                  </div>
+                  <div className="p-4 rounded-lg bg-background/30 border border-purple-500/20">
+                    <h4 className="font-semibold text-purple-400 mb-2">Holographic Interface</h4>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li>• Ambient notifications at a glance</li>
+                      <li>• Floating code editor windows</li>
+                      <li>• Contextual AI suggestions</li>
+                      <li>• Subtle, always-present guidance</li>
+                    </ul>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground/70 mt-4 italic">
+                  One mind, many nodes. Your devices become extensions of a unified intelligence — 
+                  working together, adapting together, evolving together. Resistance to productivity loss is futile.
+                </p>
               </div>
             </div>
 
