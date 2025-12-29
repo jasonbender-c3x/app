@@ -53,6 +53,12 @@ Preferred communication style: Simple, everyday language.
   - API: `POST /api/codebase/analyze`, `GET /api/codebase/progress`
   - Tool: `codebase_analyze`, `codebase_progress`
   - Location: `server/services/codebase-analyzer.ts`
+- **JIT Tool Protocol:** Lightweight preprocessor using Gemini 2.0 Flash Lite that predicts which tools are needed from user queries, then injects only relevant detailed examples into context instead of full tool manifest.
+  - Fast keyword-based prediction with LLM fallback
+  - Top 10 core tools always included (send_chat, say, gmail, calendar, drive, file)
+  - Dynamic context injection with tool examples
+  - API: `POST /api/jit/predict`, `POST /api/jit/context`, `GET /api/jit/examples`
+  - Location: `server/services/jit-tool-protocol.ts`
 - **LLM Token Usage Tracking:** All Gemini API calls logged with input/output token counts.
   - Captured from streaming `usageMetadata`
   - Stored in `llm_usage` table

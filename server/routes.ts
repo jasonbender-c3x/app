@@ -1348,6 +1348,56 @@ ${summary}`,
   });
 
   // ═════════════════════════════════════════════════════════════════════════
+  // JIT TOOL PROTOCOL ENDPOINTS
+  // ═════════════════════════════════════════════════════════════════════════
+
+  app.post("/api/jit/predict", async (req, res) => {
+    try {
+      const { jitToolProtocol } = await import("./services/jit-tool-protocol");
+      const { query } = req.body;
+
+      if (!query || typeof query !== "string") {
+        return res.status(400).json({ error: "Missing 'query' parameter" });
+      }
+
+      const prediction = await jitToolProtocol.predictTools(query);
+      res.json({ success: true, prediction });
+    } catch (error) {
+      console.error("JIT prediction error:", error);
+      res.status(500).json({ error: "Failed to predict tools" });
+    }
+  });
+
+  app.post("/api/jit/context", async (req, res) => {
+    try {
+      const { jitToolProtocol } = await import("./services/jit-tool-protocol");
+      const { query } = req.body;
+
+      if (!query || typeof query !== "string") {
+        return res.status(400).json({ error: "Missing 'query' parameter" });
+      }
+
+      const result = await jitToolProtocol.getOptimizedToolContext(query);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error("JIT context error:", error);
+      res.status(500).json({ error: "Failed to get tool context" });
+    }
+  });
+
+  app.get("/api/jit/examples", async (_req, res) => {
+    try {
+      const { jitToolProtocol } = await import("./services/jit-tool-protocol");
+      const examples = jitToolProtocol.getAllExamples();
+      const coreTools = jitToolProtocol.getCoreTools();
+      res.json({ success: true, examples, coreTools });
+    } catch (error) {
+      console.error("JIT examples error:", error);
+      res.status(500).json({ error: "Failed to get examples" });
+    }
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════
   // CODEBASE ANALYSIS ENDPOINTS
   // ═════════════════════════════════════════════════════════════════════════
 
