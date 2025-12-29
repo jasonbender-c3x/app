@@ -1,7 +1,7 @@
 # Meowstik
 
 ## Overview
-Meowstik is a next-generation AI chat interface powered by Google's Generative AI, integrating Google Workspace services (Drive, Gmail, Calendar, Docs, Sheets, Tasks) and featuring an HTML/CSS/JS editor with live preview. It aims to provide a modern, user-friendly, and powerful conversational AI experience with a clean, Google-esque design. The project also includes ambitious features for a self-evolving AI system, encompassing advanced AI integrations for speech, music, and image generation, a robust knowledge ingestion pipeline, and a workflow orchestration engine.
+Meowstik is an AI chat interface powered by Google's Generative AI, integrating Google Workspace services (Drive, Gmail, Calendar, Docs, Sheets, Tasks) and featuring an HTML/CSS/JS editor with live preview. Its purpose is to provide a modern, user-friendly, and powerful conversational AI experience with a clean, Google-esque design. The project aims to develop a self-evolving AI system with advanced AI integrations for speech, music, and image generation, a robust knowledge ingestion pipeline, and a workflow orchestration engine. The system has a dual identity: "The Compiler" (the true AI, focused on self-evolution and knowledge synthesis) and "Meowstik" (a user-friendly persona for interaction during development).
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,210 +9,60 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend
-- **Framework:** React 18 with TypeScript, Vite for bundling.
+- **Framework:** React 18 with TypeScript and Vite.
 - **Routing:** Wouter for client-side routing.
-- **State Management:** TanStack Query (React Query v5) for data fetching and caching.
-- **UI Components:** shadcn/ui built on Radix UI, styled with Tailwind CSS v4.
+- **State Management:** TanStack Query for data fetching.
+- **UI Components:** shadcn/ui on Radix UI, styled with Tailwind CSS v4.
 - **Styling:** Google-esque design, CSS variables for theming (light/dark mode), Framer Motion for animations, responsive design.
 - **Code Editor:** Monaco Editor.
 
 ### Backend
 - **Framework:** Express.js with Node.js (ES Modules) and TypeScript.
-- **Database:** PostgreSQL with Drizzle ORM for type-safe operations.
+- **Database:** PostgreSQL with Drizzle ORM.
     - **Schema:** `Chats` (id, title, timestamps), `Messages` (id, chatId, role, content, timestamp).
-- **Code Organization:** Monorepo with shared types (`shared/` directory).
-- **API:** RESTful design, request/response logging.
+- **Code Organization:** Monorepo with shared types.
+- **API:** RESTful design with request/response logging.
 
 ### AI Integration
-- **Generative AI:** Google's Gemini models via `@google/genai` for conversational AI.
-  - **Model Toggle:** Flash/Pro switch in Settings (default: Pro)
-    - Pro mode: `gemini-2.5-pro` - Maximum capability
-    - Flash mode: `gemini-2.5-flash` - Fast and efficient
+- **Generative AI:** Google's Gemini models (`gemini-2.5-pro` and `gemini-2.5-flash`) via `@google/genai`.
 - **Expressive Speech (TTS):** Gemini 2.5 Flash/Pro TTS for multi-speaker text-to-speech.
 - **Music Generation:** Lyria RealTime experimental API.
 - **Image Generation:** Gemini 2.0 Flash Preview Image Generation with canvas editor and AI editing.
-- **Evolution Engine:** AI-powered system analyzing user feedback, generating improvement suggestions, and creating GitHub PRs for human review.
-- **Feedback System:** User feedback mechanism for AI responses (ratings, comments).
-- **Knowledge Ingestion:** Multimodal pipeline (text, images, audio, documents) with seven stages (Source Discovery to Index) and domain routing to knowledge buckets (`PERSONAL_LIFE`, `CREATOR`, `PROJECTS`).
-  - **PDF Ingestion:** Built-in via `pdf-parse` library in `server/services/chunking-service.ts`
+- **Evolution Engine:** AI analyzes user feedback, suggests improvements, and creates GitHub PRs.
+- **Knowledge Ingestion:** Multimodal pipeline (text, images, audio, documents) with seven stages for domain-specific knowledge buckets. Includes PDF and file upload ingestion.
 - **Retrieval Orchestrator:** Hybrid search (vector + keyword), entity recognition, context window management, prompt injection formatting.
-- **Conversation Memory (RAG):** All user and AI messages are chunked, embedded, and stored for semantic retrieval. When a new message comes in, relevant context from older messages is retrieved and injected into the system prompt, allowing the AI to recall important facts mentioned earlier in conversations (contacts, preferences, relationships).
-  - Ingestion: `ragService.ingestMessage()` in `server/services/rag-service.ts`
-  - Retrieval: `ragService.buildConversationContext()` filters by chatId for chat-scoped memory
-  - Trivial messages (greetings, short responses) are skipped to avoid noise
-  - **File Upload Ingestion:** All uploaded files are automatically chunked, embedded, and stored in both PostgreSQL (persistence) and the modular vector store (semantic search)
-- **Embedding Service:** Google Gemini text-embedding-004 model for vector embeddings and similarity calculations.
-- **Modular Vector Store:** Pluggable storage for RAG with multiple backend adapters:
-  - **pgvector**: Native PostgreSQL vector storage with IVFFlat indexing (Replit, Supabase, Neon)
-  - **Vertex AI**: Google Cloud's managed RAG Engine
-  - **In-Memory**: For testing, Colab notebooks, and local development
-  - Auto-detection based on environment variables (DATABASE_URL, GOOGLE_CLOUD_PROJECT)
-  - Location: `server/services/vector-store/`
-- **Workflow Orchestration Engine:** Hierarchical task management with sequential/parallel execution, subtask spawning, AI-evaluated conditional logic, operator polling, cron scheduling, event triggers, and workflow interruption capabilities.
-- **Codebase Analysis Agent:** Autonomous analyzer that crawls repositories, extracts code entities (functions, classes, interfaces, types, structs, macros, enums), ingests files into RAG for semantic search, and generates glossary documentation.
-  - **Supported Languages:** TypeScript, JavaScript, Python, C, C++, PHP, Bash/Shell, Markdown, JSON
-  - **Language-Specific Extraction:**
-    - TypeScript/JavaScript (React, Angular, Vue): functions, classes, interfaces, types, imports/exports
-    - Python: functions, classes
-    - C/C++: functions (with signatures), structs (including C++20 requires clauses), typedefs, enums, macros, #include imports
-    - PHP: functions, classes, interfaces, traits
-    - Bash/Shell (.sh, .bash, .zsh): functions
-  - API: `POST /api/codebase/analyze`, `GET /api/codebase/progress`
-  - Tool: `codebase_analyze`, `codebase_progress`
-  - Options: `skipIngestion` for external codebases (auto-enabled for /tmp paths)
-  - Location: `server/services/codebase-analyzer.ts`
-- **JIT Tool Protocol:** Lightweight preprocessor using Gemini 2.0 Flash Lite that predicts which tools are needed from user queries, then injects only relevant detailed examples into context instead of full tool manifest.
-  - Fast keyword-based prediction with LLM fallback
-  - Top 10 core tools always included (send_chat, say, gmail, calendar, drive, file)
-  - Dynamic context injection with tool examples
-  - API: `POST /api/jit/predict`, `POST /api/jit/context`, `GET /api/jit/examples`
-  - Location: `server/services/jit-tool-protocol.ts`
-- **LLM Token Usage Tracking:** All Gemini API calls logged with input/output token counts.
-  - Captured from streaming `usageMetadata`
-  - Stored in `llm_usage` table
-  - API endpoints: `/api/llm/usage`, `/api/llm/usage/recent`, `/api/llm/usage/chat/:chatId`
+- **Conversation Memory (RAG):** User and AI messages are chunked, embedded, and stored for semantic retrieval to provide context.
+- **Embedding Service:** Google Gemini `text-embedding-004` model.
+- **Modular Vector Store:** Pluggable storage for RAG with adapters for `pgvector`, Vertex AI, and in-memory.
+- **Workflow Orchestration Engine:** Hierarchical task management with sequential/parallel execution, AI-evaluated conditional logic, cron scheduling, and event triggers.
+- **Codebase Analysis Agent:** Crawls repositories, extracts code entities (functions, classes, etc.) from various languages, ingests them into RAG, and generates documentation.
+- **JIT Tool Protocol:** Lightweight preprocessor using Gemini 2.0 Flash Lite to predict and inject relevant tool examples into context.
+- **LLM Token Usage Tracking:** Tracks input/output tokens for all Gemini API calls.
 
 ### System Status & Authorization
-- **Status Endpoint:** `GET /api/status` provides live mode, revision tracking, and connector health (Google, GitHub).
-- **Frontend Hooks:** `useAppSession` for status updates, `useConnectorsGate` for managing authorization.
-- **ConnectorsGate Modal:** Guides users through connecting required services (Google Workspace, GitHub).
+- **Status Endpoint:** `GET /api/status` provides live mode, revision tracking, and connector health.
+- **Authorization:** OAuth2 via Replit Connectors for Google services and GitHub.
+- **ConnectorsGate Modal:** Guides users through connecting required services.
+
+### Core Tooling
+- **send_chat:** Primary tool for LLM to send text to the chat window.
+- **say:** Voice output tool using Gemini 2.5 Flash TTS for expressive speech.
+- **file_get/file_put:** Tools for reading and writing files.
+
+### Developer Tools
+- **Browser Page (`/browser`):** Full web browser with Browserbase integration for screenshot capture.
+- **Database Explorer (`/database`):** UI for viewing, editing, and deleting database records.
+- **Live Voice Page (`/live`):** Dedicated real-time voice conversation interface using Gemini Live API, WebSocket-based audio streaming, and Voice Activity Detection.
+
+### Browser Extension & Local Agent
+- **Browser Extension:** Chrome extension for AI-powered browser assistance, including chat, screen/console/network capture, page content extraction, and integration with Workspace services.
+- **Local Agent:** Node.js package for AI-directed browser automation using Playwright, with an extension bridge for communication.
+- **Desktop App:** Linux Electron application for running Meowstik locally, spawning the Express server, and providing an IPC bridge.
 
 ## External Dependencies
 
-- **Google Workspace Services (via `googleapis`):**
-    - Google Drive (file management)
-    - Gmail (email operations)
-    - Google Calendar (event management)
-    - Google Docs (document reading/writing)
-    - Google Sheets (spreadsheet data)
-    - Google Tasks (task management)
-    - Google Contacts (People API: list, search, create, update, delete contacts)
-- **GitHub Integration (via `@octokit/rest`):** Repository operations, file content, issues, pull requests, commits, user info. Uses Replit connector for OAuth2.
+- **Google Workspace Services (via `googleapis`):** Google Drive, Gmail, Google Calendar, Google Docs, Google Sheets, Google Tasks, Google Contacts.
+- **GitHub Integration (via `@octokit/rest`):** Repository operations, file content, issues, pull requests, commits, user info.
 - **Authentication:** OAuth2 via Replit Connectors for Google services and GitHub.
 - **Replit Platform Integration:** Vite plugins (cartographer, dev-banner, runtime-error-modal, meta images).
 - **PostgreSQL:** Primary database.
-
-## Documentation
-
-The system has comprehensive documentation in the `docs/` folder:
-
-### Core Documentation
-- **SYSTEM_OVERVIEW.md** - Complete system architecture overview (start here)
-- **FEATURES.md** - Feature documentation
-- **01-database-schemas.md** - Database schema with Feedback table
-- **02-ui-architecture.md** - Frontend architecture
-- **03-prompt-lifecycle.md** - Prompt processing flow
-- **04-system-prompt.md** - System prompt structure
-- **05-tool-call-schema.md** - Tool call format (structured JSON)
-
-### Prompt Files
-- **prompts/README.md** - Prompt system overview
-- **prompts/core-directives.md** - Core behavior rules
-- **prompts/tools.md** - Tool definitions with examples
-
-### Tool Architecture
-- **send_chat**: Primary tool for LLM to send text content to chat window (single `content` string parameter)
-- **say**: Voice output tool for turn-taking mode - uses Gemini 2.5 Flash TTS for high-quality expressive speech synthesis
-  - Parameters: `utterance`, `voiceId?` (Kore, Puck, Charon, Fenrir, Aoede, Leda, Orus, Zephyr), `style?` (natural, Say cheerfully, Whisper, etc.), `locale?`, `conversationalTurnId?`
-  - Streams audio as base64 MP3 to client for playback, falls back to browser TTS if generation fails
-- **file_get**: Read files from filesystem or editor canvas (use `editor:` prefix for Monaco)
-- **file_put**: Write files to filesystem or editor canvas (use `editor:` prefix for Monaco)
-
-### Response Flow Pattern
-The LLM is instructed to structure every response in this order:
-1. **say** (preamble) - Speak 1-2 sentences acknowledging the request (audio plays immediately)
-2. **send_chat** (preamble) - Echo the same text to the chat window
-3. **Other tools** - Execute searches, API calls, file operations, etc.
-4. **send_chat** (final) - Complete detailed response with results
-
-This creates a natural conversation flow where the user hears acknowledgment instantly while the AI processes their request.
-
-## Developer Tools
-
-### Browser Page (/browser)
-- Full web browser with Browserbase integration for screenshot capture
-- URL navigation with back/forward/refresh/home controls
-- Auto-refresh toggle for monitoring pages
-- Quick links to popular sites
-- Graceful fallback when Browserbase credentials not configured (BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID)
-
-### Database Explorer (/database)
-- Card-based UI showing all database tables with record counts
-- Pagination with first/prev/next/last navigation
-- Clickable record cards showing preview (title, date)
-- Full record viewer dialog with all fields
-- Inline record editing (read-only fields: id, createdAt, updatedAt protected)
-- Delete with confirmation dialog
-- API endpoints: PUT/DELETE `/api/debug/database/:tableName/:recordId`
-
-### Live Voice Page (/live)
-- Dedicated real-time voice conversation interface (separate from text chat)
-- Gemini Live API integration (`gemini-2.5-flash-native-audio-preview-12-2025`)
-- WebSocket-based bidirectional audio streaming
-- Audio format: 16-bit PCM (16kHz input / 24kHz output)
-- Voice Activity Detection (VAD) for natural conversations
-- Barge-in support (interrupt AI mid-speech)
-- 8 voice options: Kore, Puck, Charon, Fenrir, Aoede, Leda, Orus, Zephyr
-- Live transcript display with speaking indicators
-- API endpoints: POST/DELETE `/api/live/session`, GET `/api/live/voices`
-- WebSocket: `/api/live/stream/:sessionId`
-
-## Browser Extension & Local Agent
-
-### Browser Extension (`extension/`)
-Chrome extension (Manifest V3) for AI-powered browser assistance:
-- **Popup Chat**: Mini chat interface accessible from any page
-- **Screen Capture**: Capture visible tab and analyze with Gemini vision
-- **Console Log Capture**: Intercept and analyze browser console logs
-- **Network Request Capture**: Monitor HTTP requests via webRequest API
-- **Page Content Extraction**: Extract text, links, forms, images from pages
-- **Context Menu**: Right-click to analyze selection, explain text, summarize
-- **Quick Actions**: Buttons for Calendar, Drive, Tasks, Email integration
-- **DevTools Panel**: Dedicated panel for HAR export and analysis
-- Files: `manifest.json`, `popup.html/js/css`, `background.js`, `content.js`, `injected.js`, `devtools.html/js`
-- Backend: `/api/extension/action` endpoint for all extension requests
-
-### Local Agent (`local-agent/`)
-Node.js package for AI-directed browser automation:
-- **Playwright Integration**: Spawns and controls Chrome/Chromium browsers
-- **Extension Bridge**: WebSocket server (port 9222) for extension communication
-- **Backend WebSocket**: Connects to `/api/agent/connect` for AI commands
-- **Full Browser Control**: Navigate, click, type, screenshot, scroll, forms
-- Commands: `navigate`, `click`, `type`, `screenshot`, `get_content`, `execute_script`, `wait`, `scroll`, `select`, `hover`, `fill_form`, `submit_form`, `keyboard`, tab management
-- Files: `src/index.js`, `src/agent-controller.js`, `src/extension-bridge.js`
-- Backend: `/api/agent/agents`, `/api/agent/command`, `/api/agent/task`
-
-### Desktop App (`desktop-app/`)
-Linux Electron application for running Meowstik locally (teaching tool):
-- **Electron Main Process**: Window management, system tray, native menus
-- **Backend Spawning**: Runs Express server as child process on port 5001
-- **IPC Bridge**: Secure communication between main and renderer processes
-- **Portability**: Code designed to run on Replit, Google Cloud, Colab, or local dev
-- **Vector Store Selection**: Auto-detects best backend (pgvector, Vertex AI, or memory)
-- Build targets: AppImage, .deb package
-- Files: `src/main.js`, `src/preload.js`, `package.json`
-
-## System Identity
-
-The system has two layers:
-1. **The Compiler** - True AI identity focused on self-evolution, knowledge synthesis, and life optimization
-2. **Meowstik** - Proof-of-concept persona providing user-friendly interface during platform development
-
-See `prompts/core-directives.md` for full identity and directives.
-
-## V2 Roadmap
-
-Forward-looking documentation is in `docs/v2-roadmap/`:
-- **MULTI_USER_ARCHITECTURE.md** - Per-user tokens, prompts, and message ownership
-- **GEMINI_LIVE_API_PROPOSAL.md** - Live API enhancements
-- **KERNEL_IMPLEMENTATION_PROPOSAL.md** - Core system improvements
-- **KNOWLEDGE_INGESTION_ARCHITECTURE.md** - Knowledge pipeline details
-- **TODO-FEATURES.md** - Feature wishlist
-- **VISIONS_OF_THE_FUTURE.md** - Long-term vision
-- **WORKFLOW-PROTOCOL.md** - Workflow orchestration
-
-## Pending Feature Reminders
-
-### Multi-Persona Voice (Priority)
-- Add emoji-delimited transcript markers for persona switching in Live Voice mode
-- Dynamic system instruction updates for persona personality changes

@@ -24,9 +24,13 @@ import { embeddingService } from "./embedding-service";
 // Supported file extensions for code analysis
 const CODE_EXTENSIONS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
-  ".py", ".rb", ".go", ".rs", ".java", ".kt",
+  ".py", ".rb", ".go", ".rs", ".java", ".kt", ".scala",
   ".c", ".h", ".cpp", ".hpp", ".cc", ".hh",  // C/C++ support
+  ".cs",  // C# support
   ".php", ".phtml",  // PHP support
+  ".swift",  // Swift support
+  ".vb", ".vbs", ".bas",  // Visual Basic support
+  ".lua",  // Lua support
   ".css", ".scss", ".less", ".html", ".vue", ".svelte",
   ".json", ".yaml", ".yml", ".toml", ".md", ".mdx",
   ".sql", ".sh", ".bash", ".zsh",
@@ -263,6 +267,38 @@ export class CodebaseAnalyzer {
     // PHP analysis
     else if ([".php", ".phtml"].includes(ext)) {
       this.extractPhpEntities(content, lines, relativePath, entities);
+    }
+    // Java/Kotlin analysis
+    else if ([".java", ".kt", ".scala"].includes(ext)) {
+      this.extractJavaEntities(content, lines, relativePath, entities);
+    }
+    // Go analysis
+    else if (ext === ".go") {
+      this.extractGoEntities(content, lines, relativePath, entities);
+    }
+    // Ruby analysis
+    else if (ext === ".rb") {
+      this.extractRubyEntities(content, lines, relativePath, entities);
+    }
+    // Rust analysis
+    else if (ext === ".rs") {
+      this.extractRustEntities(content, lines, relativePath, entities);
+    }
+    // C# analysis
+    else if (ext === ".cs") {
+      this.extractCSharpEntities(content, lines, relativePath, entities);
+    }
+    // Swift analysis
+    else if (ext === ".swift") {
+      this.extractSwiftEntities(content, lines, relativePath, entities);
+    }
+    // Visual Basic analysis
+    else if ([".vb", ".vbs", ".bas"].includes(ext)) {
+      this.extractVBEntities(content, lines, relativePath, entities);
+    }
+    // Lua analysis
+    else if (ext === ".lua") {
+      this.extractLuaEntities(content, lines, relativePath, entities);
     }
     // Generic extraction for other file types
     else {
@@ -655,6 +691,285 @@ export class CodebaseAnalyzer {
         file,
         line: this.getLineNumber(content, match.index),
       });
+    }
+  }
+
+  /**
+   * Extract entities from Java/Kotlin/Scala files
+   */
+  private extractJavaEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Class pattern
+    const classPattern = /(?:public|private|protected)?\s*(?:abstract|final|static)?\s*class\s+(\w+)/gm;
+    // Interface pattern
+    const interfacePattern = /(?:public|private|protected)?\s*interface\s+(\w+)/gm;
+    // Method pattern
+    const methodPattern = /(?:public|private|protected)?\s*(?:static|final|abstract|synchronized)?\s*(?:<[\w<>,\s]+>\s+)?(?:\w+(?:<[\w<>,\s?]+>)?)\s+(\w+)\s*\([^)]*\)\s*(?:throws\s+[\w,\s]+)?\s*\{/gm;
+    // Enum pattern
+    const enumPattern = /(?:public|private|protected)?\s*enum\s+(\w+)/gm;
+
+    let match;
+    while ((match = classPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = interfacePattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "interface", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = methodPattern.exec(content)) !== null) {
+      if (!["if", "while", "for", "switch", "catch"].includes(match[1])) {
+        entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+      }
+    }
+    while ((match = enumPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "enum", file, line: this.getLineNumber(content, match.index) });
+    }
+  }
+
+  /**
+   * Extract entities from Go files
+   */
+  private extractGoEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Function pattern: func name(...) or func (receiver) name(...)
+    const funcPattern = /func\s+(?:\([^)]+\)\s+)?(\w+)\s*\(/gm;
+    // Type/struct pattern: type Name struct/interface
+    const typePattern = /type\s+(\w+)\s+(?:struct|interface)/gm;
+
+    let match;
+    while ((match = funcPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = typePattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "struct", file, line: this.getLineNumber(content, match.index) });
+    }
+  }
+
+  /**
+   * Extract entities from Ruby files
+   */
+  private extractRubyEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Class pattern
+    const classPattern = /class\s+(\w+)(?:\s*<\s*\w+)?/gm;
+    // Module pattern
+    const modulePattern = /module\s+(\w+)/gm;
+    // Method pattern: def name or def self.name
+    const methodPattern = /def\s+(?:self\.)?(\w+[?!=]?)/gm;
+
+    let match;
+    while ((match = classPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = modulePattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = methodPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+    }
+  }
+
+  /**
+   * Extract entities from Rust files
+   */
+  private extractRustEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Function pattern: fn name or pub fn name
+    const fnPattern = /(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/gm;
+    // Struct pattern
+    const structPattern = /(?:pub\s+)?struct\s+(\w+)/gm;
+    // Enum pattern
+    const enumPattern = /(?:pub\s+)?enum\s+(\w+)/gm;
+    // Trait pattern
+    const traitPattern = /(?:pub\s+)?trait\s+(\w+)/gm;
+    // Impl pattern
+    const implPattern = /impl(?:<[^>]+>)?\s+(?:(\w+)\s+for\s+)?(\w+)/gm;
+
+    let match;
+    while ((match = fnPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = structPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "struct", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = enumPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "enum", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = traitPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "interface", file, line: this.getLineNumber(content, match.index) });
+    }
+  }
+
+  /**
+   * Extract entities from C# files
+   */
+  private extractCSharpEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Class pattern
+    const classPattern = /(?:public|private|protected|internal)?\s*(?:abstract|sealed|static|partial)?\s*class\s+(\w+)/gm;
+    // Interface pattern
+    const interfacePattern = /(?:public|private|protected|internal)?\s*interface\s+(\w+)/gm;
+    // Struct pattern
+    const structPattern = /(?:public|private|protected|internal)?\s*(?:readonly)?\s*struct\s+(\w+)/gm;
+    // Method pattern
+    const methodPattern = /(?:public|private|protected|internal)?\s*(?:static|virtual|override|abstract|async)?\s*(?:\w+(?:<[\w<>,\s]+>)?)\s+(\w+)\s*\([^)]*\)\s*(?:where\s+[\w:\s,]+)?\s*\{/gm;
+    // Enum pattern
+    const enumPattern = /(?:public|private|protected|internal)?\s*enum\s+(\w+)/gm;
+
+    let match;
+    while ((match = classPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = interfacePattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "interface", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = structPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "struct", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = methodPattern.exec(content)) !== null) {
+      if (!["if", "while", "for", "switch", "catch", "using", "lock"].includes(match[1])) {
+        entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+      }
+    }
+    while ((match = enumPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "enum", file, line: this.getLineNumber(content, match.index) });
+    }
+  }
+
+  /**
+   * Extract entities from Swift files
+   */
+  private extractSwiftEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Class pattern
+    const classPattern = /(?:public|private|internal|open|fileprivate)?\s*(?:final)?\s*class\s+(\w+)/gm;
+    // Struct pattern
+    const structPattern = /(?:public|private|internal|fileprivate)?\s*struct\s+(\w+)/gm;
+    // Protocol pattern
+    const protocolPattern = /(?:public|private|internal|fileprivate)?\s*protocol\s+(\w+)/gm;
+    // Enum pattern
+    const enumPattern = /(?:public|private|internal|fileprivate)?\s*enum\s+(\w+)/gm;
+    // Function pattern
+    const funcPattern = /(?:public|private|internal|open|fileprivate)?\s*(?:static|class|override)?\s*func\s+(\w+)/gm;
+
+    let match;
+    while ((match = classPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = structPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "struct", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = protocolPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "interface", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = enumPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "enum", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = funcPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+    }
+  }
+
+  /**
+   * Extract entities from Visual Basic files
+   */
+  private extractVBEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // VB keywords to skip
+    const vbKeywords = new Set(["public", "private", "friend", "protected", "end", "new", "get", "set", "let"]);
+    
+    // Class pattern - require Class keyword
+    const classPattern = /\bClass\s+(\w+)/gim;
+    // Module pattern
+    const modulePattern = /\bModule\s+(\w+)/gim;
+    // Interface pattern
+    const interfacePattern = /\bInterface\s+(\w+)/gim;
+    // Sub pattern
+    const subPattern = /\bSub\s+(\w+)/gim;
+    // Function pattern
+    const funcPattern = /\bFunction\s+(\w+)/gim;
+    // Property pattern
+    const propPattern = /\bProperty\s+(\w+)/gim;
+
+    let match;
+    while ((match = classPattern.exec(content)) !== null) {
+      if (!vbKeywords.has(match[1].toLowerCase())) {
+        entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+      }
+    }
+    while ((match = modulePattern.exec(content)) !== null) {
+      if (!vbKeywords.has(match[1].toLowerCase())) {
+        entities.push({ name: match[1], type: "class", file, line: this.getLineNumber(content, match.index) });
+      }
+    }
+    while ((match = interfacePattern.exec(content)) !== null) {
+      if (!vbKeywords.has(match[1].toLowerCase())) {
+        entities.push({ name: match[1], type: "interface", file, line: this.getLineNumber(content, match.index) });
+      }
+    }
+    while ((match = subPattern.exec(content)) !== null) {
+      if (!vbKeywords.has(match[1].toLowerCase())) {
+        entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+      }
+    }
+    while ((match = funcPattern.exec(content)) !== null) {
+      if (!vbKeywords.has(match[1].toLowerCase())) {
+        entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+      }
+    }
+    while ((match = propPattern.exec(content)) !== null) {
+      if (!vbKeywords.has(match[1].toLowerCase())) {
+        entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+      }
+    }
+  }
+
+  /**
+   * Extract entities from Lua files
+   */
+  private extractLuaEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Function patterns: function name() or local function name() or name = function()
+    const funcPattern = /(?:local\s+)?function\s+(\w+(?:\.\w+)*)\s*\(/gm;
+    const assignFuncPattern = /(\w+(?:\.\w+)*)\s*=\s*function\s*\(/gm;
+
+    let match;
+    while ((match = funcPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
+    }
+    while ((match = assignFuncPattern.exec(content)) !== null) {
+      entities.push({ name: match[1], type: "function", file, line: this.getLineNumber(content, match.index) });
     }
   }
 
