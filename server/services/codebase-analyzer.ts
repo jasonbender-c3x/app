@@ -26,6 +26,7 @@ const CODE_EXTENSIONS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
   ".py", ".rb", ".go", ".rs", ".java", ".kt",
   ".c", ".h", ".cpp", ".hpp", ".cc", ".hh",  // C/C++ support
+  ".php", ".phtml",  // PHP support
   ".css", ".scss", ".less", ".html", ".vue", ".svelte",
   ".json", ".yaml", ".yml", ".toml", ".md", ".mdx",
   ".sql", ".sh", ".bash", ".zsh",
@@ -258,6 +259,10 @@ export class CodebaseAnalyzer {
     // Bash/Shell analysis
     else if ([".sh", ".bash", ".zsh"].includes(ext)) {
       this.extractBashEntities(content, lines, relativePath, entities);
+    }
+    // PHP analysis
+    else if ([".php", ".phtml"].includes(ext)) {
+      this.extractPhpEntities(content, lines, relativePath, entities);
     }
     // Generic extraction for other file types
     else {
@@ -586,6 +591,70 @@ export class CodebaseAnalyzer {
           line: this.getLineNumber(content, structMatch.index),
         });
       }
+    }
+  }
+
+  /**
+   * Extract entities from PHP files
+   */
+  private extractPhpEntities(
+    content: string,
+    lines: string[],
+    file: string,
+    entities: CodeEntity[]
+  ): void {
+    // Function pattern: function name(...) or public/private/protected function name(...)
+    const functionPattern = /(?:public|private|protected|static|\s)*function\s+(\w+)\s*\(/gm;
+    
+    // Class pattern: class Name or abstract class Name
+    const classPattern = /(?:abstract\s+|final\s+)?class\s+(\w+)(?:\s+extends\s+\w+)?(?:\s+implements\s+[\w,\s]+)?/gm;
+    
+    // Interface pattern
+    const interfacePattern = /interface\s+(\w+)(?:\s+extends\s+[\w,\s]+)?/gm;
+    
+    // Trait pattern
+    const traitPattern = /trait\s+(\w+)/gm;
+
+    let match;
+
+    // Extract functions
+    while ((match = functionPattern.exec(content)) !== null) {
+      entities.push({
+        name: match[1],
+        type: "function",
+        file,
+        line: this.getLineNumber(content, match.index),
+      });
+    }
+
+    // Extract classes
+    while ((match = classPattern.exec(content)) !== null) {
+      entities.push({
+        name: match[1],
+        type: "class",
+        file,
+        line: this.getLineNumber(content, match.index),
+      });
+    }
+
+    // Extract interfaces
+    while ((match = interfacePattern.exec(content)) !== null) {
+      entities.push({
+        name: match[1],
+        type: "interface",
+        file,
+        line: this.getLineNumber(content, match.index),
+      });
+    }
+
+    // Extract traits (as classes for now)
+    while ((match = traitPattern.exec(content)) !== null) {
+      entities.push({
+        name: match[1],
+        type: "class",
+        file,
+        line: this.getLineNumber(content, match.index),
+      });
     }
   }
 
