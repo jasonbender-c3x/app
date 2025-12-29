@@ -59,6 +59,9 @@ interface SessionState {
   controlling: "user" | "ai" | "shared";
   audioEnabled: boolean;
   aiVisionEnabled: boolean;
+  sessionId: string | null;
+  token: string | null;
+  agentConnected: boolean;
 }
 
 export default function CollaboratePage() {
@@ -69,6 +72,9 @@ export default function CollaboratePage() {
     controlling: "shared",
     audioEnabled: true,
     aiVisionEnabled: true,
+    sessionId: null,
+    token: null,
+    agentConnected: false,
   });
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -85,6 +91,7 @@ export default function CollaboratePage() {
   const [copied, setCopied] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -94,37 +101,153 @@ export default function CollaboratePage() {
     scrollToBottom();
   }, [messages]);
 
-  const startHeadlessBrowser = async () => {
-    toast({ title: "Starting headless browser...", description: "Connecting to Browserbase" });
+  const createSession = async (): Promise<{ sessionId: string; token: string } | null> => {
+    try {
+      const response = await fetch("/api/desktop/sessions", { method: "POST" });
+      if (!response.ok) throw new Error("Failed to create session");
+      const data = await response.json();
+      return { sessionId: data.sessionId, token: data.token };
+    } catch (error) {
+      console.error("Failed to create session:", error);
+      toast({ title: "Failed to create session", variant: "destructive" });
+      return null;
+    }
+  };
+
+  const connectWebSocket = (sessionId: string) => {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws/desktop/browser/${sessionId}`;
     
-    setSession(prev => ({ ...prev, connected: true, mode: "headless" }));
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log("[Collaborate] WebSocket connected");
+      setSession(prev => ({ ...prev, connected: true }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        
+        switch (message.type) {
+          case "session_status":
+            setSession(prev => ({
+              ...prev,
+              agentConnected: message.data.agentConnected,
+              controlling: message.data.controlling,
+              aiVisionEnabled: message.data.aiVisionEnabled,
+              audioEnabled: message.data.audioEnabled,
+            }));
+            break;
+          case "agent_connected":
+            setSession(prev => ({ ...prev, agentConnected: true }));
+            setMessages(prev => [...prev, {
+              id: Date.now().toString(),
+              role: "system",
+              content: `Desktop agent connected: ${message.data?.systemInfo?.hostname || "Unknown"} (${message.data?.systemInfo?.platform || "Unknown"})`,
+              timestamp: new Date(),
+            }]);
+            break;
+          case "agent_disconnected":
+            setSession(prev => ({ ...prev, agentConnected: false }));
+            setMessages(prev => [...prev, {
+              id: Date.now().toString(),
+              role: "system",
+              content: "Desktop agent disconnected.",
+              timestamp: new Date(),
+            }]);
+            break;
+          case "frame":
+            break;
+          case "control_changed":
+            setSession(prev => ({ ...prev, controlling: message.data.controlling }));
+            break;
+        }
+      } catch (error) {
+        console.error("Failed to parse WebSocket message:", error);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log("[Collaborate] WebSocket disconnected");
+    };
+
+    ws.onerror = (error) => {
+      console.error("[Collaborate] WebSocket error:", error);
+    };
+  };
+
+  const startHeadlessBrowser = async () => {
+    toast({ title: "Starting headless browser...", description: "Creating session" });
+    
+    const sessionData = await createSession();
+    if (!sessionData) return;
+
+    setSession(prev => ({ 
+      ...prev, 
+      mode: "headless",
+      sessionId: sessionData.sessionId,
+      token: sessionData.token,
+    }));
+    
+    connectWebSocket(sessionData.sessionId);
+    
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
       role: "system",
-      content: "Headless browser started. The AI can now see and interact with the browser. You can monitor the screen and chat with the AI.",
+      content: "Headless browser session created. The AI can now see and interact with the browser. You can monitor the screen and chat with the AI.",
       timestamp: new Date(),
     }]);
   };
 
   const connectDesktop = async () => {
-    if (!desktopHost) {
-      toast({ title: "Enter desktop agent address", variant: "destructive" });
-      return;
-    }
+    toast({ title: "Creating desktop session...", description: "Generating session token" });
     
-    toast({ title: "Connecting to desktop...", description: `Connecting to ${desktopHost}` });
+    const sessionData = await createSession();
+    if (!sessionData) return;
+
+    setSession(prev => ({ 
+      ...prev, 
+      mode: "desktop",
+      sessionId: sessionData.sessionId,
+      token: sessionData.token,
+    }));
     
-    setSession(prev => ({ ...prev, connected: true, mode: "desktop" }));
+    connectWebSocket(sessionData.sessionId);
+    
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
       role: "system",
-      content: `Connected to desktop at ${desktopHost}. Both you and the AI can see and control the desktop. Audio is being shared.`,
+      content: `Desktop session created. Run this command on your computer to connect:\n\nnpx meowstik-agent --token ${sessionData.token}`,
       timestamp: new Date(),
     }]);
   };
 
-  const disconnect = () => {
-    setSession({ connected: false, mode: null, controlling: "shared", audioEnabled: true, aiVisionEnabled: true });
+  const disconnect = async () => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    
+    if (session.sessionId) {
+      try {
+        await fetch(`/api/desktop/sessions/${session.sessionId}`, { method: "DELETE" });
+      } catch (error) {
+        console.error("Failed to delete session:", error);
+      }
+    }
+    
+    setSession({ 
+      connected: false, 
+      mode: null, 
+      controlling: "shared", 
+      audioEnabled: true, 
+      aiVisionEnabled: true,
+      sessionId: null,
+      token: null,
+      agentConnected: false,
+    });
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
       role: "system",

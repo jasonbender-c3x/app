@@ -248,6 +248,15 @@ app.use((req, res, next) => {
   setupAgentWebSocket(httpServer);
 
   /**
+   * SETUP DESKTOP COLLABORATION WEBSOCKET
+   * --------------------------------------
+   * Initialize WebSocket server for AI Desktop Collaboration.
+   * Handles bidirectional screen sharing and input routing.
+   */
+  const { setupDesktopWebSocket } = await import("./websocket-desktop");
+  setupDesktopWebSocket(httpServer);
+
+  /**
    * INITIALIZE GOOGLE OAUTH TOKENS (NON-BLOCKING)
    * ----------------------------------------------
    * Load any persisted Google OAuth tokens from the database.
