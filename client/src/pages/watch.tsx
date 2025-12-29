@@ -6,6 +6,7 @@ import { Link } from "wouter";
 import watchHeroImage from "@assets/generated_images/watch_hero_banner_with_ai_features.png";
 import watchChatImage from "@assets/generated_images/smartwatch_with_ai_chat_interface.png";
 import watchVoiceImage from "@assets/generated_images/watch_voice_command_interface.png";
+import watchCollabImage from "@assets/generated_images/watch_and_laptop_collaborative_editing.png";
 
 export default function WatchPage() {
   const features = [
@@ -144,6 +145,23 @@ export default function WatchPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden border border-primary/30">
+              <img 
+                src={watchCollabImage} 
+                alt="Real-time collaborative editing with watch and laptop" 
+                className="w-full h-56 md:h-72 object-cover"
+                data-testid="img-watch-collab"
+              />
+              <div className="p-6 bg-gradient-to-br from-primary/10 to-primary/5">
+                <h3 className="text-xl font-semibold mb-2">Real-Time Collaborative Editing</h3>
+                <p className="text-muted-foreground">
+                  Carry on a live conversation with Meowstik from your watch while editing files on your laptop. 
+                  Voice commands flow seamlessly to your code editor — dictate changes, ask questions about your code, 
+                  or get AI suggestions without touching the keyboard.
+                </p>
               </div>
             </div>
 
