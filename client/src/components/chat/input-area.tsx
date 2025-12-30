@@ -913,7 +913,7 @@ export function ChatInputArea({ onSend, isLoading, promptHistory = [] }: InputAr
                 onClick={handleScreenshotSend}
                 disabled={isLoading}
                 size="icon"
-                className="h-9 w-9 rounded-full transition-all duration-300 bg-amber-500 text-white shadow-lg shadow-amber-500/25 hover:bg-amber-600"
+                className="h-9 w-9 rounded-full transition-colors text-muted-foreground hover:text-primary hover:bg-primary/10"
                 data-testid="button-screenshot-send"
                 title="Capture screenshot and send"
               >
