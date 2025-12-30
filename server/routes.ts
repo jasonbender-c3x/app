@@ -897,6 +897,8 @@ export async function registerRoutes(
             }
 
             // If this is say, stream the audio for playback
+            // NOTE: Do NOT add utterance to cleanContentForStorage - send_chat handles text storage
+            // The say tool is only for audio output, not text storage
             if (toolCall.type === "say" && toolResult.success && toolResult.result) {
               const sayResult = toolResult.result as { 
                 utterance?: string; 
@@ -910,8 +912,6 @@ export async function registerRoutes(
                 error?: string;
               };
               if (sayResult.utterance) {
-                // Store utterance as content for the message
-                cleanContentForStorage += sayResult.utterance;
                 // Stream speech event to client with audio data if generated
                 res.write(`data: ${JSON.stringify({ 
                   speech: {
