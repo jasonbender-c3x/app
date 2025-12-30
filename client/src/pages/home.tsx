@@ -512,6 +512,7 @@ export default function Home() {
       let buffer = '';
       let streamMetadata: any = null;
       let hdAudioPlayed = false; // Track if HD audio was played via say tool
+      let cleanContentForTTS = ''; // Track clean extracted content from send_chat for browser TTS
 
       // Read the stream until done
       while (true) {
@@ -625,6 +626,10 @@ export default function Home() {
                       if (content && !aiMessageContent.includes(content)) {
                         aiMessageContent = content;
                       }
+                      // Track clean content for browser TTS (avoid speaking raw JSON)
+                      if (content) {
+                        cleanContentForTTS = content;
+                      }
                     }
                     
                     // Handle file_put tool - save to editor when destination is 'editor'
@@ -678,8 +683,12 @@ export default function Home() {
               if (data.done) {
                 setIsLoading(false);
                 // Only use browser TTS if HD audio wasn't already played and verbosity allows
-                if (aiMessageContent && !hdAudioPlayed && shouldPlayBrowserTTS()) {
-                  speak(aiMessageContent);
+                // Use cleanContentForTTS (from send_chat) to avoid speaking raw JSON
+                const textToSpeak = cleanContentForTTS || aiMessageContent;
+                // Skip speaking if content looks like raw JSON (starts with { or [)
+                const isRawJson = textToSpeak.trim().startsWith('{') || textToSpeak.trim().startsWith('[');
+                if (textToSpeak && !hdAudioPlayed && shouldPlayBrowserTTS() && !isRawJson) {
+                  speak(textToSpeak);
                 }
                 // Get actual stored messages with real IDs
                 const updatedMessages = await loadChatMessages(chatId);
