@@ -3,7 +3,7 @@
  * ║                     TTS-CONTEXT.TSX - TEXT-TO-SPEECH CONTEXT                  ║
  * ║                                                                               ║
  * ║  Provides app-wide text-to-speech functionality with:                         ║
- * ║    - Verbosity mode (muse/quiet/verbose/experimental)                         ║
+ * ║    - Verbosity mode (mute/quiet/verbose/experimental)                         ║
  * ║    - Speak function using Google Gemini TTS                                   ║
  * ║    - Persistent verbosity preference in localStorage                          ║
  * ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -13,12 +13,12 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, Re
 
 /**
  * Verbosity Modes:
- * - muse: Silent - no speech output at all
+ * - mute: Silent - no speech output at all
  * - quiet: Only speak "say" tool output (HD audio)
  * - verbose: Speak full chat responses (browser TTS for text, HD for say tool)
  * - experimental: Multi-voice TTS (future - different voices per speaker)
  */
-export type VerbosityMode = "muse" | "quiet" | "verbose" | "experimental";
+export type VerbosityMode = "mute" | "quiet" | "verbose" | "experimental";
 
 interface TTSContextValue {
   verbosityMode: VerbosityMode;
@@ -44,7 +44,7 @@ export function TTSProvider({ children }: { children: ReactNode }) {
   const [verbosityMode, setVerbosityModeState] = useState<VerbosityMode>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem(VERBOSITY_STORAGE_KEY);
-      if (saved && ["muse", "quiet", "verbose", "experimental"].includes(saved)) {
+      if (saved && ["mute", "quiet", "verbose", "experimental"].includes(saved)) {
         return saved as VerbosityMode;
       }
     }
@@ -75,12 +75,12 @@ export function TTSProvider({ children }: { children: ReactNode }) {
 
   // On mount: sync mute state with verbosity mode to clear any stale legacy mute flags
   useEffect(() => {
-    if (verbosityMode !== "muse" && isMuted) {
-      // User previously had mute enabled, but now using a non-muse mode
+    if (verbosityMode !== "mute" && isMuted) {
+      // User previously had mute enabled, but now using a non-mute mode
       // Clear the mute flag so audio can play
       setIsMutedState(false);
-    } else if (verbosityMode === "muse" && !isMuted) {
-      // Muse mode should always be muted
+    } else if (verbosityMode === "mute" && !isMuted) {
+      // Mute mode should always be muted
       setIsMutedState(true);
     }
   }, []); // Only run on mount
@@ -104,11 +104,11 @@ export function TTSProvider({ children }: { children: ReactNode }) {
     setVerbosityModeState(mode);
     
     // Sync mute state with verbosity mode:
-    // - Muse mode = muted (no audio)
+    // - Mute mode = muted (no audio)
     // - All other modes = unmuted (audio allowed based on mode rules)
-    if (mode === "muse") {
+    if (mode === "mute") {
       setIsMutedState(true);
-      // Stop any active speech when switching to muse
+      // Stop any active speech when switching to mute
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
@@ -120,19 +120,19 @@ export function TTSProvider({ children }: { children: ReactNode }) {
       setIsSpeaking(false);
       setIsUsingBrowserTTS(false);
     } else {
-      // Clear the legacy mute flag for non-muse modes
+      // Clear the legacy mute flag for non-mute modes
       setIsMutedState(false);
     }
   }, []);
 
   // Helper: Should HD audio from "say" tool be played?
-  // Play in: quiet, verbose, experimental (NOT in muse)
+  // Play in: quiet, verbose, experimental (NOT in mute)
   const shouldPlayHDAudio = useCallback(() => {
-    return !isMuted && verbosityMode !== "muse";
+    return !isMuted && verbosityMode !== "mute";
   }, [isMuted, verbosityMode]);
 
   // Helper: Should browser TTS speak the chat response?
-  // Only in verbose and experimental modes (NOT in muse or quiet)
+  // Only in verbose and experimental modes (NOT in mute or quiet)
   const shouldPlayBrowserTTS = useCallback(() => {
     return !isMuted && (verbosityMode === "verbose" || verbosityMode === "experimental");
   }, [isMuted, verbosityMode]);

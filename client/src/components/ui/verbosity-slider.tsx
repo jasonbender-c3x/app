@@ -2,7 +2,7 @@
  * VerbositySlider - Controls voice output level
  * 
  * 4 Modes:
- * - Muse: Silent (no audio)
+ * - Mute: Silent (no audio)
  * - Quiet: Only "say" tool output (HD audio)
  * - Verbose: Full chat TTS (browser TTS + HD)
  * - Experimental: Multi-voice (future)
@@ -14,7 +14,7 @@ import { motion } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const modes: { id: VerbosityMode; icon: React.ReactNode; label: string; description: string }[] = [
-  { id: "muse", icon: <VolumeX className="h-4 w-4" />, label: "Muse", description: "Silent - no voice output" },
+  { id: "mute", icon: <VolumeX className="h-4 w-4" />, label: "Mute", description: "Silent - no voice output" },
   { id: "quiet", icon: <Volume1 className="h-4 w-4" />, label: "Quiet", description: "Only speak when I use my voice" },
   { id: "verbose", icon: <Volume2 className="h-4 w-4" />, label: "Verbose", description: "Speak all responses" },
   { id: "experimental", icon: <Sparkles className="h-4 w-4" />, label: "Expressive", description: "Multi-voice (experimental)" },

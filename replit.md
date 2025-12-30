@@ -64,7 +64,7 @@ See `docs/v2-roadmap/MASTER-ROADMAP.md` for the consolidated roadmap (13 priorit
 
 ### Verbosity Slider
 4-mode voice output control in chat header:
-- **Muse:** Silent - no audio output at all
+- **Mute:** Silent - no audio output at all
 - **Quiet:** Only play HD audio from `say` tool (voice-on-demand)
 - **Verbose:** Speak all chat responses (browser TTS + HD audio)
 - **Experimental:** Multi-voice TTS (future feature)
