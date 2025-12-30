@@ -54,6 +54,8 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initializeFromDatabase } from "./integrations/google-auth";
 import { logBuffer } from "./services/log-buffer";
+import fs from "fs";
+import path from "path";
 
 /**
  * CREATE EXPRESS APPLICATION
@@ -291,6 +293,17 @@ app.use((req, res, next) => {
     // Re-throw to ensure error is logged/tracked
     throw err;
   });
+
+  /**
+   * STATIC WWW DIRECTORY
+   * --------------------
+   * Serve the www/ directory at /www route for static landing pages.
+   * This runs in both development and production modes.
+   */
+  const wwwPath = path.resolve(process.cwd(), "www");
+  if (fs.existsSync(wwwPath)) {
+    app.use("/www", express.static(wwwPath));
+  }
 
   /**
    * ENVIRONMENT-SPECIFIC STATIC FILE SERVING

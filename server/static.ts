@@ -4,12 +4,20 @@ import path from "path";
 
 export function serveStatic(app: Express) {
   const distPath = path.resolve(__dirname, "public");
+  const wwwPath = path.resolve(process.cwd(), "www");
+  
   if (!fs.existsSync(distPath)) {
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`,
     );
   }
 
+  // Serve www/ static files at /www route
+  if (fs.existsSync(wwwPath)) {
+    app.use("/www", express.static(wwwPath));
+  }
+
+  // Serve built React app
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meowstik - AI Chat Interface</title>
+    <meta name="description" content="Meowstik is an AI chat interface powered by Google Generative AI with comprehensive Google Workspace integration.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --bg-card: #1f1f1f;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1aa;
+            --accent: #8b5cf6;
+            --accent-glow: rgba(139, 92, 246, 0.3);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+        
+        /* Header */
+        header {
+            padding: 24px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+        
+        .logo img {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+        }
+        
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 32px;
+        }
+        
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+        
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+        
+        .btn-launch {
+            background: var(--accent);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn-launch:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px var(--accent-glow);
+        }
+        
+        /* Hero */
+        .hero {
+            padding: 100px 0;
+            text-align: center;
+        }
+        
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+        
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+        }
+        
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            padding: 10px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: background 0.2s;
+        }
+        
+        .btn-secondary:hover {
+            background: var(--bg-secondary);
+        }
+        
+        /* Exhibits Section */
+        .exhibits {
+            padding: 80px 0;
+        }
+        
+        .section-title {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 48px;
+            text-align: center;
+        }
+        
+        .exhibits-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+        }
+        
+        .exhibit-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 24px;
+            transition: transform 0.2s, border-color 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        
+        .exhibit-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent);
+        }
+        
+        .exhibit-category {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+        
+        .exhibit-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .exhibit-desc {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        
+        /* Features */
+        .features {
+            padding: 80px 0;
+            background: var(--bg-secondary);
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 32px;
+        }
+        
+        .feature {
+            text-align: center;
+        }
+        
+        .feature-icon {
+            width: 64px;
+            height: 64px;
+            background: var(--accent-glow);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 1.5rem;
+        }
+        
+        .feature h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+        
+        .feature p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        
+        /* Footer */
+        footer {
+            padding: 48px 0;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+        }
+        
+        .footer-links {
+            display: flex;
+            gap: 32px;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+        
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        
+        .footer-links a:hover {
+            color: var(--text-primary);
+        }
+        
+        .copyright {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            
+            .nav-links {
+                display: none;
+            }
+            
+            .hero-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container header-content">
+            <a href="/" class="logo">
+                <img src="/assets/logo.png" alt="Meowstik" onerror="this.style.display='none'">
+                <span class="logo-text">Meowstik</span>
+            </a>
+            <nav class="nav-links">
+                <a href="#exhibits">Exhibits</a>
+                <a href="#features">Features</a>
+                <a href="https://github.com" target="_blank">GitHub</a>
+            </nav>
+            <a href="/" class="btn-launch">Launch App</a>
+        </div>
+    </header>
+    
+    <section class="hero">
+        <div class="container">
+            <h1>Your AI-Powered Workspace</h1>
+            <p>Meowstik is a conversational AI interface with Google Workspace integration, code editing, and self-evolving capabilities.</p>
+            <div class="hero-buttons">
+                <a href="/" class="btn-launch">Get Started</a>
+                <a href="#exhibits" class="btn-secondary">View Documentation</a>
+            </div>
+        </div>
+    </section>
+    
+    <section class="exhibits" id="exhibits">
+        <div class="container">
+            <h2 class="section-title">Documentation & Exhibits</h2>
+            <div class="exhibits-grid">
+                <a href="/docs/MASTER-ROADMAP" class="exhibit-card">
+                    <div class="exhibit-category">Roadmap</div>
+                    <div class="exhibit-title">Master Roadmap</div>
+                    <div class="exhibit-desc">13-item prioritized roadmap consolidated from 245 extracted ideas.</div>
+                </a>
+                <a href="/docs/SYSTEM_OVERVIEW" class="exhibit-card">
+                    <div class="exhibit-category">Architecture</div>
+                    <div class="exhibit-title">System Overview</div>
+                    <div class="exhibit-desc">Complete technical architecture and system design documentation.</div>
+                </a>
+                <a href="/docs/COMPREHENSIVE_VISION" class="exhibit-card">
+                    <div class="exhibit-category">Vision</div>
+                    <div class="exhibit-title">Comprehensive Vision</div>
+                    <div class="exhibit-desc">The full vision for a Natural Language Computer architecture.</div>
+                </a>
+                <a href="/docs/KNOWLEDGE_INGESTION_ARCHITECTURE" class="exhibit-card">
+                    <div class="exhibit-category">Technical</div>
+                    <div class="exhibit-title">Knowledge Ingestion</div>
+                    <div class="exhibit-desc">Multimodal pipeline for domain-specific knowledge processing.</div>
+                </a>
+                <a href="/docs/RAG_PIPELINE" class="exhibit-card">
+                    <div class="exhibit-category">Technical</div>
+                    <div class="exhibit-title">RAG Pipeline</div>
+                    <div class="exhibit-desc">Retrieval-Augmented Generation architecture and implementation.</div>
+                </a>
+                <a href="/docs/KERNEL_IMPLEMENTATION_PROPOSAL" class="exhibit-card">
+                    <div class="exhibit-category">Proposal</div>
+                    <div class="exhibit-title">Kernel Implementation</div>
+                    <div class="exhibit-desc">Proposal for kernel-level directives and agentic operation.</div>
+                </a>
+                <a href="/docs/FEATURES" class="exhibit-card">
+                    <div class="exhibit-category">Reference</div>
+                    <div class="exhibit-title">Features</div>
+                    <div class="exhibit-desc">Complete list of implemented and planned features.</div>
+                </a>
+                <a href="/docs/VISIONS_OF_THE_FUTURE" class="exhibit-card">
+                    <div class="exhibit-category">Vision</div>
+                    <div class="exhibit-title">Visions of the Future</div>
+                    <div class="exhibit-desc">Long-term goals and aspirations for the Meowstik project.</div>
+                </a>
+            </div>
+        </div>
+    </section>
+    
+    <section class="features" id="features">
+        <div class="container">
+            <h2 class="section-title">Key Features</h2>
+            <div class="features-grid">
+                <div class="feature">
+                    <div class="feature-icon">🤖</div>
+                    <h3>Gemini AI</h3>
+                    <p>Powered by Google's latest Gemini models for intelligent conversations.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">📧</div>
+                    <h3>Workspace Integration</h3>
+                    <p>Connect Gmail, Calendar, Drive, Docs, Sheets, and Tasks.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">💻</div>
+                    <h3>Code Editor</h3>
+                    <p>Monaco-powered editor with live preview for HTML/CSS/JS.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🎤</div>
+                    <h3>Voice Mode</h3>
+                    <p>Live voice conversations with Gemini's expressive TTS.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🧠</div>
+                    <h3>RAG Memory</h3>
+                    <p>Conversation memory with semantic retrieval for context.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Self-Evolving</h3>
+                    <p>AI analyzes feedback and suggests improvements via PRs.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <footer>
+        <div class="container">
+            <div class="footer-links">
+                <a href="/">Launch App</a>
+                <a href="#exhibits">Documentation</a>
+                <a href="https://github.com" target="_blank">GitHub</a>
+            </div>
+            <p class="copyright">&copy; 2025 Jason Bender. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>
