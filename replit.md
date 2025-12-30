@@ -107,6 +107,16 @@ Stored in `localStorage` with key `meowstik-verbosity-mode`. Uses `tts-context.t
   - Token-based pairing with desktop relay service
 - **Desktop App:** Linux Electron application for running Meowstik locally, spawning the Express server, and providing an IPC bridge.
 
+### Job Orchestration System
+Multi-worker job processing with DAG-based dependency resolution:
+- **Database Tables:** `agent_jobs` (priority, dependencies, status), `job_results` (outputs, token usage), `agent_workers` (pool health)
+- **JobQueue Service:** pg-boss backed queue with priority scheduling (0=highest), auto-retries, expiration
+- **AgentWorker Service:** Gemini 2.5 Flash/Pro executor with token tracking and heartbeat
+- **WorkerPool Service:** Spawns/maintains min/max workers, health checks, auto-restart
+- **DependencyResolver Service:** DAG resolution, topological sort, cycle detection, result aggregation
+- **JobDispatcher Service:** Coordinates queue, pool, and resolver; dispatches ready jobs
+- **API Routes:** `/api/jobs` for submission, status, results; `/api/jobs/workflow` for composite jobs
+
 ## External Dependencies
 
 - **Google Workspace Services (via `googleapis`):** Google Drive, Gmail, Google Calendar, Google Docs, Google Sheets, Google Tasks, Google Contacts.

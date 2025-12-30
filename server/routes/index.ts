@@ -25,6 +25,7 @@ import liveRouter from "./live";
 import desktopRouter from "./desktop";
 import computerUseRouter from "./computer-use";
 import collabRouter from "./collab";
+import jobsRouter from "./jobs";
 import { errorHandler } from "./middleware";
 
 export function createApiRouter(): Router {
@@ -56,6 +57,7 @@ export function createApiRouter(): Router {
   router.use("/desktop", desktopRouter);
   router.use("/computer-use", computerUseRouter);
   router.use("/collab", collabRouter);
+  router.use("/jobs", jobsRouter);
 
   router.use(errorHandler);
 
