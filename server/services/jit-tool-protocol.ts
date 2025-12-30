@@ -49,11 +49,11 @@ const ALL_TOOLS: ToolDef[] = [
   { name: "say", params: "utterance:string, voiceId?, style?", category: "voice" },
   { name: "debug_echo", params: "message:string", category: "general" },
   
-  // === FILE (5) ===
-  { name: "file_get", params: "path:string", category: "file" },
-  { name: "file_put", params: "path:string, content:string", category: "file" },
+  // === FILE (5) - Paths support prefixes: server: (default), client:, editor: ===
+  { name: "file_get", params: "path:string (prefix: server:, client:, editor:)", category: "file" },
+  { name: "file_put", params: "path:string (prefix: server:, client:, editor:), content:string", category: "file" },
   { name: "file_ingest", params: "path:string", category: "file" },
-  { name: "terminal_execute", params: "command:string, timeout?:number", category: "file" },
+  { name: "terminal_execute", params: "command:string (prefix: server:, client:), timeout?:number", category: "file" },
   { name: "editor_load", params: "path:string", category: "file" },
   
   // === EMAIL (4) ===
@@ -164,7 +164,18 @@ All tools use this JSON structure:
 }
 \`\`\`
 
-Example (any tool):
+## Path Prefix Routing (file_get, file_put, terminal_execute)
+- \`server:path\` or just \`path\` → Server filesystem (Replit workspace, default)
+- \`client:/path\` → Client machine via desktop-app (user's computer)
+- \`editor:filename\` → Monaco editor canvas (for live editing)
+
+Examples:
+- \`{"type": "file_get", "id": "f1", "parameters": {"path": "package.json"}}\` → reads from server
+- \`{"type": "file_get", "id": "f2", "parameters": {"path": "client:/home/user/file.txt"}}\` → reads from user's computer
+- \`{"type": "file_put", "id": "f3", "parameters": {"path": "editor:app.tsx", "content": "..."}}\` → saves to editor
+- \`{"type": "terminal_execute", "id": "t1", "parameters": {"command": "client:ls -la"}}\` → runs on user's computer
+
+Example (general):
 \`\`\`json
 {"type": "gmail_send", "id": "e1", "parameters": {"to": "user@example.com", "subject": "Hello", "body": "Message"}}
 \`\`\``;

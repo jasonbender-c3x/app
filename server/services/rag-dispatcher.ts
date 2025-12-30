@@ -99,6 +99,8 @@ interface ParsedPath {
 /**
  * Parse a path with prefix routing
  * Returns the target (server/client/editor) and the clean path
+ * 
+ * Throws error for invalid prefixes (e.g., client: with no path)
  */
 function parsePathPrefix(rawPath: string, defaultTarget: PathTarget = 'server'): ParsedPath {
   if (!rawPath) return { target: defaultTarget, path: '' };
@@ -108,31 +110,51 @@ function parsePathPrefix(rawPath: string, defaultTarget: PathTarget = 'server'):
     const afterEditor = rawPath.substring('editor:'.length);
     
     if (afterEditor.startsWith('client:')) {
+      const clientPath = afterEditor.substring('client:'.length);
+      if (!clientPath || clientPath.trim() === '') {
+        throw new Error('editor:client: requires a path (e.g., editor:client:/home/user/file.txt)');
+      }
       return { 
         target: 'editor', 
-        path: afterEditor.substring('client:'.length),
+        path: clientPath,
         editorSubTarget: 'client'
       };
     }
     if (afterEditor.startsWith('server:')) {
+      const serverPath = afterEditor.substring('server:'.length);
+      if (!serverPath || serverPath.trim() === '') {
+        throw new Error('editor:server: requires a path (e.g., editor:server:src/index.ts)');
+      }
       return { 
         target: 'editor', 
-        path: afterEditor.substring('server:'.length),
+        path: serverPath,
         editorSubTarget: 'server'
       };
     }
-    // Default: editor with server source
-    return { target: 'editor', path: afterEditor, editorSubTarget: 'server' };
+    // editor: without sub-target - path is filename for editor canvas
+    // This is for writing directly to editor, no source file needed
+    if (!afterEditor || afterEditor.trim() === '') {
+      throw new Error('editor: requires a filename (e.g., editor:app.tsx)');
+    }
+    return { target: 'editor', path: afterEditor, editorSubTarget: undefined };
   }
   
   // Handle client: prefix
   if (rawPath.startsWith('client:')) {
-    return { target: 'client', path: rawPath.substring('client:'.length) };
+    const clientPath = rawPath.substring('client:'.length);
+    if (!clientPath || clientPath.trim() === '') {
+      throw new Error('client: requires a path (e.g., client:/home/user/file.txt)');
+    }
+    return { target: 'client', path: clientPath };
   }
   
   // Handle explicit server: prefix
   if (rawPath.startsWith('server:')) {
-    return { target: 'server', path: rawPath.substring('server:'.length) };
+    const serverPath = rawPath.substring('server:'.length);
+    if (!serverPath || serverPath.trim() === '') {
+      throw new Error('server: requires a path (e.g., server:package.json)');
+    }
+    return { target: 'server', path: serverPath };
   }
   
   // No prefix = default target
