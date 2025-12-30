@@ -14,7 +14,8 @@
  */
 
 import { storage } from "../storage";
-import { type Schedule, type InsertQueuedTask } from "@shared/schema";
+import { type Schedule } from "@shared/schema";
+import { workflowExecutor } from "./workflow-executor";
 
 // Cron field positions
 const MINUTE = 0;
@@ -144,22 +145,24 @@ class CronScheduler {
           priority?: number;
         }>;
         
-        await storage.createQueuedTasks(
+        // Use the new job system via workflowExecutor
+        await workflowExecutor.submitWorkflow(
+          workflow.name,
           steps.map((step, idx) => ({
             title: step.title,
-            description: step.description || null,
+            description: step.description,
             taskType: step.taskType || "action",
             priority: step.priority ?? (steps.length - idx),
-            input: { scheduledBy: schedule.id, scheduleName: schedule.name },
-            workflowId: workflow.id
-          }))
+            input: { scheduledBy: schedule.id, scheduleName: schedule.name }
+          })),
+          "sequential"
         );
         
         return;
       }
     }
     
-    // Create task from template
+    // Create task from template using the new job system
     const template = schedule.taskTemplate as {
       title: string;
       description?: string;
@@ -168,9 +171,9 @@ class CronScheduler {
       input?: Record<string, unknown>;
     };
     
-    await storage.createQueuedTask({
+    await workflowExecutor.submitTask({
       title: template.title,
-      description: template.description || null,
+      description: template.description,
       taskType: template.taskType || "action",
       priority: template.priority || 5,
       input: {

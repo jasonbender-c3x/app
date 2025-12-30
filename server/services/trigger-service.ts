@@ -14,7 +14,7 @@
  */
 
 import { storage } from "../storage";
-import { type Trigger, type InsertQueuedTask, TriggerTypes } from "@shared/schema";
+import { type Trigger, TriggerTypes } from "@shared/schema";
 import { workflowExecutor } from "./workflow-executor";
 
 class TriggerService {
@@ -73,11 +73,15 @@ class TriggerService {
       const gmail = await import("../integrations/gmail");
       
       // Get recent emails since last check
-      const emails = await gmail.listEmails({ maxResults: 20 });
+      const emails = await gmail.listEmails(20);
       
       for (const email of emails) {
         for (const trigger of emailTriggers) {
-          if (this.matchesEmailTrigger(email, trigger)) {
+          if (this.matchesEmailTrigger({ 
+            from: email.from, 
+            subject: email.subject, 
+            snippet: email.snippet ?? undefined 
+          }, trigger)) {
             await this.fireTrigger(trigger, {
               source: "email",
               emailId: email.id,
@@ -189,7 +193,7 @@ class TriggerService {
     if (trigger.workflowId) {
       const workflow = await storage.getWorkflowById(trigger.workflowId);
       if (workflow) {
-        // Create tasks from workflow steps
+        // Create tasks from workflow steps using the new job system
         const steps = workflow.steps as Array<{
           title: string;
           description?: string;
@@ -197,22 +201,23 @@ class TriggerService {
           priority?: number;
         }>;
         
-        const tasks = await storage.createQueuedTasks(
+        const job = await workflowExecutor.submitWorkflow(
+          workflow.name,
           steps.map((step, idx) => ({
             title: step.title,
-            description: step.description || null,
+            description: step.description,
             taskType: step.taskType || "action",
             priority: step.priority ?? (steps.length - idx),
-            input: context,
-            workflowId: workflow.id
-          }))
+            input: context
+          })),
+          "sequential"
         );
         
-        return tasks[0] || null;
+        return { id: job.id };
       }
     }
     
-    // If trigger has a task template, create task from it
+    // If trigger has a task template, create task from it using the new job system
     if (trigger.taskTemplate) {
       const template = trigger.taskTemplate as {
         title: string;
@@ -221,15 +226,15 @@ class TriggerService {
         priority?: number;
       };
       
-      const task = await storage.createQueuedTask({
+      const job = await workflowExecutor.submitTask({
         title: template.title.replace(/\{\{(\w+)\}\}/g, (_, key) => String(context[key] || "")),
-        description: template.description || null,
+        description: template.description,
         taskType: template.taskType || "action",
         priority: trigger.priority || template.priority || 5,
         input: context
       });
       
-      return { id: task.id };
+      return { id: job.id };
     }
     
     return null;

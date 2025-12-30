@@ -69,14 +69,46 @@ const DEFAULT_CONFIG: JobQueueConfig = {
   expireInHours: 24,
 };
 
+// Event types for job lifecycle
+export type JobEvent = {
+  type: "started" | "completed" | "failed" | "cancelled" | "retry" | "waiting_input" | "resumed";
+  jobId: string;
+  job?: AgentJob;
+  result?: JobResult;
+  error?: string;
+};
+
+type JobEventCallback = (event: JobEvent) => void;
+
 class JobQueueService {
   private boss: PgBoss | null = null;
   private config: JobQueueConfig;
   private isInitialized = false;
   private processingCallbacks: Map<string, (job: AgentJob) => Promise<{ output: unknown; error?: string }>> = new Map();
+  private eventCallbacks: JobEventCallback[] = [];
 
   constructor(config: Partial<JobQueueConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  /**
+   * Subscribe to job lifecycle events
+   */
+  onJobEvent(callback: JobEventCallback): () => void {
+    this.eventCallbacks.push(callback);
+    return () => {
+      this.eventCallbacks = this.eventCallbacks.filter(cb => cb !== callback);
+    };
+  }
+
+  private emitEvent(event: JobEvent): void {
+    this.eventCallbacks.forEach(cb => {
+      try {
+        cb(event);
+      } catch (error) {
+        console.error("[JobQueue] Event callback error:", error);
+      }
+    });
   }
 
   async initialize(): Promise<void> {
@@ -216,6 +248,9 @@ class JobQueueService {
       .where(eq(agentJobs.id, jobId));
 
     console.log(`[JobQueue] Processing job ${jobId}: ${job.name}`);
+    
+    // Emit started event
+    this.emitEvent({ type: "started", jobId, job });
 
     try {
       const callback = this.processingCallbacks.get(job.type);
@@ -245,6 +280,14 @@ class JobQueueService {
 
       console.log(`[JobQueue] Job ${jobId} ${result.error ? "failed" : "completed"} in ${durationMs}ms`);
 
+      // Emit completion or failure event
+      if (result.error) {
+        this.emitEvent({ type: "failed", jobId, job, error: result.error });
+      } else {
+        const savedResult = await this.getJobResult(jobId);
+        this.emitEvent({ type: "completed", jobId, job, result: savedResult ?? undefined });
+      }
+
       await this.checkDependentJobs(jobId);
 
     } catch (error) {
@@ -259,6 +302,9 @@ class JobQueueService {
             retryCount: currentRetryCount,
           })
           .where(eq(agentJobs.id, jobId));
+        
+        // Emit retry event
+        this.emitEvent({ type: "retry", jobId, job, error: errorMessage });
       } else {
         await getDb().insert(jobResults).values({
           jobId: job.id,
@@ -273,6 +319,9 @@ class JobQueueService {
             completedAt: new Date(),
           })
           .where(eq(agentJobs.id, jobId));
+        
+        // Emit failure event
+        this.emitEvent({ type: "failed", jobId, job, error: errorMessage });
       }
     }
   }
@@ -344,6 +393,72 @@ class JobQueueService {
         or(eq(agentJobs.status, "pending"), eq(agentJobs.status, "queued"))
       ))
       .returning();
+
+    if (job) {
+      // Emit cancelled event
+      this.emitEvent({ type: "cancelled", jobId, job });
+    }
+
+    return !!job;
+  }
+
+  /**
+   * Resume a paused/waiting job with new input
+   */
+  async resumeJob(jobId: string, operatorInput?: string): Promise<boolean> {
+    const [job] = await getDb().select()
+      .from(agentJobs)
+      .where(eq(agentJobs.id, jobId));
+
+    if (!job) return false;
+
+    // Update job payload with new input - merge operator input directly into context
+    const currentPayload = (job.payload as Record<string, unknown>) || {};
+    const currentContext = (currentPayload.context as Record<string, unknown>) || {};
+    const newPayload = operatorInput !== undefined
+      ? { 
+          ...currentPayload, 
+          context: {
+            ...currentContext,
+            operatorInput,
+          }
+        }
+      : currentPayload;
+
+    await getDb().update(agentJobs)
+      .set({ 
+        payload: newPayload as any,
+        status: "pending",
+      })
+      .where(eq(agentJobs.id, jobId));
+
+    // Get updated job and re-enqueue it
+    const [updatedJob] = await getDb().select()
+      .from(agentJobs)
+      .where(eq(agentJobs.id, jobId));
+
+    if (updatedJob) {
+      await this.enqueueJob(updatedJob);
+      // Emit resumed event
+      this.emitEvent({ type: "resumed", jobId, job: updatedJob });
+    }
+
+    return true;
+  }
+
+  /**
+   * Mark a job as waiting for operator input
+   */
+  async markWaitingForInput(jobId: string): Promise<boolean> {
+    const [job] = await getDb().update(agentJobs)
+      .set({ status: "pending" }) // Keep as pending but not queued
+      .where(eq(agentJobs.id, jobId))
+      .returning();
+
+    if (job) {
+      // Emit waiting_input event
+      this.emitEvent({ type: "waiting_input", jobId, job });
+    }
 
     return !!job;
   }

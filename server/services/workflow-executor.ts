@@ -1,210 +1,109 @@
 /**
  * =============================================================================
- * WORKFLOW EXECUTOR SERVICE
+ * WORKFLOW EXECUTOR SERVICE (v2 - Job System Bridge)
  * =============================================================================
  * 
- * Core orchestration engine for executing tasks from the queue.
- * Supports:
- * - Sequential and parallel execution modes
- * - Subtask spawning and dependency tracking
- * - Natural language condition evaluation via AI
- * - Operator input polling (pause for human input)
- * - Interrupts and priority override
- * - Task routing based on type
+ * Bridge layer that connects the legacy workflow API to the new job orchestration
+ * system. Maintains backward compatibility while leveraging:
+ * - pg-boss for reliable, PostgreSQL-backed job queuing
+ * - DAG-based dependency resolution
+ * - Multi-worker parallel execution
+ * - Priority scheduling
  */
 
-import { storage } from "../storage";
-import { 
-  type QueuedTask, 
-  type InsertQueuedTask,
-  TaskStatuses,
-  ExecutionModes,
-  type ExecutorState 
-} from "@shared/schema";
-import { GoogleGenAI } from "@google/genai";
+import { jobDispatcher } from "./job-dispatcher";
+import { jobQueue, type JobSubmission, type JobEvent } from "./job-queue";
+import { workerPool } from "./worker-pool";
+import { dependencyResolver } from "./dependency-resolver";
+import { getDb } from "../db";
+import { agentJobs, type AgentJob } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
-// JSON type for database storage
-type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
+// Legacy task types mapped to new job types
+const TASK_TYPE_TO_JOB_TYPE: Record<string, "prompt" | "tool" | "composite" | "workflow"> = {
+  research: "prompt",
+  analysis: "prompt", 
+  synthesis: "prompt",
+  action: "tool",
+  fetch: "tool",
+  transform: "tool",
+  validate: "tool",
+  notify: "tool",
+};
 
-// Task handler function type
-type TaskHandler = (task: QueuedTask) => Promise<{ output: Json | null; error?: string }>;
-
-// Event emitter for task status updates
+// Event callback type for backward compatibility
 type TaskEventCallback = (event: TaskEvent) => void;
 
 interface TaskEvent {
-  type: "started" | "completed" | "failed" | "waiting_input" | "spawned_subtasks";
+  type: "started" | "completed" | "failed" | "cancelled" | "waiting_input" | "resumed" | "spawned_subtasks";
   taskId: string;
   data?: unknown;
+}
+
+// Legacy task interface for backward compatibility
+interface LegacyTask {
+  id?: string;
+  title: string;
+  description?: string | null;
+  taskType: string;
+  input?: Record<string, unknown>;
+  priority?: number;
+  dependencies?: string[];
+  parentId?: string;
+  maxRetries?: number;
+  condition?: string;
+  workflowId?: string;
+  scheduledBy?: string;
+  scheduleName?: string;
 }
 
 class WorkflowExecutor {
   private isRunning = false;
   private isPaused = false;
-  private pollInterval: NodeJS.Timeout | null = null;
-  private runningTasks: Map<string, Promise<void>> = new Map();
   private eventCallbacks: TaskEventCallback[] = [];
-  private maxParallelTasks = 3;
-  private pollIntervalMs = 5000;
-  private ai: GoogleGenAI | null = null;
-
-  // Task handlers by type
-  private handlers: Map<string, TaskHandler> = new Map();
+  private unsubscribeFromJobEvents: (() => void) | null = null;
 
   constructor() {
-    this.initializeAI();
-    this.registerDefaultHandlers();
-  }
-
-  private initializeAI() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (apiKey) {
-      this.ai = new GoogleGenAI({ apiKey });
-    }
-  }
-
-  private registerDefaultHandlers() {
-    // Research handler - uses AI to research a topic
-    this.registerHandler("research", async (task) => {
-      if (!this.ai) {
-        return { output: null, error: "AI not configured" };
-      }
-      
-      const prompt = `Research the following topic and provide a comprehensive summary:
-
-Topic: ${task.title}
-${task.description ? `Details: ${task.description}` : ""}
-${task.input ? `Context: ${JSON.stringify(task.input)}` : ""}
-
-Provide a detailed, well-structured response.`;
-
-      const result = await this.ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: prompt
-      });
-      
-      return { output: result.text };
-    });
-
-    // Analysis handler
-    this.registerHandler("analysis", async (task) => {
-      if (!this.ai) {
-        return { output: null, error: "AI not configured" };
-      }
-      
-      const prompt = `Analyze the following and provide insights:
-
-Subject: ${task.title}
-${task.description ? `Details: ${task.description}` : ""}
-${task.input ? `Data: ${JSON.stringify(task.input)}` : ""}
-
-Provide a thorough analysis with key findings and recommendations.`;
-
-      const result = await this.ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: prompt
-      });
-      
-      return { output: result.text };
-    });
-
-    // Synthesis handler - combines information
-    this.registerHandler("synthesis", async (task) => {
-      if (!this.ai) {
-        return { output: null, error: "AI not configured" };
-      }
-      
-      // Get outputs from child tasks if any
-      let childOutputs: unknown[] = [];
-      if (task.id) {
-        const children = await storage.getQueuedTasksByParentId(task.id);
-        childOutputs = children.filter(c => c.output).map(c => c.output);
-      }
-      
-      const prompt = `Synthesize the following information into a cohesive summary:
-
-Topic: ${task.title}
-${task.description ? `Goal: ${task.description}` : ""}
-${task.input ? `Additional context: ${JSON.stringify(task.input)}` : ""}
-${childOutputs.length > 0 ? `Source materials:\n${JSON.stringify(childOutputs, null, 2)}` : ""}
-
-Create a well-organized synthesis that combines all relevant information.`;
-
-      const result = await this.ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: prompt
-      });
-      
-      return { output: result.text };
-    });
-
-    // Action handler - executes an action
-    this.registerHandler("action", async (task) => {
-      // Actions are typically tool calls - for now, just acknowledge
-      return { 
-        output: { 
-          message: `Action "${task.title}" acknowledged`,
-          input: task.input,
-          status: "completed"
-        } 
-      };
-    });
-
-    // Fetch handler - retrieves data
-    this.registerHandler("fetch", async (task) => {
-      // For now, stub - could integrate with web search or APIs
-      return { 
-        output: { 
-          message: `Fetch task "${task.title}" - data retrieval would happen here`,
-          input: task.input 
-        } 
-      };
-    });
-
-    // Transform handler - processes data
-    this.registerHandler("transform", async (task) => {
-      // Transform based on input
-      return { 
-        output: { 
-          message: `Transform task "${task.title}" completed`,
-          input: task.input,
-          transformed: task.input 
-        } 
-      };
-    });
-
-    // Validate handler - checks/verifies something
-    this.registerHandler("validate", async (task) => {
-      return { 
-        output: { 
-          message: `Validation task "${task.title}" completed`,
-          input: task.input,
-          valid: true 
-        } 
-      };
-    });
-
-    // Notify handler - sends notifications
-    this.registerHandler("notify", async (task) => {
-      console.log(`[Notify] ${task.title}: ${task.description || "No message"}`);
-      return { 
-        output: { 
-          message: `Notification sent: ${task.title}`,
-          notified: true 
-        } 
-      };
-    });
+    // Subscribe to job events to translate them to legacy task events
+    this.subscribeToJobEvents();
   }
 
   /**
-   * Register a custom task handler
+   * Subscribe to job queue events and translate them to legacy task events
    */
-  registerHandler(taskType: string, handler: TaskHandler) {
-    this.handlers.set(taskType, handler);
+  private subscribeToJobEvents(): void {
+    this.unsubscribeFromJobEvents = jobQueue.onJobEvent((event: JobEvent) => {
+      // Translate job events to legacy task events
+      switch (event.type) {
+        case "started":
+          this.emit({ type: "started", taskId: event.jobId });
+          break;
+        case "completed":
+          this.emit({ type: "completed", taskId: event.jobId, data: event.result?.output });
+          break;
+        case "failed":
+          this.emit({ type: "failed", taskId: event.jobId, data: event.error });
+          break;
+        case "cancelled":
+          this.emit({ type: "cancelled", taskId: event.jobId, data: "Cancelled" });
+          break;
+        case "waiting_input":
+          // Emit waiting_input for operator prompts
+          this.emit({ type: "waiting_input", taskId: event.jobId });
+          break;
+        case "resumed":
+          // Emit resumed when job continues after operator input
+          this.emit({ type: "resumed", taskId: event.jobId });
+          break;
+        case "retry":
+          // Could add a retry event type if needed
+          break;
+      }
+    });
   }
 
   /**
-   * Subscribe to task events
+   * Subscribe to task events (legacy compatibility)
    */
   onTaskEvent(callback: TaskEventCallback) {
     this.eventCallbacks.push(callback);
@@ -218,52 +117,34 @@ Create a well-organized synthesis that combines all relevant information.`;
   }
 
   /**
-   * Start the executor polling loop
+   * Start the executor - delegates to job dispatcher
    */
   async start(): Promise<void> {
     if (this.isRunning) return;
     
+    await jobDispatcher.start();
     this.isRunning = true;
     this.isPaused = false;
     
-    // Initialize executor state
-    await storage.initializeExecutorState();
-    await storage.updateExecutorState({ 
-      status: "running", 
-      startedAt: new Date(),
-      lastActivityAt: new Date()
-    });
-    
-    console.log("[Executor] Started");
-    this.poll();
+    console.log("[WorkflowExecutor] Started (using job dispatcher)");
   }
 
   /**
    * Stop the executor
    */
   async stop(): Promise<void> {
+    await jobDispatcher.stop();
     this.isRunning = false;
     
-    if (this.pollInterval) {
-      clearTimeout(this.pollInterval);
-      this.pollInterval = null;
-    }
-    
-    await storage.updateExecutorState({ 
-      status: "stopped",
-      lastActivityAt: new Date()
-    });
-    
-    console.log("[Executor] Stopped");
+    console.log("[WorkflowExecutor] Stopped");
   }
 
   /**
-   * Pause the executor (finishes current tasks)
+   * Pause the executor
    */
   async pause(): Promise<void> {
     this.isPaused = true;
-    await storage.updateExecutorState({ status: "paused" });
-    console.log("[Executor] Paused");
+    console.log("[WorkflowExecutor] Paused");
   }
 
   /**
@@ -271,8 +152,7 @@ Create a well-organized synthesis that combines all relevant information.`;
    */
   async resume(): Promise<void> {
     this.isPaused = false;
-    await storage.updateExecutorState({ status: "running" });
-    console.log("[Executor] Resumed");
+    console.log("[WorkflowExecutor] Resumed");
   }
 
   /**
@@ -282,313 +162,228 @@ Create a well-organized synthesis that combines all relevant information.`;
     isRunning: boolean; 
     isPaused: boolean; 
     runningTaskCount: number;
-    state: ExecutorState | undefined 
+    stats: {
+      queueStats: {
+        pending: number;
+        queued: number;
+        running: number;
+        completed: number;
+        failed: number;
+      };
+      poolStats: {
+        activeWorkers: number;
+        idleWorkers: number;
+        busyWorkers: number;
+        totalJobsProcessed: number;
+        totalTokensUsed: number;
+      };
+      isRunning: boolean;
+    };
   }> {
-    const state = await storage.getExecutorState();
+    const stats = await jobDispatcher.getDispatcherStats();
+    
     return {
       isRunning: this.isRunning,
       isPaused: this.isPaused,
-      runningTaskCount: this.runningTasks.size,
-      state
+      runningTaskCount: stats.queueStats.running,
+      stats
     };
   }
 
   /**
-   * Main polling loop
+   * Submit a legacy task - converts to new job format
    */
-  private async poll() {
-    if (!this.isRunning) return;
+  async submitTask(task: LegacyTask): Promise<AgentJob> {
+    const jobType = TASK_TYPE_TO_JOB_TYPE[task.taskType] || "prompt";
     
-    try {
-      if (!this.isPaused && this.runningTasks.size < this.maxParallelTasks) {
-        await this.processNextTasks();
-      }
-    } catch (error) {
-      console.error("[Executor] Poll error:", error);
+    const submission: JobSubmission = {
+      name: task.title,
+      type: jobType,
+      payload: {
+        prompt: task.description || task.title,
+        context: {
+          ...task.input,
+          // Preserve legacy metadata
+          legacyTaskType: task.taskType,
+          workflowId: task.workflowId,
+          scheduledBy: task.scheduledBy,
+          scheduleName: task.scheduleName,
+          condition: task.condition,
+        },
+        systemPrompt: this.getSystemPromptForType(task.taskType),
+      },
+      priority: task.priority ?? 5,
+      dependencies: task.dependencies,
+      parentJobId: task.parentId,
+      maxRetries: task.maxRetries ?? 3,
+    };
+
+    const job = await jobDispatcher.submitJob(submission);
+    
+    return job;
+  }
+
+  /**
+   * Submit multiple tasks as a workflow
+   */
+  async submitWorkflow(
+    name: string, 
+    tasks: LegacyTask[], 
+    mode: "sequential" | "parallel" = "sequential"
+  ): Promise<AgentJob> {
+    const steps: JobSubmission[] = tasks.map(task => ({
+      name: task.title,
+      type: TASK_TYPE_TO_JOB_TYPE[task.taskType] || "prompt",
+      payload: {
+        prompt: task.description || task.title,
+        context: {
+          ...task.input,
+          legacyTaskType: task.taskType,
+          workflowId: task.workflowId,
+          scheduledBy: task.scheduledBy,
+          scheduleName: task.scheduleName,
+        },
+        systemPrompt: this.getSystemPromptForType(task.taskType),
+      },
+      priority: task.priority ?? 5,
+      maxRetries: task.maxRetries ?? 3,
+      executionMode: mode,
+    }));
+
+    return jobDispatcher.submitWorkflow(name, steps, mode);
+  }
+
+  /**
+   * Get job status (legacy compatibility)
+   */
+  async getTaskStatus(taskId: string): Promise<{
+    job: AgentJob | null;
+    result: any;
+    children: AgentJob[];
+  }> {
+    return jobDispatcher.getJobStatus(taskId);
+  }
+
+  /**
+   * Cancel a task
+   */
+  async cancelTask(taskId: string): Promise<boolean> {
+    const cancelled = await jobDispatcher.cancelJob(taskId);
+    if (cancelled) {
+      this.emit({ type: "failed", taskId, data: "Cancelled" });
     }
-    
-    // Schedule next poll
-    this.pollInterval = setTimeout(() => this.poll(), this.pollIntervalMs);
+    return cancelled;
   }
 
   /**
-   * Process available tasks
+   * Get task result
    */
-  private async processNextTasks() {
-    const availableSlots = this.maxParallelTasks - this.runningTasks.size;
-    if (availableSlots <= 0) return;
-    
-    // Get ready tasks (no pending dependencies)
-    const readyTasks = await storage.getReadyTasks(availableSlots);
-    
-    for (const task of readyTasks) {
-      // Check if task has unmet dependencies
-      if (task.dependencies && task.dependencies.length > 0) {
-        const dependenciesMet = await this.checkDependencies(task.dependencies);
-        if (!dependenciesMet) {
-          await storage.updateQueuedTask(task.id, { status: TaskStatuses.WAITING_DEPENDENCY });
-          continue;
-        }
-      }
-      
-      // Execute task
-      this.executeTask(task);
-    }
-    
-    // Update executor state
-    await storage.updateExecutorState({
-      runningTaskIds: Array.from(this.runningTasks.keys()),
-      lastActivityAt: new Date()
-    });
+  async getTaskResult(taskId: string): Promise<any> {
+    return jobQueue.getJobResult(taskId);
   }
 
   /**
-   * Check if all dependencies are completed
-   */
-  private async checkDependencies(dependencyIds: string[]): Promise<boolean> {
-    for (const depId of dependencyIds) {
-      const dep = await storage.getQueuedTaskById(depId);
-      if (!dep || dep.status !== TaskStatuses.COMPLETED) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Execute a single task
-   */
-  private async executeTask(task: QueuedTask) {
-    const taskPromise = this.runTask(task);
-    this.runningTasks.set(task.id, taskPromise);
-    
-    try {
-      await taskPromise;
-    } finally {
-      this.runningTasks.delete(task.id);
-    }
-  }
-
-  /**
-   * Run a task through its handler
-   */
-  private async runTask(task: QueuedTask): Promise<void> {
-    const startTime = Date.now();
-    
-    try {
-      // Mark as running
-      await storage.updateQueuedTask(task.id, { 
-        status: TaskStatuses.RUNNING,
-        startedAt: new Date()
-      });
-      
-      this.emit({ type: "started", taskId: task.id });
-      
-      // Check for condition
-      if (task.condition) {
-        const conditionMet = await this.evaluateCondition(task.condition, task);
-        await storage.updateQueuedTask(task.id, { conditionResult: conditionMet });
-        
-        if (!conditionMet) {
-          // Skip task if condition not met
-          await storage.updateQueuedTask(task.id, {
-            status: TaskStatuses.COMPLETED,
-            completedAt: new Date(),
-            actualDuration: Math.floor((Date.now() - startTime) / 1000),
-            output: { skipped: true, reason: "Condition not met" }
-          });
-          this.emit({ type: "completed", taskId: task.id });
-          return;
-        }
-      }
-      
-      // Get handler
-      const handler = this.handlers.get(task.taskType);
-      if (!handler) {
-        throw new Error(`No handler registered for task type: ${task.taskType}`);
-      }
-      
-      // Execute handler
-      const result = await handler(task);
-      
-      if (result.error) {
-        throw new Error(result.error);
-      }
-      
-      // Mark as completed
-      await storage.updateQueuedTask(task.id, {
-        status: TaskStatuses.COMPLETED,
-        completedAt: new Date(),
-        actualDuration: Math.floor((Date.now() - startTime) / 1000),
-        output: result.output
-      });
-      
-      // Update stats
-      const state = await storage.getExecutorState();
-      if (state) {
-        await storage.updateExecutorState({
-          tasksProcessed: (state.tasksProcessed || 0) + 1
-        });
-      }
-      
-      this.emit({ type: "completed", taskId: task.id, data: result.output });
-      
-      // Check for dependent tasks that might now be ready
-      await this.unlockDependentTasks(task.id);
-      
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      // Check if we should retry
-      const retryCount = (task.retryCount || 0) + 1;
-      const maxRetries = task.maxRetries || 3;
-      
-      if (retryCount < maxRetries) {
-        await storage.updateQueuedTask(task.id, {
-          status: TaskStatuses.PENDING,
-          retryCount,
-          error: errorMessage
-        });
-        console.log(`[Executor] Task ${task.id} failed, will retry (${retryCount}/${maxRetries})`);
-      } else {
-        await storage.updateQueuedTask(task.id, {
-          status: TaskStatuses.FAILED,
-          completedAt: new Date(),
-          actualDuration: Math.floor((Date.now() - startTime) / 1000),
-          error: errorMessage
-        });
-        
-        // Update stats
-        const state = await storage.getExecutorState();
-        if (state) {
-          await storage.updateExecutorState({
-            tasksFailed: (state.tasksFailed || 0) + 1
-          });
-        }
-        
-        this.emit({ type: "failed", taskId: task.id, data: errorMessage });
-      }
-    }
-  }
-
-  /**
-   * Evaluate a natural language condition using AI
-   */
-  private async evaluateCondition(condition: string, task: QueuedTask): Promise<boolean> {
-    if (!this.ai) {
-      console.warn("[Executor] AI not available for condition evaluation, defaulting to true");
-      return true;
-    }
-    
-    const prompt = `Evaluate the following condition and respond with only "true" or "false":
-
-Condition: ${condition}
-
-Context:
-- Task: ${task.title}
-- Description: ${task.description || "N/A"}
-- Input: ${JSON.stringify(task.input || {})}
-
-Based on the condition and context, should this task proceed? Answer only "true" or "false".`;
-
-    try {
-      const result = await this.ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: prompt
-      });
-      
-      const answer = (result.text || "").toLowerCase().trim();
-      return answer === "true" || answer.includes("true");
-    } catch (error) {
-      console.error("[Executor] Condition evaluation error:", error);
-      return true; // Default to true on error
-    }
-  }
-
-  /**
-   * Unlock tasks that were waiting on a completed dependency
-   */
-  private async unlockDependentTasks(completedTaskId: string) {
-    const dependentTasks = await storage.getTasksByDependency(completedTaskId);
-    
-    for (const task of dependentTasks) {
-      if (task.status === TaskStatuses.WAITING_DEPENDENCY) {
-        // Check if all dependencies are now met
-        const allMet = task.dependencies 
-          ? await this.checkDependencies(task.dependencies)
-          : true;
-        
-        if (allMet) {
-          await storage.updateQueuedTask(task.id, { status: TaskStatuses.PENDING });
-        }
-      }
-    }
-  }
-
-  /**
-   * Request operator input for a task
-   */
-  async requestOperatorInput(taskId: string, prompt: string): Promise<void> {
-    await storage.updateQueuedTask(taskId, {
-      status: TaskStatuses.WAITING_INPUT,
-      waitingForInput: true,
-      inputPrompt: prompt
-    });
-    
-    this.emit({ type: "waiting_input", taskId, data: { prompt } });
-  }
-
-  /**
-   * Provide operator input for a waiting task
-   */
-  async provideOperatorInput(taskId: string, input: string): Promise<void> {
-    const task = await storage.getQueuedTaskById(taskId);
-    if (!task) throw new Error("Task not found");
-    
-    await storage.updateQueuedTask(taskId, {
-      status: TaskStatuses.PENDING,
-      waitingForInput: false,
-      operatorInput: input
-    });
-  }
-
-  /**
-   * Spawn subtasks for a parent task
-   */
-  async spawnSubtasks(parentId: string, subtasks: InsertQueuedTask[]): Promise<QueuedTask[]> {
-    const createdTasks = await storage.createQueuedTasks(
-      subtasks.map(t => ({ ...t, parentId }))
-    );
-    
-    this.emit({ 
-      type: "spawned_subtasks", 
-      taskId: parentId, 
-      data: { subtaskIds: createdTasks.map(t => t.id) } 
-    });
-    
-    return createdTasks;
-  }
-
-  /**
-   * Interrupt a running task (marks for cancellation)
+   * Interrupt/cancel a running task (legacy compatibility)
    */
   async interruptTask(taskId: string): Promise<void> {
-    await storage.updateQueuedTask(taskId, {
-      status: TaskStatuses.CANCELLED
-    });
+    await this.cancelTask(taskId);
   }
 
   /**
-   * Bump a task to highest priority
+   * Provide operator input for a waiting task (legacy compatibility)
+   * Uses the jobQueue.resumeJob method to properly re-queue the job
+   */
+  async provideOperatorInput(taskId: string, input: string): Promise<void> {
+    const resumed = await jobQueue.resumeJob(taskId, input);
+    
+    if (!resumed) {
+      throw new Error("Task not found or could not be resumed");
+    }
+  }
+
+  /**
+   * Prioritize a task (bump to highest priority)
    */
   async prioritizeTask(taskId: string): Promise<void> {
-    // Get max priority
-    const tasks = await storage.getQueuedTasks({ limit: 1 });
-    const maxPriority = tasks.length > 0 ? Math.max(...tasks.map(t => t.priority)) : 0;
-    
-    await storage.updateQueuedTask(taskId, {
-      priority: maxPriority + 100 // Jump way ahead
-    });
+    await getDb().update(agentJobs)
+      .set({ priority: 0 }) // 0 = highest priority
+      .where(eq(agentJobs.id, taskId));
+  }
+
+  /**
+   * Get dependency chain for a task
+   */
+  async getDependencyChain(taskId: string): Promise<AgentJob[]> {
+    return dependencyResolver.getDependencyChain(taskId);
+  }
+
+  /**
+   * Get tasks that depend on a given task
+   */
+  async getDependents(taskId: string): Promise<AgentJob[]> {
+    return dependencyResolver.getDependents(taskId);
+  }
+
+  /**
+   * Register a custom task handler (legacy compatibility)
+   * Maps to job queue processor registration
+   */
+  registerHandler(
+    taskType: string, 
+    handler: (job: AgentJob) => Promise<{ output: unknown; error?: string }>
+  ): void {
+    const jobType = TASK_TYPE_TO_JOB_TYPE[taskType] || "prompt";
+    jobQueue.registerProcessor(jobType, handler);
+  }
+
+  /**
+   * Get worker pool stats
+   */
+  async getWorkerStats(): Promise<{
+    activeWorkers: number;
+    idleWorkers: number;
+    busyWorkers: number;
+    totalJobsProcessed: number;
+    totalTokensUsed: number;
+  }> {
+    return workerPool.getPoolStats();
+  }
+
+  /**
+   * Scale up workers
+   */
+  async scaleUp(): Promise<string | null> {
+    return workerPool.scaleUp();
+  }
+
+  /**
+   * Scale down workers
+   */
+  async scaleDown(): Promise<boolean> {
+    return workerPool.scaleDown();
+  }
+
+  private getSystemPromptForType(taskType: string): string {
+    switch (taskType) {
+      case "research":
+        return "You are a research assistant. Provide comprehensive, well-researched information on the given topic.";
+      case "analysis":
+        return "You are an analyst. Analyze the given information and provide insights, patterns, and recommendations.";
+      case "synthesis":
+        return "You are a synthesizer. Combine multiple pieces of information into a cohesive, well-organized summary.";
+      case "action":
+        return "You are an action executor. Perform the requested action and report the results.";
+      case "fetch":
+        return "You are a data fetcher. Retrieve and structure the requested information.";
+      case "transform":
+        return "You are a data transformer. Process and transform the given data as requested.";
+      case "validate":
+        return "You are a validator. Check and verify the given information for accuracy and completeness.";
+      case "notify":
+        return "You are a notification handler. Format and prepare notification messages.";
+      default:
+        return "You are a helpful AI assistant. Complete the requested task.";
+    }
   }
 }
 
