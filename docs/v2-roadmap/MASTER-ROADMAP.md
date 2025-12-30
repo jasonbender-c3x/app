@@ -51,6 +51,7 @@ Consolidated roadmap from 245 extracted ideas, grouped by theme and priority.
 | **6** | **Hyperlinks Everywhere** | hyperlink_file_listing, email_links, immersive_links, tool_call_indicators | Pending |
 | **7** | **Email Enhancement** | email_content_cleanup, thread_context, urgency_check, find_and_reply | Pending |
 | **8** | **Contacts Integration** | contacts_list_access, list_google_contacts | Pending |
+| **8b** | **External Docs Site** | docusaurus_setup, github_pages_hosting, custom_domain, docs_sync | NEW |
 
 ### TIER 4: Data & Ingestion
 

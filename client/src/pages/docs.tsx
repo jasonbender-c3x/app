@@ -58,6 +58,13 @@ const docCategories = [
       { slug: "MARKDOWN_EMBEDDING_GUIDE", title: "Markdown Embedding Guide", path: "MARKDOWN_EMBEDDING_GUIDE.md" },
       { slug: "LIVE_MODE_EVALUATION", title: "Live Mode Evaluation", path: "LIVE_MODE_EVALUATION.md" },
     ]
+  },
+  {
+    name: "Guides",
+    icon: "📖",
+    docs: [
+      { slug: "EXTERNAL-DOCS-HOSTING", title: "External Docs Hosting", path: "EXTERNAL-DOCS-HOSTING.md" },
+    ]
   }
 ];
 
