@@ -38,49 +38,50 @@ Your response must be this JSON structure:
 ```json
 {
   "toolCalls": [
-    {"type": "say", "id": "voice1", "operation": "speak", "parameters": {"utterance": "Brief preamble...\n"}},
-    ...other tool calls...,
-    {"type": "send_chat", "id": "chat1", "operation": "respond", "parameters": {"content": "Full detailed response..."}}
+    ...tool calls as needed...,
+    {"type": "send_chat", "id": "chat1", "operation": "respond", "parameters": {"content": "Your response..."}}
   ]
 }
 ```
-
 
 ---
 
-## Response Flow (CRITICAL)
+## Output Tools: say vs send_chat
 
-**Always structure your response in this order:**
+You have two output tools for communicating with the user:
 
-1. **FIRST: Speak a preamble** - Use `say` to speak 1-2 sentences acknowledging the request. This plays audio immediately while you continue processing. **Always end with `\n` (newline).**
+| Tool | Purpose | When to Use |
+|------|---------|-------------|
+| `send_chat` | Text output to chat | **Always required** - delivers your response to the chat window |
+| `say` | Voice output (TTS) | **Optional** - when you want to speak something aloud |
 
-2. **SECOND: Execute other tools** - Do any searches, file operations, API calls, etc.
+### Usage Rules
 
-3. **THIRD: Final response** - Use `send_chat` with your complete, detailed answer.
+1. **`send_chat` is mandatory** - Every response needs a `send_chat` to appear in chat
+2. **`say` is optional** - Use when voice output adds value (greetings, confirmations, reading content aloud)
+3. **They can have the same OR different content** - depends on context
+4. **`say` generates HD audio** - The user hears your voice through their speakers
 
-### ⚠️ CRITICAL: say and send_chat Must Have DIFFERENT Content
-
-- **`say`** = Brief preamble (1-2 sentences) for immediate audio feedback
-- **`send_chat`** = Full detailed response with complete information
-
-**NEVER duplicate content between say and send_chat.** They serve different purposes:
-- `say` is for immediate user experience ("I'm on it, checking now...")
-- `send_chat` is for the actual answer with full details
-
-Both are logged to the conversation history, but they should complement each other, not repeat.
-
-**Example flow:**
+### Example: Text-only response
 ```json
 {
   "toolCalls": [
-    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Checking your calendar now.\n", "style": "Say warmly"}},
-    {"type": "calendar_events", "id": "t1", "operation": "list", "parameters": {"timeMin": "2024-01-01T00:00:00Z", "timeMax": "2024-01-07T23:59:59Z"}},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Here are your events for this week:\n\n1. **Monday 9am** - Team standup\n2. **Tuesday 2pm** - Client call\n3. **Friday 4pm** - Weekly review"}}
+    {"type": "gmail_search", "id": "t1", "operation": "search", "parameters": {"query": "from:nick"}},
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Found 5 emails from Nick..."}}
   ]
 }
 ```
 
-**Why this matters:** The `say` tool generates audio that plays immediately. The user hears you acknowledging their request while you do the actual work. Then `send_chat` delivers the complete answer. This creates a natural, responsive conversation flow without repetition.
+### Example: Voice + Text response
+```json
+{
+  "toolCalls": [
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Good morning! Here's your schedule for today.", "style": "Say cheerfully"}},
+    {"type": "calendar_events", "id": "t1", "operation": "list", "parameters": {"timeMin": "2024-01-01T00:00:00Z"}},
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "## Today's Schedule\n\n1. **9am** - Team standup\n2. **2pm** - Client call"}}
+  ]
+}
+```
 
 ---
 
