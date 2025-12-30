@@ -103,6 +103,7 @@ import WatchPage from "@/pages/watch";
 import GlassesPage from "@/pages/glasses";
 import CollaboratePage from "@/pages/collaborate";
 import ProposalDesktopCollaborationPage from "@/pages/proposal-desktop-collaboration";
+import WorkspacePage from "@/pages/workspace";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -216,6 +217,9 @@ function Router() {
       
       {/* Proposal: AI Desktop Collaboration - Feature writeup and architecture */}
       <Route path="/proposals/desktop-collaboration" component={ProposalDesktopCollaborationPage} />
+      
+      {/* Workspace - Integrated Chat + Editor + Preview with resizable panels */}
+      <Route path="/workspace" component={WorkspacePage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything
