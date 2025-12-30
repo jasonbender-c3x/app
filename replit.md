@@ -82,9 +82,29 @@ Stored in `localStorage` with key `meowstik-verbosity-mode`. Uses `tts-context.t
 - **Database Explorer (`/database`):** UI for viewing, editing, and deleting database records.
 - **Live Voice Page (`/live`):** Dedicated real-time voice conversation interface using Gemini Live API, WebSocket-based audio streaming, and Voice Activity Detection.
 
+### Turn-Based Collaborative Editing
+- **Protocol:** Operational Transform (OT) for conflict resolution with turn-based control
+- **Server Enforcement:** `server/websocket-collab.ts` manages turn state and validates edits
+- **UI Guards:** `isEditingAllowed`, `getEditorOptions`, `updateEditorReadOnly` in `use-collaborative-editing.ts` disable Monaco when not user's turn
+- **Integration:** `server/services/collab-integration.ts` wires turn processing and browser actions into WebSocket flow
+
 ### Browser Extension & Local Agent
-- **Browser Extension:** Chrome extension for AI-powered browser assistance, including chat, screen/console/network capture, page content extraction, and integration with Workspace services.
-- **Local Agent:** Node.js package for AI-directed browser automation using Playwright, with an extension bridge for communication.
+- **Browser Extension:** Chrome extension (`packages/extension/`) for AI-powered browser assistance with token-based authentication:
+  - Popup chat with Gemini AI (`popup.js`, `popup.html`)
+  - Screen capture and page content extraction
+  - Console log and network request monitoring (requires `webRequest` permission)
+  - Context menu integration for quick actions
+  - Token-based API authentication via `/api/extension/register`
+- **Extension API:** Routes in `server/routes/extension.ts`:
+  - `POST /register` - Get authentication token
+  - `POST /connect` - Establish session
+  - `POST /action` - Main action endpoint (requires auth)
+  - `POST /chat`, `/screenshot`, `/content`, `/context` - Specialized endpoints
+- **Local Agent:** Node.js package (`packages/meowstik-agent/`) for AI-directed desktop control:
+  - Screen capture at configurable FPS
+  - Mouse/keyboard input injection via robotjs
+  - WebSocket relay client for server communication
+  - Token-based pairing with desktop relay service
 - **Desktop App:** Linux Electron application for running Meowstik locally, spawning the Express server, and providing an IPC bridge.
 
 ## External Dependencies

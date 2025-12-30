@@ -13,17 +13,23 @@ const captureBtn = document.getElementById('capture-btn');
 let isConnected = false;
 let serverUrl = '';
 let sessionId = null;
+let extensionToken = null;
 
 async function init() {
-  const stored = await chrome.storage.local.get(['serverUrl', 'sessionId']);
+  const stored = await chrome.storage.local.get(['serverUrl', 'sessionId', 'extensionToken']);
   if (stored.serverUrl) {
     serverUrlInput.value = stored.serverUrl;
   }
-  if (stored.sessionId) {
+  if (stored.sessionId && stored.extensionToken) {
     sessionId = stored.sessionId;
+    extensionToken = stored.extensionToken;
     serverUrl = stored.serverUrl;
     await checkConnection();
   }
+}
+
+function getAuthHeaders() {
+  return extensionToken ? { 'X-Extension-Token': extensionToken } : {};
 }
 
 async function checkConnection() {
@@ -76,7 +82,7 @@ async function sendMessage() {
   try {
     const response = await fetch(`${serverUrl}/api/extension/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ message: text, sessionId }),
     });
 
@@ -98,7 +104,7 @@ async function captureScreenshot() {
     
     const response = await fetch(`${serverUrl}/api/extension/screenshot`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ 
         image: screenshot,
         url: tab.url,
@@ -125,7 +131,7 @@ async function extractPageContent() {
 
     const response = await fetch(`${serverUrl}/api/extension/content`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({
         content: result.result,
         url: tab.url,
@@ -163,16 +169,28 @@ connectBtn.addEventListener('click', async () => {
   if (!serverUrl) return;
 
   try {
-    const response = await fetch(`${serverUrl}/api/extension/connect`, {
+    const registerResponse = await fetch(`${serverUrl}/api/extension/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!registerResponse.ok) {
+      throw new Error('Failed to register extension');
+    }
+
+    const registerData = await registerResponse.json();
+    extensionToken = registerData.token;
+
+    const response = await fetch(`${serverUrl}/api/extension/connect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ source: 'extension' }),
     });
 
     if (response.ok) {
       const data = await response.json();
       sessionId = data.sessionId;
-      await chrome.storage.local.set({ serverUrl, sessionId });
+      await chrome.storage.local.set({ serverUrl, sessionId, extensionToken });
       setConnected(true);
       addMessage('Connected to Meowstik server', 'system');
     }

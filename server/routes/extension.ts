@@ -20,11 +20,40 @@ import { v4 as uuidv4 } from 'uuid';
 const router = Router();
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
-// CORS headers for extension
+const extensionTokens = new Map<string, { createdAt: Date; lastUsed: Date; origin?: string }>();
+
+function generateExtensionToken(): string {
+  return `ext_${uuidv4().replace(/-/g, '')}`;
+}
+
+function validateExtensionToken(token: string | undefined): boolean {
+  if (!token) return false;
+  const tokenData = extensionTokens.get(token);
+  if (!tokenData) return false;
+  
+  const oneHour = 60 * 60 * 1000;
+  if (Date.now() - tokenData.lastUsed.getTime() > oneHour) {
+    extensionTokens.delete(token);
+    return false;
+  }
+  
+  tokenData.lastUsed = new Date();
+  return true;
+}
+
 router.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
+  const origin = req.get("origin") || "";
+  const isExtension = origin.startsWith("chrome-extension://") || 
+                       origin.startsWith("moz-extension://") ||
+                       origin === "";
+  
+  if (isExtension) {
+    res.header("Access-Control-Allow-Origin", origin || "*");
+  } else {
+    res.header("Access-Control-Allow-Origin", process.env.FRONTEND_URL || "");
+  }
   res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Extension-Token");
   
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
@@ -32,10 +61,36 @@ router.use((req, res, next) => {
   next();
 });
 
+router.post("/register", async (req, res) => {
+  try {
+    const token = generateExtensionToken();
+    extensionTokens.set(token, {
+      createdAt: new Date(),
+      lastUsed: new Date(),
+      origin: req.get("origin"),
+    });
+    
+    res.json({ token, expiresIn: 3600 });
+  } catch (error) {
+    console.error("[Extension API] Register error:", error);
+    res.status(500).json({ error: "Failed to register extension" });
+  }
+});
+
+function requireExtensionAuth(req: any, res: any, next: any) {
+  const token = req.get("X-Extension-Token") || req.body?.token;
+  
+  if (!validateExtensionToken(token)) {
+    return res.status(401).json({ error: "Invalid or expired extension token" });
+  }
+  
+  next();
+}
+
 /**
  * Main action endpoint for all extension requests
  */
-router.post("/action", async (req, res) => {
+router.post("/action", requireExtensionAuth, async (req, res) => {
   try {
     const { action, ...data } = req.body;
     console.log(`[Extension] Action: ${action}`);
