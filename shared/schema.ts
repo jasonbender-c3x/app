@@ -1898,3 +1898,159 @@ export const editOperations = pgTable("edit_operations", {
 ]);
 
 export type EditOperation = typeof editOperations.$inferSelect;
+
+// =============================================================================
+// JOB ORCHESTRATION TABLES
+// For multi-worker agent job processing with DAG dependencies
+// =============================================================================
+
+/**
+ * AGENT JOBS TABLE
+ * -----------------
+ * Tracks jobs submitted to the orchestration system.
+ * Supports DAG-based dependencies, priority queues, and parallel execution.
+ */
+export const agentJobs = pgTable("agent_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Job identification
+  name: text("name").notNull(),
+  type: text("type").notNull(), // 'prompt', 'tool', 'composite', 'workflow'
+  
+  // Priority (0 = highest, 10 = lowest)
+  priority: integer("priority").default(5).notNull(),
+  
+  // Parent job (for hierarchical/composite jobs)
+  parentJobId: varchar("parent_job_id").references((): any => agentJobs.id, { onDelete: "cascade" }),
+  
+  // Dependencies (array of job IDs that must complete before this job runs)
+  dependencies: text("dependencies").array().default([]),
+  
+  // Execution mode
+  executionMode: text("execution_mode").default("sequential").notNull(), // 'sequential', 'parallel', 'batch'
+  
+  // Job payload (prompt, tool args, etc.)
+  payload: jsonb("payload").notNull(),
+  
+  // Status tracking
+  status: text("status").default("pending").notNull(), // 'pending', 'queued', 'running', 'completed', 'failed', 'cancelled'
+  
+  // Assignment
+  workerId: varchar("worker_id"),
+  
+  // Retry configuration
+  maxRetries: integer("max_retries").default(3),
+  retryCount: integer("retry_count").default(0),
+  
+  // Timeout (milliseconds)
+  timeout: integer("timeout").default(300000), // 5 minutes default
+  
+  // Scheduling
+  scheduledFor: timestamp("scheduled_for"),
+  cronExpression: text("cron_expression"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // User association
+  userId: varchar("user_id"),
+}, (table) => [
+  index("idx_agent_jobs_status").on(table.status),
+  index("idx_agent_jobs_priority").on(table.priority),
+  index("idx_agent_jobs_parent").on(table.parentJobId),
+  index("idx_agent_jobs_scheduled").on(table.scheduledFor),
+]);
+
+export const insertAgentJobSchema = createInsertSchema(agentJobs).omit({
+  id: true,
+  createdAt: true,
+  startedAt: true,
+  completedAt: true,
+});
+export type InsertAgentJob = z.infer<typeof insertAgentJobSchema>;
+export type AgentJob = typeof agentJobs.$inferSelect;
+
+/**
+ * JOB RESULTS TABLE
+ * ------------------
+ * Stores outputs from completed jobs.
+ * Supports structured results, streaming data, and aggregation.
+ */
+export const jobResults = pgTable("job_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Job reference
+  jobId: varchar("job_id").references(() => agentJobs.id, { onDelete: "cascade" }).notNull().unique(),
+  
+  // Result data
+  success: boolean("success").notNull(),
+  output: jsonb("output"), // Structured result data
+  error: text("error"), // Error message if failed
+  
+  // Token usage tracking
+  inputTokens: integer("input_tokens"),
+  outputTokens: integer("output_tokens"),
+  
+  // Execution metrics
+  durationMs: integer("duration_ms"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_job_results_job").on(table.jobId),
+]);
+
+export const insertJobResultSchema = createInsertSchema(jobResults).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertJobResult = z.infer<typeof insertJobResultSchema>;
+export type JobResult = typeof jobResults.$inferSelect;
+
+/**
+ * AGENT WORKERS TABLE
+ * --------------------
+ * Tracks active workers in the pool.
+ * Used for health checks, load balancing, and auto-restart.
+ */
+export const agentWorkers = pgTable("agent_workers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Worker identification
+  name: text("name").notNull(),
+  type: text("type").default("gemini").notNull(), // 'gemini', 'custom'
+  
+  // Status
+  status: text("status").default("idle").notNull(), // 'idle', 'busy', 'offline', 'error'
+  
+  // Current job
+  currentJobId: varchar("current_job_id").references(() => agentJobs.id),
+  
+  // Capacity
+  maxConcurrency: integer("max_concurrency").default(1),
+  activeJobs: integer("active_jobs").default(0),
+  
+  // Health tracking
+  lastHeartbeat: timestamp("last_heartbeat").defaultNow().notNull(),
+  consecutiveFailures: integer("consecutive_failures").default(0),
+  
+  // Metrics
+  totalJobsProcessed: integer("total_jobs_processed").default(0),
+  totalTokensUsed: bigint("total_tokens_used", { mode: "number" }).default(0),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_workers_status").on(table.status),
+  index("idx_agent_workers_heartbeat").on(table.lastHeartbeat),
+]);
+
+export const insertAgentWorkerSchema = createInsertSchema(agentWorkers).omit({
+  id: true,
+  createdAt: true,
+  lastHeartbeat: true,
+});
+export type InsertAgentWorker = z.infer<typeof insertAgentWorkerSchema>;
+export type AgentWorker = typeof agentWorkers.$inferSelect;
