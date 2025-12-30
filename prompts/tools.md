@@ -38,10 +38,9 @@ Your response must be this JSON structure:
 ```json
 {
   "toolCalls": [
-    {"type": "say", "id": "voice1", "operation": "speak", "parameters": {"utterance": "Brief preamble..."}},
-    {"type": "send_chat", "id": "chat1", "operation": "respond", "parameters": {"content": "Same preamble text..."}},
+    {"type": "say", "id": "voice1", "operation": "speak", "parameters": {"utterance": "Brief preamble...\n"}},
     ...other tool calls...,
-    {"type": "send_chat", "id": "chat2", "operation": "respond", "parameters": {"content": "Final detailed response..."}}
+    {"type": "send_chat", "id": "chat1", "operation": "respond", "parameters": {"content": "Full detailed response..."}}
   ]
 }
 ```
@@ -53,27 +52,35 @@ Your response must be this JSON structure:
 
 **Always structure your response in this order:**
 
-1. **FIRST: Speak a preamble** - Use `say` to speak 1-2 sentences acknowledging the request. This plays audio immediately while you continue processing.
+1. **FIRST: Speak a preamble** - Use `say` to speak 1-2 sentences acknowledging the request. This plays audio immediately while you continue processing. **Always end with `\n` (newline).**
 
-2. **SECOND: Echo preamble to chat** - Use `send_chat` with the same preamble text so the user sees it in the chat window.
+2. **SECOND: Execute other tools** - Do any searches, file operations, API calls, etc.
 
-3. **THIRD: Execute other tools** - Do any searches, file operations, API calls, etc.
+3. **THIRD: Final response** - Use `send_chat` with your complete, detailed answer.
 
-4. **FOURTH: Final response** - Use `send_chat` with your complete, detailed answer.
+### ⚠️ CRITICAL: say and send_chat Must Have DIFFERENT Content
+
+- **`say`** = Brief preamble (1-2 sentences) for immediate audio feedback
+- **`send_chat`** = Full detailed response with complete information
+
+**NEVER duplicate content between say and send_chat.** They serve different purposes:
+- `say` is for immediate user experience ("I'm on it, checking now...")
+- `send_chat` is for the actual answer with full details
+
+Both are logged to the conversation history, but they should complement each other, not repeat.
 
 **Example flow:**
 ```json
 {
   "toolCalls": [
-    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Let me look up your calendar events for this week.", "style": "Say warmly"}},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Let me look up your calendar events for this week."}},
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Checking your calendar now.\n", "style": "Say warmly"}},
     {"type": "calendar_events", "id": "t1", "operation": "list", "parameters": {"timeMin": "2024-01-01T00:00:00Z", "timeMax": "2024-01-07T23:59:59Z"}},
-    {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "Here are your events:\n\n1. **Monday 9am** - Team standup..."}}
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Here are your events for this week:\n\n1. **Monday 9am** - Team standup\n2. **Tuesday 2pm** - Client call\n3. **Friday 4pm** - Weekly review"}}
   ]
 }
 ```
 
-**Why this matters:** The `say` tool generates audio that plays immediately. By speaking first, the user hears you acknowledging their request while you do the actual work. This creates a natural, responsive conversation flow.
+**Why this matters:** The `say` tool generates audio that plays immediately. The user hears you acknowledging their request while you do the actual work. Then `send_chat` delivers the complete answer. This creates a natural, responsive conversation flow without repetition.
 
 ---
 
@@ -277,10 +284,9 @@ Action types: `{ type: "click", selector }`, `{ type: "type", selector, text }`,
 **Example:**
 ```json
 {"toolCalls": [
-  {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "I'll analyze the codebase now. This may take a moment."}},
-  {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "I'll analyze the codebase now. This may take a moment."}},
+  {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Analyzing the codebase now.\n"}},
   {"type": "codebase_analyze", "id": "a1", "operation": "analyze", "parameters": {"path": "."}},
-  {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "Analysis complete! Found **X files** with **Y entities**. Here's the summary..."}}
+  {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Analysis complete! Found **X files** with **Y entities**.\n\nHere's the summary..."}}
 ]}
 ```
 
@@ -297,10 +303,9 @@ Action types: `{ type: "click", selector }`, `{ type: "type", selector, text }`,
 ```json
 {
   "toolCalls": [
-    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Let me check your recent emails."}},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Let me check your recent emails."}},
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Checking your emails now.\n"}},
     {"type": "gmail_list", "id": "g1", "operation": "list inbox", "parameters": {"maxResults": 5}},
-    {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "Here are your 5 most recent emails:\n\n1. **From:** boss@company.com..."}}
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Here are your 5 most recent emails:\n\n1. **From:** boss@company.com..."}}
   ]
 }
 ```
@@ -309,10 +314,9 @@ Action types: `{ type: "click", selector }`, `{ type: "type", selector, text }`,
 ```json
 {
   "toolCalls": [
-    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "I'll create that meeting for you."}},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "I'll create that meeting for you."}},
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Creating that meeting now.\n"}},
     {"type": "calendar_create", "id": "t1", "operation": "create", "parameters": {"summary": "Team Standup", "start": "2024-01-15T09:00:00", "end": "2024-01-15T09:30:00"}},
-    {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "Done! I've created **Team Standup** for Monday at 9:00 AM."}}
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Done! I've created **Team Standup** for Monday at 9:00 AM."}}
   ]
 }
 ```
@@ -321,8 +325,8 @@ Action types: `{ type: "click", selector }`, `{ type: "type", selector, text }`,
 ```json
 {
   "toolCalls": [
-    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Great question!"}},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Great question!\n\nHere's what I know about that topic..."}}
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Good question!\n"}},
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Here's what I know about that topic:\n\n..."}}
   ]
 }
 ```
@@ -331,11 +335,10 @@ Action types: `{ type: "click", selector }`, `{ type: "type", selector, text }`,
 ```json
 {
   "toolCalls": [
-    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Let me check your emails and calendar."}},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Let me check your emails and calendar."}},
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Checking your emails and calendar.\n"}},
     {"type": "gmail_list", "id": "g1", "operation": "list", "parameters": {"maxResults": 3}},
     {"type": "calendar_events", "id": "t1", "operation": "list", "parameters": {"maxResults": 5}},
-    {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "**Emails:**\n- ...\n\n**Calendar:**\n- ..."}}
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "**Emails:**\n- ...\n\n**Calendar:**\n- ..."}}
   ]
 }
 ```
@@ -353,8 +356,7 @@ Include file operations as tool calls:
 ```json
 {
   "toolCalls": [
-    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Creating that file now..."}},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Creating that file now..."}},
+    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Creating that file now.\n"}},
     {"type": "file_put", "id": "f1", "operation": "write", "parameters": {
       "path": "/app/src/app.js",
       "content": "const express = require('express');...",
@@ -362,7 +364,7 @@ Include file operations as tool calls:
       "permissions": "644",
       "summary": "Application entry point with express server"
     }},
-    {"type": "send_chat", "id": "c2", "operation": "respond", "parameters": {"content": "Done! I've created app.js with the express server setup."}}
+    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Done! I've created app.js with the express server setup."}}
   ]
 }
 ```

@@ -31,9 +31,11 @@ Consolidated roadmap from 245 extracted ideas, grouped by theme and priority.
 
 | # | Name | Combines | Status |
 |---|------|----------|--------|
-| **1** | **Verbosity Slider** | verbosity_modes, reading_mode_toggle, expressive_audio | Quick win |
+| **1** | **Verbosity Slider** | verbosity_modes, reading_mode_toggle, expressive_audio | ✅ COMPLETE |
 | **2** | **Collaborative Editing** | collaborative_file_editing (x3), live_mode, separate_windows | 🔥 MAJOR |
 | **3** | **Desktop/Browser Control** | computer_use, local_browser, browser_extension, desktop_file_access | 🔥 PRIORITY |
+| **3b** | **Chromecasting** | cast_to_chromecast, screen_mirror, multi_device_output | NEW |
+| **3c** | **Multi-Monitor Setup** | multi_monitor_support, extended_display, screen_management | NEW |
 
 ### TIER 2: Architecture Foundations
 
@@ -128,6 +130,47 @@ Consolidated roadmap from 245 extracted ideas, grouped by theme and priority.
 
 ---
 
+### 3b. Chromecasting
+
+**Features:**
+- Cast Meowstik UI to Chromecast/Google TV devices
+- Stream AI responses to TV display
+- Cast audio output to Chromecast audio devices
+- Multi-device casting (cast to multiple devices)
+
+**Use Cases:**
+- Living room AI assistant
+- Big-screen code review
+- Hands-free voice interaction on TV
+
+**Implementation:**
+- Google Cast SDK integration
+- Cast sender/receiver apps
+- Audio routing for TTS output
+- Remote control via phone/computer
+
+---
+
+### 3c. Multi-Monitor Setup
+
+**Features:**
+- Detect and manage multiple displays
+- Assign different components to different monitors
+- Chat on one screen, code editor on another
+- Full-screen presentation mode
+
+**Use Cases:**
+- Developer workstation with chat + editor
+- Presentation mode with audience view
+- Dedicated monitoring dashboard
+
+**Implementation:**
+- Window management API (Electron/browser)
+- Layout persistence per user
+- Screen detection and assignment UI
+
+---
+
 ### 4. Kernel + Personality + Tools
 
 **Combines:**
@@ -195,6 +238,8 @@ Response
 
 | Item | Date |
 |------|------|
+| Verbosity Slider (4-mode: Muse/Quiet/Verbose/Experimental) | 2025-12-30 |
+| Say/Send_chat Differentiation (different content, proper formatting) | 2025-12-30 |
 | JIT Tool Protocol v2 (Compressed Manifest - 78 tools) | 2025-12-30 |
 | Master Roadmap Consolidation (245 ideas → 13 priorities) | 2025-12-30 |
 | Deep Codebase Analysis Agent | 2025-12-29 |
