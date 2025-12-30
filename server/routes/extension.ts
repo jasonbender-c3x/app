@@ -14,6 +14,8 @@
 import { Router } from "express";
 import { GoogleGenAI } from "@google/genai";
 import { storage } from "../storage";
+import { WebSocket, WebSocketServer } from 'ws';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
@@ -487,5 +489,179 @@ Respond helpfully and concisely. If the context is relevant, use it in your answ
 
   return { message: result.text };
 }
+
+// =============================================================================
+// WEBSOCKET SUPPORT FOR REAL-TIME EXTENSION COMMUNICATION
+// =============================================================================
+
+interface ExtensionConnection {
+  id: string;
+  ws: WebSocket;
+  capabilities: string[];
+  connectedAt: Date;
+  lastHeartbeat: Date;
+  source: 'popup' | 'background';
+}
+
+const extensionConnections = new Map<string, ExtensionConnection>();
+
+let wss: WebSocketServer | null = null;
+
+export function initExtensionWebSocket(server: any) {
+  wss = new WebSocketServer({ noServer: true });
+
+  server.on('upgrade', (request: any, socket: any, head: any) => {
+    const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
+    
+    if (pathname === '/api/extension/connect') {
+      wss!.handleUpgrade(request, socket, head, (ws) => {
+        wss!.emit('connection', ws, request);
+      });
+    }
+  });
+
+  wss.on('connection', (ws: WebSocket, request: any) => {
+    const connectionId = uuidv4();
+    console.log(`[Extension WS] New connection: ${connectionId}`);
+
+    const connection: ExtensionConnection = {
+      id: connectionId,
+      ws,
+      capabilities: [],
+      connectedAt: new Date(),
+      lastHeartbeat: new Date(),
+      source: 'popup'
+    };
+
+    extensionConnections.set(connectionId, connection);
+
+    ws.on('message', async (data: Buffer) => {
+      try {
+        const message = JSON.parse(data.toString());
+        await handleExtensionWSMessage(connectionId, message);
+      } catch (error) {
+        console.error('[Extension WS] Invalid message:', error);
+        ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+      }
+    });
+
+    ws.on('close', () => {
+      console.log(`[Extension WS] Connection closed: ${connectionId}`);
+      extensionConnections.delete(connectionId);
+    });
+
+    ws.on('error', (error) => {
+      console.error(`[Extension WS] Connection error: ${connectionId}`, error);
+      extensionConnections.delete(connectionId);
+    });
+
+    ws.send(JSON.stringify({
+      type: 'connected',
+      connectionId,
+      serverTime: new Date().toISOString()
+    }));
+  });
+
+  // Heartbeat check
+  setInterval(() => {
+    const now = Date.now();
+    extensionConnections.forEach((conn, id) => {
+      if (now - conn.lastHeartbeat.getTime() > 60000) {
+        console.log(`[Extension WS] Connection timeout: ${id}`);
+        conn.ws.close();
+        extensionConnections.delete(id);
+      }
+    });
+  }, 30000);
+
+  console.log('[Extension WS] WebSocket server initialized');
+}
+
+async function handleExtensionWSMessage(connectionId: string, message: any) {
+  const connection = extensionConnections.get(connectionId);
+  if (!connection) return;
+
+  connection.lastHeartbeat = new Date();
+
+  switch (message.type) {
+    case 'extension_connected':
+      connection.capabilities = message.capabilities || [];
+      connection.source = message.source || 'popup';
+      console.log(`[Extension WS] Extension registered:`, connection.capabilities);
+      break;
+
+    case 'heartbeat':
+      connection.ws.send(JSON.stringify({ type: 'heartbeat_ack' }));
+      break;
+
+    case 'chat_message':
+      const chatResult = await handleChat({ 
+        message: message.content, 
+        url: message.url || '', 
+        title: message.title || '' 
+      });
+      connection.ws.send(JSON.stringify({ type: 'chat_response', content: chatResult.message }));
+      break;
+
+    case 'analyze_image':
+      const imgResult = await analyzeScreenshot({ 
+        screenshot: `data:image/png;base64,${message.image}`, 
+        url: message.url || '', 
+        title: message.context || '' 
+      });
+      connection.ws.send(JSON.stringify({ type: 'chat_response', content: imgResult.message }));
+      break;
+
+    case 'voice_audio':
+      console.log('[Extension WS] Received voice audio chunk');
+      break;
+
+    case 'element_selected':
+      console.log('[Extension WS] Element selected:', message.element?.tag);
+      const selResult = await analyzeSelection({ text: message.element?.text || '', url: '' });
+      connection.ws.send(JSON.stringify({ type: 'chat_response', content: selResult.message }));
+      break;
+
+    case 'console_log':
+      console.log(`[Extension Console] [${message.level}]`, message.args?.join(' '));
+      break;
+
+    default:
+      console.log(`[Extension WS] Unknown message type: ${message.type}`);
+  }
+}
+
+export function sendToExtension(connectionId: string, message: any): boolean {
+  const connection = extensionConnections.get(connectionId);
+  if (connection && connection.ws.readyState === WebSocket.OPEN) {
+    connection.ws.send(JSON.stringify(message));
+    return true;
+  }
+  return false;
+}
+
+export function broadcastToExtensions(message: any) {
+  extensionConnections.forEach((connection) => {
+    if (connection.ws.readyState === WebSocket.OPEN) {
+      connection.ws.send(JSON.stringify(message));
+    }
+  });
+}
+
+export function getConnectedExtensions() {
+  return Array.from(extensionConnections.values()).map(conn => ({
+    id: conn.id,
+    capabilities: conn.capabilities,
+    connectedAt: conn.connectedAt,
+    source: conn.source
+  }));
+}
+
+router.get('/ws-status', (req, res) => {
+  res.json({
+    connected: extensionConnections.size,
+    connections: getConnectedExtensions()
+  });
+});
 
 export default router;
