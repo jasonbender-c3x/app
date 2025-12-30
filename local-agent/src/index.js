@@ -124,6 +124,7 @@ class MeowstikAgent {
         this.sendToBackend({
           type: 'agent_connected',
           capabilities: [
+            // Browser automation
             'navigate',
             'click',
             'type',
@@ -133,7 +134,17 @@ class MeowstikAgent {
             'wait',
             'scroll',
             'select',
-            'hover'
+            'hover',
+            // File system operations (for client: prefix routing)
+            'file_read',
+            'file_write',
+            'file_list',
+            'file_delete',
+            'file_exists',
+            // Terminal operations
+            'terminal_execute',
+            // Editor operations
+            'editor_open'
           ]
         });
 

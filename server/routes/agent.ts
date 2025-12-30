@@ -12,11 +12,12 @@ import { Router } from "express";
 import { WebSocket, WebSocketServer } from "ws";
 import type { Server } from "http";
 import { GoogleGenAI } from "@google/genai";
+import { clientRouter } from "../services/client-router";
 
 const router = Router();
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
-// Store connected agents
+// Store connected agents (local reference, clientRouter is the source of truth)
 const connectedAgents = new Map<string, {
   ws: WebSocket;
   capabilities: string[];
@@ -256,11 +257,13 @@ export function setupAgentWebSocket(server: Server) {
     ws.on("close", () => {
       console.log(`[Agent] Disconnected: ${agentId}`);
       connectedAgents.delete(agentId);
+      clientRouter.unregisterAgent(agentId);
     });
 
     ws.on("error", (error) => {
       console.error(`[Agent] Error for ${agentId}:`, error);
       connectedAgents.delete(agentId);
+      clientRouter.unregisterAgent(agentId);
     });
   });
 
@@ -278,13 +281,21 @@ function handleAgentMessage(agentId: string, message: any) {
     case "agent_connected":
       agent.capabilities = message.capabilities || [];
       console.log(`[Agent] ${agentId} capabilities:`, agent.capabilities);
+      
+      // Register with clientRouter for file/terminal operations
+      clientRouter.registerAgent(agentId, agent.ws, agent.capabilities);
       break;
 
     case "heartbeat":
       agent.lastHeartbeat = new Date();
+      clientRouter.heartbeat(agentId);
       break;
 
     case "command_result":
+      // First check if this is a clientRouter command
+      clientRouter.handleCommandResult(message.id, message.success, message.result, message.error);
+      
+      // Also check local pending commands (for direct agent API calls)
       const pending = pendingCommands.get(message.id);
       if (pending) {
         clearTimeout(pending.timeout);

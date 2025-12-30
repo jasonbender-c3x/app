@@ -62,11 +62,82 @@ import * as github from "../integrations/github";
 import * as browserbase from "../integrations/browserbase";
 import { ragService } from "./rag-service";
 import { chunkingService } from "./chunking-service";
+import { clientRouter } from "./client-router";
 import { exec } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { z } from "zod";
+
+/**
+ * Path Prefix Routing System
+ * 
+ * Unified prefix system for file and terminal operations:
+ * 
+ * FILE PATHS (file_get, file_put):
+ * - server:path or just path → Server filesystem (default)
+ * - client:path → Client machine via connected desktop-app
+ * - editor:path → Monaco editor canvas
+ * 
+ * TERMINAL COMMANDS (terminal_execute):
+ * - server:command or just command → Server (default)
+ * - client:command → Client machine via connected desktop-app
+ * 
+ * EDITOR OPERATIONS (editor_load):
+ * - editor:server:path or editor:path → Load file from server into Monaco editor (default)
+ * - editor:client:path → Load file from client into Monaco editor
+ */
+
+type PathTarget = 'server' | 'client' | 'editor';
+
+interface ParsedPath {
+  target: PathTarget;
+  path: string;
+  editorSubTarget?: 'server' | 'client'; // For editor:server: or editor:client:
+}
+
+/**
+ * Parse a path with prefix routing
+ * Returns the target (server/client/editor) and the clean path
+ */
+function parsePathPrefix(rawPath: string, defaultTarget: PathTarget = 'server'): ParsedPath {
+  if (!rawPath) return { target: defaultTarget, path: '' };
+  
+  // Handle editor: prefix with possible sub-target
+  if (rawPath.startsWith('editor:')) {
+    const afterEditor = rawPath.substring('editor:'.length);
+    
+    if (afterEditor.startsWith('client:')) {
+      return { 
+        target: 'editor', 
+        path: afterEditor.substring('client:'.length),
+        editorSubTarget: 'client'
+      };
+    }
+    if (afterEditor.startsWith('server:')) {
+      return { 
+        target: 'editor', 
+        path: afterEditor.substring('server:'.length),
+        editorSubTarget: 'server'
+      };
+    }
+    // Default: editor with server source
+    return { target: 'editor', path: afterEditor, editorSubTarget: 'server' };
+  }
+  
+  // Handle client: prefix
+  if (rawPath.startsWith('client:')) {
+    return { target: 'client', path: rawPath.substring('client:'.length) };
+  }
+  
+  // Handle explicit server: prefix
+  if (rawPath.startsWith('server:')) {
+    return { target: 'server', path: rawPath.substring('server:'.length) };
+  }
+  
+  // No prefix = default target
+  return { target: defaultTarget, path: rawPath };
+}
 
 /**
  * Zod schemas for tool call parameter validation
@@ -1195,34 +1266,66 @@ export class RAGDispatcher {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TERMINAL HANDLER
+  // Supports server:/client: prefix routing
+  // - server:command or just command → Execute on Replit server (default)
+  // - client:command → Execute on connected desktop-app client
   // ═══════════════════════════════════════════════════════════════════════════
 
   private async executeTerminal(toolCall: ToolCall): Promise<unknown> {
-    const params = toolCall.parameters as { command: string };
+    const params = toolCall.parameters as { command: string; cwd?: string; timeout?: number };
     
     if (!params.command || typeof params.command !== 'string') {
       throw new Error('Terminal execute requires a command parameter');
     }
 
+    // Parse prefix to determine target
+    const parsed = parsePathPrefix(params.command, 'server');
+    const actualCommand = parsed.path;
+    
+    // Route to client if client: prefix
+    if (parsed.target === 'client') {
+      console.log(`[RAGDispatcher] Routing terminal command to client: ${actualCommand}`);
+      
+      if (!clientRouter.hasConnectedAgent()) {
+        throw new Error('No desktop agent connected. Start the Meowstik desktop app on your computer to use client: commands.');
+      }
+      
+      const result = await clientRouter.executeTerminal(actualCommand, {
+        cwd: params.cwd,
+        timeout: params.timeout || 30000
+      });
+      
+      return {
+        success: result.exitCode === 0,
+        target: 'client',
+        command: actualCommand,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exitCode: result.exitCode
+      };
+    }
+
+    // Execute on server (default)
     const startTime = Date.now();
     
     try {
-      const { stdout, stderr } = await execAsync(params.command, {
+      const { stdout, stderr } = await execAsync(actualCommand, {
         cwd: this.workspaceDir,
-        timeout: 30000, // 30 second timeout
+        timeout: params.timeout || 30000,
         maxBuffer: 1024 * 1024 // 1MB buffer
       });
 
       // Save output to terminal log file
       const timestamp = new Date().toISOString();
-      const logEntry = `\n[${timestamp}] $ ${params.command}\n${stdout}${stderr ? '\n[stderr]\n' + stderr : ''}\n`;
+      const logEntry = `\n[${timestamp}] $ ${actualCommand}\n${stdout}${stderr ? '\n[stderr]\n' + stderr : ''}\n`;
       const logPath = path.join(this.workspaceDir, '.local', 'terminal-output.txt');
       await fs.mkdir(path.dirname(logPath), { recursive: true });
       await fs.appendFile(logPath, logEntry, 'utf8');
 
       return {
         success: true,
-        command: params.command,
+        target: 'server',
+        command: actualCommand,
         stdout: stdout.trim(),
         stderr: stderr.trim(),
         duration: Date.now() - startTime
@@ -1230,14 +1333,15 @@ export class RAGDispatcher {
     } catch (error: any) {
       // Save error output to terminal log file
       const timestamp = new Date().toISOString();
-      const logEntry = `\n[${timestamp}] $ ${params.command}\n[error] ${error.message}\n${error.stdout || ''}${error.stderr || ''}\n`;
+      const logEntry = `\n[${timestamp}] $ ${actualCommand}\n[error] ${error.message}\n${error.stdout || ''}${error.stderr || ''}\n`;
       const logPath = path.join(this.workspaceDir, '.local', 'terminal-output.txt');
       await fs.mkdir(path.dirname(logPath), { recursive: true });
       await fs.appendFile(logPath, logEntry, 'utf8');
 
       return {
         success: false,
-        command: params.command,
+        target: 'server',
+        command: actualCommand,
         stdout: error.stdout?.trim() || '',
         stderr: error.stderr?.trim() || error.message,
         exitCode: error.code || 1,
@@ -1248,12 +1352,17 @@ export class RAGDispatcher {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // FILE GET/PUT HANDLERS
+  // Supports server:/client:/editor: prefix routing
+  // - server:path or just path → Server filesystem (default)
+  // - client:path → Client machine via connected desktop-app
+  // - editor:path → Monaco editor canvas
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * File Get Tool - Read a file from filesystem or editor canvas
-   * If path starts with "editor:", reads from Monaco editor canvas
-   * Otherwise reads from filesystem
+   * File Get Tool - Read a file with prefix routing
+   * - server:path or just path → Read from server filesystem (default)
+   * - client:path → Read from client via desktop-app
+   * - editor:path → Read from Monaco editor canvas
    */
   private async executeFileGet(toolCall: ToolCall): Promise<unknown> {
     const params = toolCall.parameters as { path: string; encoding?: string };
@@ -1262,22 +1371,43 @@ export class RAGDispatcher {
       throw new Error('file_get requires a path parameter');
     }
 
-    // Handle editor: prefix - files from Monaco editor canvas
-    if (params.path.startsWith("editor:")) {
-      const editorPath = params.path.substring("editor:".length);
-      console.log(`[RAGDispatcher] Reading from editor canvas: ${editorPath}`);
-      // Return metadata for frontend to handle
+    // Parse prefix to determine target
+    const parsed = parsePathPrefix(params.path, 'server');
+    const actualPath = parsed.path;
+
+    // Route to editor canvas
+    if (parsed.target === 'editor') {
+      console.log(`[RAGDispatcher] Reading from editor canvas: ${actualPath}`);
       return {
         type: 'file_get',
-        path: editorPath,
+        path: actualPath,
         source: 'editor',
         encoding: params.encoding || 'utf8',
-        message: `Request to read file from editor canvas: ${editorPath}`
+        message: `Request to read file from editor canvas: ${actualPath}`
       };
     }
 
-    // Read from filesystem - sanitize path directly (don't use sanitizePath which is for dir+filename)
-    const sanitizedPath = params.path.replace(/\.\./g, "").replace(/^\/+/, "");
+    // Route to client machine
+    if (parsed.target === 'client') {
+      console.log(`[RAGDispatcher] Reading file from client: ${actualPath}`);
+      
+      if (!clientRouter.hasConnectedAgent()) {
+        throw new Error('No desktop agent connected. Start the Meowstik desktop app on your computer to use client: paths.');
+      }
+      
+      const content = await clientRouter.readFile(actualPath, params.encoding || 'utf8');
+      
+      return {
+        type: 'file_get',
+        path: actualPath,
+        source: 'client',
+        content,
+        encoding: params.encoding || 'utf8'
+      };
+    }
+
+    // Read from server filesystem (default)
+    const sanitizedPath = actualPath.replace(/\.\./g, "").replace(/^\/+/, "");
     const fullPath = path.join(this.workspaceDir, sanitizedPath);
     
     const content = await fs.readFile(fullPath, params.encoding === 'base64' ? 'base64' : 'utf8');
@@ -1285,16 +1415,17 @@ export class RAGDispatcher {
     return {
       type: 'file_get',
       path: sanitizedPath,
-      source: 'filesystem',
+      source: 'server',
       content,
       encoding: params.encoding || 'utf8'
     };
   }
 
   /**
-   * File Put Tool - Write/create a file to filesystem or editor canvas
-   * If path starts with "editor:", saves to Monaco editor canvas
-   * Otherwise writes to filesystem
+   * File Put Tool - Write/create a file with prefix routing
+   * - server:path or just path → Write to server filesystem (default)
+   * - client:path → Write to client via desktop-app
+   * - editor:path → Write to Monaco editor canvas
    */
   private async executeFilePut(toolCall: ToolCall): Promise<unknown> {
     const params = toolCall.parameters as { 
@@ -1312,23 +1443,26 @@ export class RAGDispatcher {
       throw new Error('file_put requires a content parameter');
     }
 
-    // Handle editor: prefix - files for Monaco editor canvas
-    if (params.path.startsWith("editor:")) {
-      const editorPath = params.path.substring("editor:".length);
-      console.log(`[RAGDispatcher] Writing to editor canvas: ${editorPath}`);
+    // Parse prefix to determine target
+    const parsed = parsePathPrefix(params.path, 'server');
+    const actualPath = parsed.path;
+
+    // Route to editor canvas
+    if (parsed.target === 'editor') {
+      console.log(`[RAGDispatcher] Writing to editor canvas: ${actualPath}`);
       
       // Auto-ingest into RAG if content is text-based
-      const mimeType = params.mimeType || this.detectMimeType(editorPath);
+      const mimeType = params.mimeType || this.detectMimeType(actualPath);
       let ingestResult = null;
       if (chunkingService.supportsTextExtraction(mimeType)) {
         try {
           ingestResult = await ragService.ingestDocument(
             params.content,
             `editor-${Date.now()}`,
-            path.basename(editorPath),
+            path.basename(actualPath),
             mimeType
           );
-          console.log(`[RAGDispatcher] Auto-ingested editor file: ${editorPath}, chunks: ${ingestResult.chunksCreated}`);
+          console.log(`[RAGDispatcher] Auto-ingested editor file: ${actualPath}, chunks: ${ingestResult.chunksCreated}`);
         } catch (error) {
           console.warn(`[RAGDispatcher] Failed to auto-ingest editor file:`, error);
         }
@@ -1336,19 +1470,39 @@ export class RAGDispatcher {
       
       return {
         type: 'file_put',
-        path: editorPath,
+        path: actualPath,
         destination: 'editor',
         content: params.content,
         mimeType,
         summary: params.summary,
         ingested: ingestResult?.success || false,
         chunksCreated: ingestResult?.chunksCreated || 0,
-        message: `File saved to editor canvas: ${editorPath}. View at /editor`
+        message: `File saved to editor canvas: ${actualPath}. View at /editor`
       };
     }
 
-    // Write to filesystem - sanitize path directly (don't use sanitizePath which is for dir+filename)
-    const sanitizedPath = params.path.replace(/\.\./g, "").replace(/^\/+/, "");
+    // Route to client machine
+    if (parsed.target === 'client') {
+      console.log(`[RAGDispatcher] Writing file to client: ${actualPath}`);
+      
+      if (!clientRouter.hasConnectedAgent()) {
+        throw new Error('No desktop agent connected. Start the Meowstik desktop app on your computer to use client: paths.');
+      }
+      
+      await clientRouter.writeFile(actualPath, params.content, { permissions: params.permissions });
+      
+      return {
+        type: 'file_put',
+        path: actualPath,
+        destination: 'client',
+        mimeType: params.mimeType || this.detectMimeType(actualPath),
+        summary: params.summary,
+        message: `File written to client: ${actualPath}`
+      };
+    }
+
+    // Write to server filesystem (default)
+    const sanitizedPath = actualPath.replace(/\.\./g, "").replace(/^\/+/, "");
     const fullPath = path.join(this.workspaceDir, sanitizedPath);
     
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
@@ -1382,7 +1536,7 @@ export class RAGDispatcher {
     return {
       type: 'file_put',
       path: sanitizedPath,
-      destination: 'filesystem',
+      destination: 'server',
       mimeType,
       summary: params.summary,
       ingested: ingestResult?.success || false,
