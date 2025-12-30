@@ -60,6 +60,7 @@ import * as googleSheets from "../integrations/google-sheets";
 import * as googleContacts from "../integrations/google-contacts";
 import * as github from "../integrations/github";
 import * as browserbase from "../integrations/browserbase";
+import * as twilio from "../integrations/twilio";
 import { ragService } from "./rag-service";
 import { chunkingService } from "./chunking-service";
 import { clientRouter } from "./client-router";
@@ -386,6 +387,18 @@ export class RAGDispatcher {
           break;
         case "gmail_search":
           result = await this.executeGmailSearch(toolCall);
+          break;
+        case "sms_send":
+          result = await this.executeSmsSend(toolCall);
+          break;
+        case "sms_list":
+          result = await this.executeSmsList(toolCall);
+          break;
+        case "call_make":
+          result = await this.executeCallMake(toolCall);
+          break;
+        case "call_list":
+          result = await this.executeCallList(toolCall);
           break;
         case "calendar_list":
           result = await this.executeCalendarList(toolCall);
@@ -1988,6 +2001,159 @@ export class RAGDispatcher {
       message: `Task "${task.title}" started`,
       task: updatedTask,
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TWILIO SMS/VOICE HANDLERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Send an SMS message via Twilio
+   */
+  private async executeSmsSend(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { to: string; body: string };
+    
+    if (!params.to || !params.body) {
+      throw new Error("sms_send requires 'to' (phone number) and 'body' parameters");
+    }
+
+    // Validate phone number format (basic E.164 check)
+    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(params.to.replace(/[\s\-\(\)]/g, ''))) {
+      throw new Error("Invalid phone number format. Please use E.164 format (e.g., +14155551234)");
+    }
+
+    if (params.body.length < 1 || params.body.length > 1600) {
+      throw new Error("SMS body must be between 1 and 1600 characters");
+    }
+
+    try {
+      const result = await twilio.sendSMS(params.to, params.body);
+      
+      return {
+        type: "sms_send",
+        success: true,
+        sid: result.sid,
+        status: result.status,
+        to: result.to,
+        from: result.from,
+        message: `SMS sent successfully to ${params.to}`,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        type: "sms_send",
+        success: false,
+        to: params.to,
+        error: errorMessage,
+        message: `Failed to send SMS: ${errorMessage}`,
+      };
+    }
+  }
+
+  /**
+   * List recent SMS messages from Twilio
+   */
+  private async executeSmsList(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { limit?: number };
+    
+    try {
+      const messages = await twilio.getMessages(params.limit || 20);
+      
+      return {
+        type: "sms_list",
+        success: true,
+        messages,
+        count: messages.length,
+        message: `Retrieved ${messages.length} SMS messages`,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        type: "sms_list",
+        success: false,
+        error: errorMessage,
+        message: `Failed to list SMS messages: ${errorMessage}`,
+      };
+    }
+  }
+
+  /**
+   * Make a voice call via Twilio
+   */
+  private async executeCallMake(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { to: string; message?: string; twimlUrl?: string };
+    
+    if (!params.to) {
+      throw new Error("call_make requires 'to' (phone number) parameter");
+    }
+
+    if (!params.message && !params.twimlUrl) {
+      throw new Error("call_make requires either 'message' (text to speak) or 'twimlUrl' parameter");
+    }
+
+    // Validate phone number format
+    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(params.to.replace(/[\s\-\(\)]/g, ''))) {
+      throw new Error("Invalid phone number format. Please use E.164 format (e.g., +14155551234)");
+    }
+
+    try {
+      let result;
+      if (params.twimlUrl) {
+        // Use custom TwiML URL
+        result = await twilio.makeCall(params.to, params.twimlUrl);
+      } else {
+        // Use text-to-speech message
+        result = await twilio.makeCallWithMessage(params.to, params.message!);
+      }
+      
+      return {
+        type: "call_make",
+        success: true,
+        sid: result.sid,
+        status: result.status,
+        to: result.to,
+        from: result.from,
+        message: `Call initiated to ${params.to}`,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        type: "call_make",
+        success: false,
+        to: params.to,
+        error: errorMessage,
+        message: `Failed to make call: ${errorMessage}`,
+      };
+    }
+  }
+
+  /**
+   * List recent voice calls from Twilio
+   */
+  private async executeCallList(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { limit?: number };
+    
+    try {
+      const calls = await twilio.getCalls(params.limit || 20);
+      
+      return {
+        type: "call_list",
+        success: true,
+        calls,
+        count: calls.length,
+        message: `Retrieved ${calls.length} call records`,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        type: "call_list",
+        success: false,
+        error: errorMessage,
+        message: `Failed to list calls: ${errorMessage}`,
+      };
+    }
   }
 }
 

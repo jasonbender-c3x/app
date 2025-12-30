@@ -26,6 +26,7 @@ import desktopRouter from "./desktop";
 import computerUseRouter from "./computer-use";
 import collabRouter from "./collab";
 import jobsRouter from "./jobs";
+import twilioRouter from "./twilio";
 import { errorHandler } from "./middleware";
 
 export function createApiRouter(): Router {
@@ -58,6 +59,7 @@ export function createApiRouter(): Router {
   router.use("/computer-use", computerUseRouter);
   router.use("/collab", collabRouter);
   router.use("/jobs", jobsRouter);
+  router.use("/twilio", twilioRouter);
 
   router.use(errorHandler);
 

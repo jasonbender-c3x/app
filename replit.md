@@ -61,6 +61,8 @@ See `docs/v2-roadmap/MASTER-ROADMAP.md` for the consolidated roadmap (13 priorit
 - **send_chat:** Primary tool for LLM to send text to the chat window.
 - **say:** Voice output tool using Gemini 2.5 Flash TTS for expressive speech.
 - **file_get/file_put:** Tools for reading and writing files.
+- **sms_send/sms_list:** SMS messaging via Twilio.
+- **call_make/call_list:** Voice calls via Twilio.
 
 ### Verbosity Slider
 4-mode voice output control in chat header:
@@ -117,10 +119,19 @@ Multi-worker job processing with DAG-based dependency resolution:
 - **JobDispatcher Service:** Coordinates queue, pool, and resolver; dispatches ready jobs
 - **API Routes:** `/api/jobs` for submission, status, results; `/api/jobs/workflow` for composite jobs
 
+### Twilio Integration
+SMS and voice call capabilities via Twilio API:
+- **Configuration:** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` secrets
+- **AI Tools:** `sms_send`, `sms_list`, `call_make`, `call_list` in JIT tool protocol
+- **API Routes:** `/api/twilio/sms`, `/api/twilio/call`, `/api/twilio/webhook/*` for webhooks
+- **Integration File:** `server/integrations/twilio.ts`
+- **Pricing:** ~$0.0075/SMS, ~$0.014/min outbound calls, ~$0.0085/min inbound calls
+
 ## External Dependencies
 
 - **Google Workspace Services (via `googleapis`):** Google Drive, Gmail, Google Calendar, Google Docs, Google Sheets, Google Tasks, Google Contacts.
 - **GitHub Integration (via `@octokit/rest`):** Repository operations, file content, issues, pull requests, commits, user info.
+- **Twilio (via `twilio`):** SMS messaging, voice calls, webhooks for incoming messages/calls.
 - **Authentication:** OAuth2 via Replit Connectors for Google services and GitHub.
 - **Replit Platform Integration:** Vite plugins (cartographer, dev-banner, runtime-error-modal, meta images).
 - **PostgreSQL:** Primary database.

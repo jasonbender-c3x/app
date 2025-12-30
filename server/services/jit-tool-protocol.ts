@@ -23,6 +23,7 @@ export type ToolCategory =
   | "codebase"
   | "contacts"
   | "queue"
+  | "sms"
   | "general";
 
 // Tool prediction result
@@ -40,7 +41,7 @@ interface ToolDef {
 }
 
 // ============================================================================
-// COMPLETE TOOL MANIFEST (77 tools)
+// COMPLETE TOOL MANIFEST (81 tools)
 // ============================================================================
 
 const ALL_TOOLS: ToolDef[] = [
@@ -61,6 +62,12 @@ const ALL_TOOLS: ToolDef[] = [
   { name: "gmail_read", params: "messageId:string", category: "email" },
   { name: "gmail_send", params: "to:string, subject:string, body:string, cc?, bcc?", category: "email" },
   { name: "gmail_search", params: "query:string, maxResults?:number", category: "email" },
+  
+  // === SMS / TWILIO (4) ===
+  { name: "sms_send", params: "to:string (E.164 phone), body:string (1-1600 chars)", category: "sms" },
+  { name: "sms_list", params: "limit?:number", category: "sms" },
+  { name: "call_make", params: "to:string (E.164 phone), message?:string (TTS), twimlUrl?:string", category: "sms" },
+  { name: "call_list", params: "limit?:number", category: "sms" },
   
   // === CALENDAR (5) ===
   { name: "calendar_list", params: "(none)", category: "calendar" },
