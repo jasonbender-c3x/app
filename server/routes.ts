@@ -621,6 +621,14 @@ export async function registerRoutes(
       console.log(
         `[Routes] Using model: ${modelMode} (mode: ${req.body.model || "pro"})`,
       );
+      
+      // Log the user message for debugging
+      const userMsgText = req.body.content || "";
+      console.log(`\n${"=".repeat(60)}`);
+      console.log(`[LLM] USER MESSAGE:`);
+      console.log(`${"─".repeat(60)}`);
+      console.log(userMsgText.slice(0, 500) + (userMsgText.length > 500 ? "..." : ""));
+      console.log(`${"=".repeat(60)}\n`);
 
       const result = await genAI.models.generateContentStream({
         model: modelMode,
@@ -847,6 +855,26 @@ export async function registerRoutes(
 
       // Execute tool calls if we have a valid structured response
       if (confirmedStructured && parsedResponse) {
+        // Log all tool calls for debugging
+        console.log(`\n${"=".repeat(60)}`);
+        console.log(`[LLM] AI RESPONSE - ${parsedResponse.toolCalls!.length} TOOL CALLS:`);
+        console.log(`${"─".repeat(60)}`);
+        for (const tc of parsedResponse.toolCalls!) {
+          console.log(`  • ${tc.type} (${tc.id})`);
+          if (tc.type === "send_chat" && tc.parameters) {
+            const params = tc.parameters as { content?: string };
+            if (params.content) {
+              console.log(`    → "${params.content.slice(0, 200)}${params.content.length > 200 ? "..." : ""}"`);
+            }
+          } else if (tc.type === "say" && tc.parameters) {
+            const params = tc.parameters as { utterance?: string };
+            if (params.utterance) {
+              console.log(`    🔊 "${params.utterance.slice(0, 200)}${params.utterance.length > 200 ? "..." : ""}"`);
+            }
+          }
+        }
+        console.log(`${"=".repeat(60)}\n`);
+        
         for (const toolCall of parsedResponse.toolCalls!) {
           console.log(`[Routes] Executing tool call: ${toolCall.type} (${toolCall.id})`);
           try {
