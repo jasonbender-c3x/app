@@ -60,7 +60,7 @@ import { Button } from "@/components/ui/button";
  * - Lightbulb: Icon for brainstorming prompt
  * - Code2: Icon for coding/debug prompt
  */
-import { Menu, Sparkles, Compass, Lightbulb, Code2, Volume2, VolumeX, ChevronLeft, ChevronRight, PawPrint, Moon, Fish, Heart, Zap, BookOpen, AlertTriangle } from "lucide-react";
+import { Menu, Sparkles, Compass, Lightbulb, Code2, Volume2, VolumeX, ChevronLeft, ChevronRight, PawPrint, Moon, Fish, Heart, Zap, BookOpen, AlertTriangle, Link, Mail, Calendar, FileText, Github } from "lucide-react";
 import { VerbositySlider } from "@/components/ui/verbosity-slider";
 import { useLocation } from "wouter";
 
@@ -960,6 +960,30 @@ export default function Home() {
                * Click cards to send prompts, use arrows to navigate
                */}
               <CatCardCarousel onSendMessage={handleSendMessage} />
+              
+              {/* Quick Links */}
+              <div className="mt-8 w-full max-w-4xl">
+                <h3 className="text-sm font-medium text-muted-foreground mb-3 text-center">Quick Links</h3>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <a href="https://mail.google.com" target="_blank" rel="noopener" className="flex items-center gap-2 px-3 py-2 bg-secondary/30 hover:bg-secondary/60 rounded-lg text-sm transition-colors" data-testid="link-gmail">
+                    <Mail className="h-4 w-4 text-red-500" /> Gmail
+                  </a>
+                  <a href="https://calendar.google.com" target="_blank" rel="noopener" className="flex items-center gap-2 px-3 py-2 bg-secondary/30 hover:bg-secondary/60 rounded-lg text-sm transition-colors" data-testid="link-calendar">
+                    <Calendar className="h-4 w-4 text-blue-500" /> Calendar
+                  </a>
+                  <a href="https://drive.google.com" target="_blank" rel="noopener" className="flex items-center gap-2 px-3 py-2 bg-secondary/30 hover:bg-secondary/60 rounded-lg text-sm transition-colors" data-testid="link-drive">
+                    <FileText className="h-4 w-4 text-yellow-500" /> Drive
+                  </a>
+                  <a href="https://github.com" target="_blank" rel="noopener" className="flex items-center gap-2 px-3 py-2 bg-secondary/30 hover:bg-secondary/60 rounded-lg text-sm transition-colors" data-testid="link-github">
+                    <Github className="h-4 w-4" /> GitHub
+                  </a>
+                </div>
+              </div>
+              
+              {/* Copyright */}
+              <div className="mt-8 text-xs text-muted-foreground/50">
+                © {new Date().getFullYear()} Jason Bender
+              </div>
             </div>
           ) : (
             // =================================================================
@@ -1030,7 +1054,7 @@ export default function Home() {
          * Contains text input, send button, and optional voice input
          * Gradient fade effect at top blends with chat area
          */}
-        <div className="w-full bg-gradient-to-t from-background via-background to-transparent pt-10 pb-6 px-4 z-20">
+        <div className="w-full bg-gradient-to-t from-background via-background to-transparent pt-4 pb-2 px-4 z-20">
           <ChatInputArea 
             onSend={handleSendMessage} 
             isLoading={isLoading}

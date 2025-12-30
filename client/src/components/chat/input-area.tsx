@@ -238,6 +238,11 @@ export function ChatInputArea({ onSend, isLoading, promptHistory = [] }: InputAr
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   /**
+   * Auto-screenshot mode - when ON, every send includes a screenshot
+   */
+  const [autoScreenshotMode, setAutoScreenshotMode] = useState(false);
+
+  /**
    * Cursor position when STT button was clicked
    * Used to insert transcribed text at the correct position
    */
@@ -338,18 +343,51 @@ export function ChatInputArea({ onSend, isLoading, promptHistory = [] }: InputAr
 
   /**
    * Handle send button click or Enter key
-   * 
-   * Validates input is not empty and not currently loading,
-   * then calls the onSend callback and resets the input.
+   * If auto-screenshot mode is on, captures screenshot first
    */
-  const handleSend = () => {
-    // Only send if there's content (text or attachments) and not loading
+  const handleSend = async () => {
     const hasContent = input.trim() || attachments.length > 0;
     if (hasContent && !isLoading) {
-      onSend(input, attachments);
+      let finalAttachments = [...attachments];
+      
+      // If auto-screenshot mode is on, capture screenshot
+      if (autoScreenshotMode) {
+        try {
+          const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: { displaySurface: "monitor" } as MediaTrackConstraints
+          });
+          const video = document.createElement("video");
+          video.srcObject = stream;
+          await video.play();
+          const canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(video, 0, 0);
+            const rawDataUrl = canvas.toDataURL("image/png");
+            stream.getTracks().forEach(track => track.stop());
+            const compressed = await compressImage(rawDataUrl);
+            finalAttachments.push({
+              id: `auto-screenshot-${Date.now()}`,
+              filename: `screenshot-${Date.now()}.jpg`,
+              type: "screenshot",
+              mimeType: compressed.mimeType,
+              size: compressed.size,
+              dataUrl: compressed.dataUrl,
+              preview: compressed.dataUrl
+            });
+          }
+        } catch (error: any) {
+          if (error.name !== "AbortError") {
+            toast({ title: "Auto-screenshot failed", variant: "destructive" });
+          }
+        }
+      }
+      
+      onSend(input, finalAttachments);
       setInput("");
       setAttachments([]);
-      // Reset textarea height after clearing
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
@@ -820,13 +858,19 @@ export function ChatInputArea({ onSend, isLoading, promptHistory = [] }: InputAr
                 )}
               </AnimatePresence>
 
-              {/* Screen Capture Button */}
+              {/* Auto-Screenshot Mode Toggle */}
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={handleScreenCapture}
-                className="h-9 w-9 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                data-testid="button-screen-capture"
+                onClick={() => setAutoScreenshotMode(!autoScreenshotMode)}
+                className={cn(
+                  "h-9 w-9 rounded-full transition-colors",
+                  autoScreenshotMode 
+                    ? "text-amber-500 bg-amber-500/20 ring-1 ring-amber-500/50" 
+                    : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                )}
+                data-testid="button-auto-screenshot"
+                title={autoScreenshotMode ? "Auto-screenshot ON (click to disable)" : "Enable auto-screenshot mode"}
               >
                 <Monitor className="h-5 w-5" />
               </Button>
