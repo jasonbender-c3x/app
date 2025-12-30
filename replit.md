@@ -38,8 +38,19 @@ Preferred communication style: Simple, everyday language.
 - **Codebase Analysis Agent:** Crawls repositories, extracts code entities from 20+ languages, ingests them into RAG, and generates documentation.
   - **Supported Languages:** TypeScript/JavaScript, Python, C/C++, PHP, Java/Kotlin/Scala, Go, Rust, C#, Swift, Ruby, Visual Basic, Lua, R, Perl, Dart, Groovy, MATLAB/Octave, Bash/Shell
   - **Dependency Files:** package.json, requirements.txt, Cargo.toml, go.mod, Gemfile, composer.json, build.gradle, pom.xml, pubspec.yaml
-- **JIT Tool Protocol:** Lightweight preprocessor using Gemini 2.0 Flash Lite to predict and inject relevant tool examples into context.
+- **JIT Tool Protocol:** Lightweight preprocessor using Gemini 2.0 Flash Lite to predict and inject relevant tool examples into context. Top 10 tools by usage: send_chat (137), say (86), terminal_execute (55), github_contents (37), gmail_search (28), file_put (17), gmail_read (10), gmail_list (10), file_get (8), github_file_read (7).
 - **LLM Token Usage Tracking:** Tracks input/output tokens for all Gemini API calls.
+
+## Development Roadmap
+
+See `docs/v2-roadmap/MASTER-ROADMAP.md` for the consolidated roadmap (13 priority groups from 245 extracted ideas).
+
+**Current Priorities:**
+1. Verbosity Slider (3-stop: Muse/Quiet/Verbose/Experimental)
+2. Collaborative Editing (live voice + Monaco editor)
+3. Desktop/Browser Control (extension + local agent)
+4. Kernel + Personality + Tools (installable modules)
+5. Cognitive Cascade + Orchestration (multi-tier architecture)
 
 ### System Status & Authorization
 - **Status Endpoint:** `GET /api/status` provides live mode, revision tracking, and connector health.

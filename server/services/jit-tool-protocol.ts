@@ -218,10 +218,17 @@ const TOOL_EXAMPLES: ToolExample[] = [
     priority: 7,
   },
   {
+    tool: "github_contents",
+    category: "github",
+    description: "List directory contents or get file info from repo",
+    example: `{"type": "github_contents", "id": "g2", "operation": "contents", "parameters": {"owner": "user", "repo": "project", "path": "src/"}}`,
+    priority: 9,
+  },
+  {
     tool: "github_file_read",
     category: "github",
     description: "Read file from repo",
-    example: `{"type": "github_file_read", "id": "g2", "operation": "read", "parameters": {"owner": "user", "repo": "project", "path": "src/index.ts"}}`,
+    example: `{"type": "github_file_read", "id": "g3", "operation": "read", "parameters": {"owner": "user", "repo": "project", "path": "src/index.ts"}}`,
     priority: 7,
   },
   {
@@ -275,6 +282,15 @@ const TOOL_EXAMPLES: ToolExample[] = [
     category: "file",
     description: "Write local file or editor canvas",
     example: `{"type": "file_put", "id": "f2", "operation": "write", "parameters": {"path": "editor:/app/src/main.js", "content": "console.log('Hello');"}}`,
+    priority: 9,
+  },
+  
+  // Terminal tools
+  {
+    tool: "terminal_execute",
+    category: "file",
+    description: "Execute shell command",
+    example: `{"type": "terminal_execute", "id": "t1", "operation": "execute", "parameters": {"command": "ls -la", "timeout": 30000}}`,
     priority: 9,
   },
   
