@@ -105,6 +105,7 @@ import CollaboratePage from "@/pages/collaborate";
 import ProposalDesktopCollaborationPage from "@/pages/proposal-desktop-collaboration";
 import WorkspacePage from "@/pages/workspace";
 import VisionPage from "@/pages/vision";
+import DocsPage from "@/pages/docs";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -224,6 +225,9 @@ function Router() {
       
       {/* Vision - Project vision and roadmap blog post */}
       <Route path="/vision" component={VisionPage} />
+      
+      {/* Documentation */}
+      <Route path="/docs/:slug?" component={DocsPage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything

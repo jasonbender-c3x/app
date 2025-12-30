@@ -1543,6 +1543,39 @@ ${summary}`,
   // ═════════════════════════════════════════════════════════════════════════
 
   // ═════════════════════════════════════════════════════════════════════════
+  // DOCUMENTATION API
+  // Serves markdown documentation files from the docs/ directory
+  // ═════════════════════════════════════════════════════════════════════════
+
+  app.get("/api/documentation/:path(*)", async (req, res) => {
+    try {
+      const docPath = req.params.path;
+      const fs = await import("fs/promises");
+      const path = await import("path");
+      
+      // Security: Only allow .md files from docs directory
+      if (!docPath.endsWith(".md")) {
+        return res.status(400).json({ error: "Only .md files allowed" });
+      }
+      
+      const fullPath = path.join(process.cwd(), "docs", docPath);
+      
+      // Security: Prevent directory traversal
+      const resolvedPath = path.resolve(fullPath);
+      const docsDir = path.resolve(process.cwd(), "docs");
+      if (!resolvedPath.startsWith(docsDir)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const content = await fs.readFile(fullPath, "utf-8");
+      res.type("text/plain").send(content);
+    } catch (error) {
+      console.error("Error reading doc file:", error);
+      res.status(404).json({ error: "Document not found" });
+    }
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════
   // MODULAR API ROUTERS
   // The following routes are organized into separate modules:
   // - /api/drive - Google Drive file operations
