@@ -23,11 +23,18 @@ export interface Participant {
   isVoiceActive?: boolean;
 }
 
+export interface TurnState {
+  currentTurn: "user" | "ai";
+  turnHolder: string | null;
+  isMyTurn: boolean;
+}
+
 export interface CollabSession {
   id: string;
   participants: Participant[];
   isConnected: boolean;
   myParticipantId: string | null;
+  turnState: TurnState;
 }
 
 interface CursorDecoration {
@@ -80,6 +87,11 @@ export function useCollaborativeEditing(options: UseCollaborativeEditingOptions)
     participants: [],
     isConnected: false,
     myParticipantId: null,
+    turnState: {
+      currentTurn: "user",
+      turnHolder: null,
+      isMyTurn: false,
+    },
   });
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -151,12 +163,19 @@ export function useCollaborativeEditing(options: UseCollaborativeEditingOptions)
           participantId: string;
           sessionId: string;
           participants: Participant[];
+          turnState?: { currentTurn: "user" | "ai"; turnHolder: string | null };
         };
         setSession({
           id: data.sessionId,
           participants: data.participants,
           isConnected: true,
           myParticipantId: data.participantId,
+          turnState: {
+            currentTurn: data.turnState?.currentTurn || "user",
+            turnHolder: data.turnState?.turnHolder || null,
+            isMyTurn: data.turnState?.turnHolder === data.participantId || 
+                      (!data.turnState?.turnHolder && data.turnState?.currentTurn === "user"),
+          },
         });
         break;
       }
@@ -248,6 +267,78 @@ export function useCollaborativeEditing(options: UseCollaborativeEditingOptions)
 
       case "pong":
         break;
+
+      case "turn_granted": {
+        const { participantId, turnType } = message.data as { participantId: string; turnType: "user" | "ai" };
+        setSession(prev => ({
+          ...prev,
+          turnState: {
+            currentTurn: turnType,
+            turnHolder: participantId,
+            isMyTurn: participantId === prev.myParticipantId,
+          },
+        }));
+        break;
+      }
+
+      case "turn_released": {
+        const { nextTurn } = message.data as { releasedBy: string; nextTurn: "user" | "ai" };
+        setSession(prev => ({
+          ...prev,
+          turnState: {
+            currentTurn: nextTurn,
+            turnHolder: null,
+            isMyTurn: false,
+          },
+        }));
+        break;
+      }
+
+      case "turn_passed": {
+        const { to, newTurn } = message.data as { from: string; to: string | null; newTurn: "user" | "ai" };
+        setSession(prev => ({
+          ...prev,
+          turnState: {
+            currentTurn: newTurn,
+            turnHolder: to,
+            isMyTurn: to === prev.myParticipantId,
+          },
+        }));
+        break;
+      }
+
+      case "turn_denied": {
+        console.log("[Collab] Turn request denied");
+        break;
+      }
+
+      case "edit_rejected": {
+        const { id, reason, currentTurn } = message.data as { id: string; reason: string; currentTurn: "user" | "ai" };
+        console.warn("[Collab] Edit rejected:", reason, "Current turn:", currentTurn);
+        const ackCallback = pendingAcksRef.current.get(id);
+        if (ackCallback) {
+          pendingAcksRef.current.delete(id);
+        }
+        break;
+      }
+
+      case "ai_action": {
+        const { actionType, payload } = message.data as { participantId: string; actionType: string; payload: any };
+        console.log("[Collab] AI action received:", actionType, payload);
+        break;
+      }
+
+      case "browser_action": {
+        const browserData = message.data as { participantId: string; action: string };
+        console.log("[Collab] Browser action received:", browserData);
+        break;
+      }
+
+      case "screenshot": {
+        const { image } = message.data as { participantId: string; image: string };
+        console.log("[Collab] Screenshot received");
+        break;
+      }
     }
   }, [onRemoteEdit, onParticipantJoined, onParticipantLeft, onVoiceStarted, onVoiceStopped, onVoiceAudio]);
 
@@ -401,6 +492,30 @@ export function useCollaborativeEditing(options: UseCollaborativeEditingOptions)
     send("voice_audio", { audio });
   }, [send]);
 
+  const requestTurn = useCallback(() => {
+    send("turn_request", {});
+  }, [send]);
+
+  const releaseTurn = useCallback(() => {
+    send("turn_release", {});
+  }, [send]);
+
+  const passTurn = useCallback((toParticipantId?: string) => {
+    send("turn_pass", { toParticipantId });
+  }, [send]);
+
+  const sendScreenshot = useCallback((image: string) => {
+    send("screenshot", { image });
+  }, [send]);
+
+  const sendBrowserAction = useCallback((action: {
+    action: "navigate" | "click" | "type" | "screenshot" | "scroll";
+    target?: string;
+    value?: string;
+  }) => {
+    send("browser_action", action);
+  }, [send]);
+
   const setEditor = useCallback((editor: Monaco.editor.IStandaloneCodeEditor, monaco: typeof Monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
@@ -437,6 +552,11 @@ export function useCollaborativeEditing(options: UseCollaborativeEditingOptions)
     startVoice,
     stopVoice,
     sendVoiceAudio,
+    requestTurn,
+    releaseTurn,
+    passTurn,
+    sendScreenshot,
+    sendBrowserAction,
   };
 }
 

@@ -39,11 +39,25 @@ interface Participant {
   isActive: boolean;
 }
 
+interface TurnState {
+  currentTurn: "user" | "ai";
+  turnHolder?: string;
+  turnStartedAt?: Date;
+  turnHistory: Array<{
+    participantId: string;
+    action: string;
+    timestamp: Date;
+  }>;
+}
+
 interface Session {
   id: string;
   participants: Map<string, Participant>;
   fileVersions: Map<string, number>;
   pendingOperations: Map<string, EditOp[]>;
+  turnState: TurnState;
+  voiceEnabled: boolean;
+  browserSessionId?: string;
 }
 
 interface EditOp {
@@ -115,6 +129,11 @@ async function handleCollabConnection(ws: WebSocket, sessionId: string, url: str
       participants: new Map(),
       fileVersions: new Map(),
       pendingOperations: new Map(),
+      turnState: {
+        currentTurn: "user",
+        turnHistory: [],
+      },
+      voiceEnabled: false,
     };
     sessions.set(sessionId, session);
   }
@@ -154,6 +173,10 @@ async function handleCollabConnection(ws: WebSocket, sessionId: string, url: str
         avatarColor: p.avatarColor,
         participantType: p.participantType,
       })),
+      turnState: {
+        currentTurn: session.turnState.currentTurn,
+        turnHolder: session.turnState.turnHolder || null,
+      },
     },
   }));
 
@@ -230,6 +253,33 @@ async function handleMessage(session: Session, participantId: string, message: C
         participant.ws.send(JSON.stringify({ type: "pong" }));
       }
       break;
+
+    case "turn_request":
+      await handleTurnRequest(session, participantId);
+      break;
+
+    case "turn_release":
+      await handleTurnRelease(session, participantId);
+      break;
+
+    case "turn_pass":
+      await handleTurnPass(session, participantId, (message.data as any)?.toParticipantId);
+      break;
+
+    case "ai_action":
+      await handleAIAction(session, participantId, message.data as any);
+      break;
+
+    case "screenshot":
+      broadcastToSession(session, {
+        type: "screenshot",
+        data: { participantId, image: (message.data as any)?.image },
+      });
+      break;
+
+    case "browser_action":
+      await handleBrowserAction(session, participantId, message.data as any);
+      break;
   }
 }
 
@@ -277,6 +327,26 @@ async function handleCursorUpdate(session: Session, participantId: string, data:
 }
 
 async function handleEditOperation(session: Session, participantId: string, op: EditOp): Promise<void> {
+  const participant = session.participants.get(participantId);
+  if (!participant) return;
+
+  const participantRole = participant.participantType === "ai" ? "ai" : "user";
+  if (session.turnState.turnHolder && session.turnState.turnHolder !== participantId) {
+    participant.ws.send(JSON.stringify({
+      type: "edit_rejected",
+      data: { id: op.id, reason: "Not your turn", currentTurn: session.turnState.currentTurn },
+    }));
+    return;
+  }
+
+  if (!session.turnState.turnHolder && session.turnState.currentTurn !== participantRole) {
+    participant.ws.send(JSON.stringify({
+      type: "edit_rejected",
+      data: { id: op.id, reason: "Waiting for your turn", currentTurn: session.turnState.currentTurn },
+    }));
+    return;
+  }
+
   const filePath = op.filePath;
   const currentVersion = session.fileVersions.get(filePath) || 0;
 
@@ -317,7 +387,6 @@ async function handleEditOperation(session: Session, participantId: string, op: 
     resultVersion: newVersion,
   });
 
-  const participant = session.participants.get(participantId);
   if (participant) {
     participant.ws.send(JSON.stringify({
       type: "edit_ack",
@@ -399,6 +468,138 @@ function getRandomColor(): string {
     "#673ab7", "#e91e63", "#00bcd4", "#ff5722",
   ];
   return colors[Math.floor(Math.random() * colors.length)];
+}
+
+async function handleTurnRequest(session: Session, participantId: string): Promise<void> {
+  const participant = session.participants.get(participantId);
+  if (!participant) return;
+
+  const participantRole = participant.participantType === "ai" ? "ai" : "user";
+  
+  if (!session.turnState.turnHolder) {
+    session.turnState.currentTurn = participantRole;
+    session.turnState.turnHolder = participantId;
+    session.turnState.turnStartedAt = new Date();
+    
+    broadcastToSession(session, {
+      type: "turn_granted",
+      data: {
+        participantId,
+        turnType: participantRole,
+      },
+    });
+  } else if (session.turnState.turnHolder === participantId) {
+    participant.ws.send(JSON.stringify({
+      type: "turn_already_held",
+      data: { participantId },
+    }));
+  } else {
+    participant.ws.send(JSON.stringify({
+      type: "turn_denied",
+      data: {
+        currentHolder: session.turnState.turnHolder,
+        currentTurn: session.turnState.currentTurn,
+      },
+    }));
+  }
+}
+
+async function handleTurnRelease(session: Session, participantId: string): Promise<void> {
+  if (session.turnState.turnHolder !== participantId) return;
+
+  session.turnState.turnHistory.push({
+    participantId,
+    action: "released",
+    timestamp: new Date(),
+  });
+
+  session.turnState.turnHolder = undefined;
+  session.turnState.turnStartedAt = undefined;
+  
+  const nextTurn = session.turnState.currentTurn === "user" ? "ai" : "user";
+  session.turnState.currentTurn = nextTurn;
+
+  broadcastToSession(session, {
+    type: "turn_released",
+    data: {
+      releasedBy: participantId,
+      nextTurn,
+    },
+  });
+}
+
+async function handleTurnPass(session: Session, fromParticipantId: string, toParticipantId?: string): Promise<void> {
+  if (session.turnState.turnHolder !== fromParticipantId) return;
+
+  session.turnState.turnHistory.push({
+    participantId: fromParticipantId,
+    action: "passed",
+    timestamp: new Date(),
+  });
+
+  if (toParticipantId && session.participants.has(toParticipantId)) {
+    const toParticipant = session.participants.get(toParticipantId)!;
+    session.turnState.turnHolder = toParticipantId;
+    session.turnState.currentTurn = toParticipant.participantType === "ai" ? "ai" : "user";
+    session.turnState.turnStartedAt = new Date();
+  } else {
+    session.turnState.turnHolder = undefined;
+    session.turnState.currentTurn = session.turnState.currentTurn === "user" ? "ai" : "user";
+  }
+
+  broadcastToSession(session, {
+    type: "turn_passed",
+    data: {
+      from: fromParticipantId,
+      to: toParticipantId || null,
+      newTurn: session.turnState.currentTurn,
+    },
+  });
+}
+
+async function handleAIAction(session: Session, participantId: string, data: {
+  actionType: "edit" | "analyze" | "suggest" | "explain";
+  payload: any;
+}): Promise<void> {
+  const participant = session.participants.get(participantId);
+  if (!participant || participant.participantType !== "ai") return;
+
+  if (session.turnState.currentTurn !== "ai" && session.turnState.turnHolder !== participantId) {
+    participant.ws.send(JSON.stringify({
+      type: "ai_action_denied",
+      data: { reason: "Not AI's turn" },
+    }));
+    return;
+  }
+
+  broadcastToSession(session, {
+    type: "ai_action",
+    data: {
+      participantId,
+      actionType: data.actionType,
+      payload: data.payload,
+    },
+  });
+
+  session.turnState.turnHistory.push({
+    participantId,
+    action: `ai_${data.actionType}`,
+    timestamp: new Date(),
+  });
+}
+
+async function handleBrowserAction(session: Session, participantId: string, data: {
+  action: "navigate" | "click" | "type" | "screenshot" | "scroll";
+  target?: string;
+  value?: string;
+}): Promise<void> {
+  broadcastToSession(session, {
+    type: "browser_action",
+    data: {
+      participantId,
+      ...data,
+    },
+  });
 }
 
 export function getActiveSessions(): { id: string; participantCount: number }[] {
