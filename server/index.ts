@@ -259,6 +259,15 @@ app.use((req, res, next) => {
   setupDesktopWebSocket(httpServer);
 
   /**
+   * SETUP COLLABORATIVE EDITING WEBSOCKET
+   * --------------------------------------
+   * Initialize WebSocket server for real-time collaborative editing.
+   * Handles cursor sync, edit operations, and voice channel integration.
+   */
+  const { setupCollabWebSocket } = await import("./websocket-collab");
+  setupCollabWebSocket(httpServer);
+
+  /**
    * INITIALIZE GOOGLE OAUTH TOKENS (NON-BLOCKING)
    * ----------------------------------------------
    * Load any persisted Google OAuth tokens from the database.
