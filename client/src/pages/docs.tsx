@@ -13,6 +13,15 @@ import { ChevronLeft, FileText, FolderOpen, Home, ExternalLink } from "lucide-re
 // Documentation structure
 const docCategories = [
   {
+    name: "Agent (Ragent)",
+    icon: "🤖",
+    docs: [
+      { slug: "ragent-index", title: "Ragent Index", path: "ragent/INDEX.md" },
+      { slug: "agent-configuration", title: "Agent Configuration", path: "ragent/agent-configuration.md" },
+      { slug: "job-orchestration", title: "Job Orchestration", path: "ragent/job-orchestration.md" },
+    ]
+  },
+  {
     name: "Roadmap",
     icon: "🗺️",
     docs: [

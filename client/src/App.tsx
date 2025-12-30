@@ -106,6 +106,7 @@ import ProposalDesktopCollaborationPage from "@/pages/proposal-desktop-collabora
 import WorkspacePage from "@/pages/workspace";
 import VisionPage from "@/pages/vision";
 import DocsPage from "@/pages/docs";
+import AgentSettingsPage from "@/pages/agent-settings";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -228,6 +229,9 @@ function Router() {
       
       {/* Documentation */}
       <Route path="/docs/:slug?" component={DocsPage} />
+      
+      {/* Agent Settings - Configure agent behavior, tools, and preferences */}
+      <Route path="/agent-settings" component={AgentSettingsPage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything
