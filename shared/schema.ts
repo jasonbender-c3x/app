@@ -1747,3 +1747,154 @@ export const executorState = pgTable("executor_state", {
 });
 
 export type ExecutorState = typeof executorState.$inferSelect;
+
+// ============================================================================
+// COLLABORATIVE EDITING - Real-time collaborative sessions
+// ============================================================================
+
+/**
+ * COLLABORATIVE SESSIONS TABLE
+ * ----------------------------
+ * Stores active collaborative editing sessions where multiple participants
+ * (users and AI) can edit files together in real-time.
+ */
+export const collaborativeSessions = pgTable("collaborative_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Session identity
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Owner/host of the session
+  hostUserId: varchar("host_user_id").references(() => users.id),
+  
+  // Files being edited in this session
+  files: jsonb("files").notNull().default([]), // Array of {path, content, language}
+  
+  // Session settings
+  isVoiceEnabled: boolean("is_voice_enabled").default(true).notNull(),
+  isPublic: boolean("is_public").default(false).notNull(),
+  maxParticipants: integer("max_participants").default(5),
+  
+  // State
+  status: text("status").default("active").notNull(), // active, paused, ended
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  endedAt: timestamp("ended_at"),
+});
+
+export const insertCollaborativeSessionSchema = createInsertSchema(collaborativeSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  endedAt: true,
+});
+export type InsertCollaborativeSession = z.infer<typeof insertCollaborativeSessionSchema>;
+export type CollaborativeSession = typeof collaborativeSessions.$inferSelect;
+
+/**
+ * SESSION PARTICIPANTS TABLE
+ * --------------------------
+ * Tracks who is currently participating in a collaborative session.
+ */
+export const sessionParticipants = pgTable("session_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // References
+  sessionId: varchar("session_id").references(() => collaborativeSessions.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Participant identity (for AI or anonymous users)
+  participantType: text("participant_type").default("user").notNull(), // user, ai, guest
+  displayName: text("display_name").notNull(),
+  avatarColor: text("avatar_color").default("#4285f4"),
+  
+  // Permissions
+  canEdit: boolean("can_edit").default(true).notNull(),
+  canVoice: boolean("can_voice").default(true).notNull(),
+  
+  // Current state
+  isActive: boolean("is_active").default(true).notNull(),
+  lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+  
+  // Timestamps
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  leftAt: timestamp("left_at"),
+});
+
+export const insertSessionParticipantSchema = createInsertSchema(sessionParticipants).omit({
+  id: true,
+  joinedAt: true,
+  leftAt: true,
+});
+export type InsertSessionParticipant = z.infer<typeof insertSessionParticipantSchema>;
+export type SessionParticipant = typeof sessionParticipants.$inferSelect;
+
+/**
+ * CURSOR POSITIONS TABLE
+ * ----------------------
+ * Stores real-time cursor positions for each participant in a session.
+ * Updated frequently via WebSocket, periodically persisted.
+ */
+export const cursorPositions = pgTable("cursor_positions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // References
+  sessionId: varchar("session_id").references(() => collaborativeSessions.id, { onDelete: "cascade" }).notNull(),
+  participantId: varchar("participant_id").references(() => sessionParticipants.id, { onDelete: "cascade" }).notNull(),
+  
+  // File context
+  filePath: text("file_path").notNull(),
+  
+  // Cursor position
+  line: integer("line").notNull(),
+  column: integer("column").notNull(),
+  
+  // Selection (if any)
+  selectionStartLine: integer("selection_start_line"),
+  selectionStartColumn: integer("selection_start_column"),
+  selectionEndLine: integer("selection_end_line"),
+  selectionEndColumn: integer("selection_end_column"),
+  
+  // Timestamps
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type CursorPosition = typeof cursorPositions.$inferSelect;
+
+/**
+ * EDIT OPERATIONS TABLE
+ * ---------------------
+ * Stores edit operations for conflict resolution (OT/CRDT).
+ * Each operation represents a change to the document.
+ */
+export const editOperations = pgTable("edit_operations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // References
+  sessionId: varchar("session_id").references(() => collaborativeSessions.id, { onDelete: "cascade" }).notNull(),
+  participantId: varchar("participant_id").references(() => sessionParticipants.id).notNull(),
+  
+  // File context
+  filePath: text("file_path").notNull(),
+  
+  // Operation details
+  operationType: text("operation_type").notNull(), // insert, delete, replace
+  position: integer("position").notNull(), // Character position in document
+  length: integer("length"), // For delete/replace: number of chars affected
+  text: text("text"), // For insert/replace: the text to insert
+  
+  // Versioning for OT
+  baseVersion: integer("base_version").notNull(),
+  resultVersion: integer("result_version").notNull(),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_edit_ops_session").on(table.sessionId),
+  index("idx_edit_ops_version").on(table.sessionId, table.baseVersion),
+]);
+
+export type EditOperation = typeof editOperations.$inferSelect;
