@@ -23,6 +23,7 @@ import extensionRouter from "./extension";
 import agentRouter from "./agent";
 import liveRouter from "./live";
 import desktopRouter from "./desktop";
+import computerUseRouter from "./computer-use";
 import { errorHandler } from "./middleware";
 
 export function createApiRouter(): Router {
@@ -52,6 +53,7 @@ export function createApiRouter(): Router {
   router.use("/agent", agentRouter);
   router.use("/live", liveRouter);
   router.use("/desktop", desktopRouter);
+  router.use("/computer-use", computerUseRouter);
 
   router.use(errorHandler);
 
