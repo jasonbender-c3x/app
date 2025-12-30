@@ -1388,9 +1388,9 @@ ${summary}`,
   app.get("/api/jit/examples", async (_req, res) => {
     try {
       const { jitToolProtocol } = await import("./services/jit-tool-protocol");
-      const examples = jitToolProtocol.getAllExamples();
-      const coreTools = jitToolProtocol.getCoreTools();
-      res.json({ success: true, examples, coreTools });
+      const allTools = jitToolProtocol.getAllTools();
+      const manifest = jitToolProtocol.getFullManifest();
+      res.json({ success: true, allTools, manifest });
     } catch (error) {
       console.error("JIT examples error:", error);
       res.status(500).json({ error: "Failed to get examples" });

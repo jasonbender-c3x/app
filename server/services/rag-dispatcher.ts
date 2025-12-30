@@ -217,14 +217,16 @@ export class RAGDispatcher {
    */
   async executeToolCall(toolCall: ToolCall, messageId: string): Promise<ToolExecutionResult> {
     const startTime = Date.now();
+    let taskId: string | null = null;
 
     try {
-      await storage.createToolTask({
+      const task = await storage.createToolTask({
         messageId,
         taskType: toolCall.type,
         payload: toolCall,
         status: "running"
       });
+      taskId = task.id;
 
       let result: unknown;
 
@@ -467,6 +469,11 @@ export class RAGDispatcher {
           result = { message: `Custom tool type: ${toolCall.type}` };
       }
 
+      // Update task status to completed
+      if (taskId) {
+        await storage.updateToolTaskStatus(taskId, "completed", result);
+      }
+
       return {
         toolId: toolCall.id,
         type: toolCall.type,
@@ -475,6 +482,11 @@ export class RAGDispatcher {
         duration: Date.now() - startTime
       };
     } catch (error: any) {
+      // Update task status to failed
+      if (taskId) {
+        await storage.updateToolTaskStatus(taskId, "failed", undefined, error.message);
+      }
+      
       return {
         toolId: toolCall.id,
         type: toolCall.type,
