@@ -13,7 +13,7 @@
  */
 
 import PgBoss from "pg-boss";
-import { db } from "../db";
+import { getDb } from "../db";
 import { 
   agentJobs, 
   jobResults,
@@ -132,7 +132,7 @@ class JobQueueService {
       userId: submission.userId,
     };
 
-    const [job] = await db.insert(agentJobs).values(jobData).returning();
+    const [job] = await getDb().insert(agentJobs).values(jobData).returning();
 
     // Check if dependencies are met before enqueuing
     const depsReady = await this.areDependenciesMet(job.dependencies ?? []);
@@ -158,7 +158,7 @@ class JobQueueService {
 
     const queueName = this.getQueueName(job.type, job.priority);
     
-    await db.update(agentJobs)
+    await getDb().update(agentJobs)
       .set({ status: "queued" })
       .where(eq(agentJobs.id, job.id));
 
@@ -187,9 +187,11 @@ class JobQueueService {
     this.processingCallbacks.set(type, callback);
     
     for (const queueName of ["agent-jobs-high", "agent-jobs-normal", "agent-jobs-low"]) {
-      await this.boss?.work(queueName, { teamConcurrency: this.config.concurrency }, async (pgJob) => {
-        const { jobId } = pgJob.data as { jobId: string };
-        await this.processJob(jobId);
+      await this.boss?.work(queueName, { batchSize: this.config.concurrency }, async (pgJobs) => {
+        for (const pgJob of pgJobs) {
+          const { jobId } = pgJob.data as { jobId: string };
+          await this.processJob(jobId);
+        }
       });
     }
   }
@@ -197,7 +199,7 @@ class JobQueueService {
   private async processJob(jobId: string): Promise<void> {
     const startTime = Date.now();
 
-    const [job] = await db.select()
+    const [job] = await getDb().select()
       .from(agentJobs)
       .where(eq(agentJobs.id, jobId));
 
@@ -206,7 +208,7 @@ class JobQueueService {
       return;
     }
 
-    await db.update(agentJobs)
+    await getDb().update(agentJobs)
       .set({ 
         status: "running", 
         startedAt: new Date() 
@@ -232,9 +234,9 @@ class JobQueueService {
         durationMs,
       };
 
-      await db.insert(jobResults).values(resultData);
+      await getDb().insert(jobResults).values(resultData);
 
-      await db.update(agentJobs)
+      await getDb().update(agentJobs)
         .set({ 
           status: result.error ? "failed" : "completed",
           completedAt: new Date(),
@@ -251,21 +253,21 @@ class JobQueueService {
 
       const currentRetryCount = (job.retryCount ?? 0) + 1;
       if (currentRetryCount < (job.maxRetries ?? 3)) {
-        await db.update(agentJobs)
+        await getDb().update(agentJobs)
           .set({ 
             status: "pending",
             retryCount: currentRetryCount,
           })
           .where(eq(agentJobs.id, jobId));
       } else {
-        await db.insert(jobResults).values({
+        await getDb().insert(jobResults).values({
           jobId: job.id,
           success: false,
           error: errorMessage,
           durationMs: Date.now() - startTime,
         });
 
-        await db.update(agentJobs)
+        await getDb().update(agentJobs)
           .set({ 
             status: "failed",
             completedAt: new Date(),
@@ -278,13 +280,13 @@ class JobQueueService {
   private async areDependenciesMet(dependencies: string[]): Promise<boolean> {
     if (!dependencies || dependencies.length === 0) return true;
 
-    const [depJobs] = await db.select()
+    const [depJobs] = await getDb().select()
       .from(agentJobs)
       .where(inArray(agentJobs.id, dependencies));
 
     if (!depJobs) return dependencies.length === 0;
 
-    const deps = await db.select()
+    const deps = await getDb().select()
       .from(agentJobs)
       .where(inArray(agentJobs.id, dependencies));
 
@@ -292,7 +294,7 @@ class JobQueueService {
   }
 
   private async checkDependentJobs(completedJobId: string): Promise<void> {
-    const pendingJobs = await db.select()
+    const pendingJobs = await getDb().select()
       .from(agentJobs)
       .where(eq(agentJobs.status, "pending"));
 
@@ -307,35 +309,35 @@ class JobQueueService {
   }
 
   async getJob(jobId: string): Promise<AgentJob | null> {
-    const [job] = await db.select()
+    const [job] = await getDb().select()
       .from(agentJobs)
       .where(eq(agentJobs.id, jobId));
     return job ?? null;
   }
 
   async getJobResult(jobId: string): Promise<JobResult | null> {
-    const [result] = await db.select()
+    const [result] = await getDb().select()
       .from(jobResults)
       .where(eq(jobResults.jobId, jobId));
     return result ?? null;
   }
 
   async getJobsByStatus(status: JobStatus): Promise<AgentJob[]> {
-    return db.select()
+    return getDb().select()
       .from(agentJobs)
       .where(eq(agentJobs.status, status))
       .orderBy(asc(agentJobs.priority), asc(agentJobs.createdAt));
   }
 
   async getJobsByParent(parentJobId: string): Promise<AgentJob[]> {
-    return db.select()
+    return getDb().select()
       .from(agentJobs)
       .where(eq(agentJobs.parentJobId, parentJobId))
       .orderBy(asc(agentJobs.createdAt));
   }
 
   async cancelJob(jobId: string): Promise<boolean> {
-    const [job] = await db.update(agentJobs)
+    const [job] = await getDb().update(agentJobs)
       .set({ status: "cancelled", completedAt: new Date() })
       .where(and(
         eq(agentJobs.id, jobId),
@@ -353,7 +355,7 @@ class JobQueueService {
     completed: number;
     failed: number;
   }> {
-    const stats = await db.select({
+    const stats = await getDb().select({
       status: agentJobs.status,
       count: sql<number>`count(*)::int`,
     })
@@ -380,7 +382,7 @@ class JobQueueService {
   async purgeCompletedJobs(olderThanHours: number = 24): Promise<number> {
     const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
     
-    const deleted = await db.delete(agentJobs)
+    const deleted = await getDb().delete(agentJobs)
       .where(and(
         or(eq(agentJobs.status, "completed"), eq(agentJobs.status, "failed"), eq(agentJobs.status, "cancelled")),
         sql`${agentJobs.completedAt} < ${cutoff}`

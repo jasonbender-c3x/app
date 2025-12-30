@@ -10,7 +10,7 @@ import { Router } from "express";
 import { jobDispatcher } from "../services/job-dispatcher";
 import { jobQueue } from "../services/job-queue";
 import { dependencyResolver } from "../services/dependency-resolver";
-import { db } from "../db";
+import { getDb } from "../db";
 import { agentJobs, jobResults, agentWorkers } from "@shared/schema";
 import { eq, desc, asc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -56,7 +56,7 @@ router.post("/", async (req, res) => {
     const submission = {
       ...parsed.data,
       scheduledFor: parsed.data.scheduledFor ? new Date(parsed.data.scheduledFor) : undefined,
-      userId: req.user?.id,
+      userId: (req.user as any)?.id,
     };
 
     const job = await jobDispatcher.submitJob(submission);
@@ -83,7 +83,7 @@ router.post("/workflow", async (req, res) => {
       steps.map(s => ({
         ...s,
         scheduledFor: s.scheduledFor ? new Date(s.scheduledFor) : undefined,
-        userId: req.user?.id,
+        userId: (req.user as any)?.id,
       })), 
       mode
     );
@@ -99,7 +99,7 @@ router.get("/", async (req, res) => {
   try {
     const { status, limit = "50", offset = "0" } = req.query;
     
-    let query = db.select().from(agentJobs);
+    let query = getDb().select().from(agentJobs);
     
     if (status && typeof status === "string") {
       query = query.where(eq(agentJobs.status, status)) as any;
@@ -190,7 +190,7 @@ router.post("/:id/cancel", async (req, res) => {
 
 router.get("/workers/list", async (req, res) => {
   try {
-    const workers = await db.select()
+    const workers = await getDb().select()
       .from(agentWorkers)
       .orderBy(desc(agentWorkers.lastHeartbeat));
 

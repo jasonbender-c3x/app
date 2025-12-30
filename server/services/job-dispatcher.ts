@@ -10,7 +10,7 @@
 import { jobQueue, type JobSubmission } from "./job-queue";
 import { workerPool } from "./worker-pool";
 import { dependencyResolver } from "./dependency-resolver";
-import { db } from "../db";
+import { getDb } from "../db";
 import { agentJobs, jobResults, type AgentJob } from "@shared/schema";
 import { eq, and, inArray, asc } from "drizzle-orm";
 
@@ -66,7 +66,7 @@ class JobDispatcherService {
     const resolution = await dependencyResolver.resolve();
 
     for (const failedDep of resolution.failedDeps) {
-      await db.update(agentJobs)
+      await getDb().update(agentJobs)
         .set({ 
           status: "failed",
           completedAt: new Date(),
@@ -95,7 +95,7 @@ class JobDispatcherService {
       }
 
       try {
-        await db.update(agentJobs)
+        await getDb().update(agentJobs)
           .set({ status: "running", startedAt: new Date() })
           .where(eq(agentJobs.id, job.id));
 
@@ -104,7 +104,7 @@ class JobDispatcherService {
           const { output, error, inputTokens, outputTokens } = result;
           const durationMs = Date.now() - startTime;
           
-          await db.insert(jobResults).values({
+          await getDb().insert(jobResults).values({
             jobId: job.id,
             success: !error,
             output: output as any,
@@ -114,7 +114,7 @@ class JobDispatcherService {
             durationMs,
           });
 
-          await db.update(agentJobs)
+          await getDb().update(agentJobs)
             .set({
               status: error ? "failed" : "completed",
               completedAt: new Date(),
@@ -125,7 +125,7 @@ class JobDispatcherService {
         }).catch(async (err) => {
           console.error(`[JobDispatcher] Job ${job.id} execution error:`, err);
           
-          await db.update(agentJobs)
+          await getDb().update(agentJobs)
             .set({ status: "failed", completedAt: new Date() })
             .where(eq(agentJobs.id, job.id));
         });
@@ -185,7 +185,7 @@ class JobDispatcherService {
     
     let children: AgentJob[] = [];
     if (job) {
-      children = await db.select()
+      children = await getDb().select()
         .from(agentJobs)
         .where(eq(agentJobs.parentJobId, jobId))
         .orderBy(asc(agentJobs.createdAt));

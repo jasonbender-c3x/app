@@ -11,7 +11,7 @@
  * - Ready-to-run job identification
  */
 
-import { db } from "../db";
+import { getDb } from "../db";
 import { agentJobs, jobResults, type AgentJob } from "@shared/schema";
 import { eq, inArray, and } from "drizzle-orm";
 
@@ -33,11 +33,11 @@ class DependencyResolverService {
     let jobs: AgentJob[];
     
     if (jobIds && jobIds.length > 0) {
-      jobs = await db.select()
+      jobs = await getDb().select()
         .from(agentJobs)
         .where(inArray(agentJobs.id, jobIds));
     } else {
-      jobs = await db.select()
+      jobs = await getDb().select()
         .from(agentJobs)
         .where(inArray(agentJobs.status, ["pending", "queued", "running"]));
     }
@@ -70,7 +70,7 @@ class DependencyResolverService {
 
   async resolve(pendingJobs?: AgentJob[]): Promise<ResolutionResult> {
     // Include both pending and queued jobs to handle the full workflow
-    const jobs = pendingJobs ?? await db.select()
+    const jobs = pendingJobs ?? await getDb().select()
       .from(agentJobs)
       .where(inArray(agentJobs.status, ["pending", "queued"]));
 
@@ -86,7 +86,7 @@ class DependencyResolverService {
         continue;
       }
 
-      const depStatuses = await db.select()
+      const depStatuses = await getDb().select()
         .from(agentJobs)
         .where(inArray(agentJobs.id, deps));
 
@@ -187,7 +187,7 @@ class DependencyResolverService {
       if (visited.has(id)) return;
       visited.add(id);
 
-      const [job] = await db.select()
+      const [job] = await getDb().select()
         .from(agentJobs)
         .where(eq(agentJobs.id, id));
 
@@ -205,7 +205,7 @@ class DependencyResolverService {
   }
 
   async getDependents(jobId: string): Promise<AgentJob[]> {
-    const allJobs = await db.select()
+    const allJobs = await getDb().select()
       .from(agentJobs)
       .where(inArray(agentJobs.status, ["pending", "queued"]));
 
@@ -217,11 +217,11 @@ class DependencyResolverService {
     allSuccess: boolean;
     errors: string[];
   }> {
-    const childJobs = await db.select()
+    const childJobs = await getDb().select()
       .from(agentJobs)
       .where(eq(agentJobs.parentJobId, parentJobId));
 
-    const childResults = await db.select()
+    const childResults = await getDb().select()
       .from(jobResults)
       .where(inArray(jobResults.jobId, childJobs.map(j => j.id)));
 

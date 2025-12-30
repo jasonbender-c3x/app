@@ -11,7 +11,7 @@
  * - Graceful shutdown
  */
 
-import { db } from "../db";
+import { getDb } from "../db";
 import { agentWorkers, type AgentWorker } from "@shared/schema";
 import { eq, lt, sql } from "drizzle-orm";
 import AgentWorkerService, { createAgentWorker, type WorkerConfig } from "./agent-worker";
@@ -115,7 +115,7 @@ class WorkerPoolService {
   private async performHealthCheck(): Promise<void> {
     const unhealthyThreshold = new Date(Date.now() - this.config.unhealthyThresholdMs);
 
-    const unhealthyWorkers = await db.select()
+    const unhealthyWorkers = await getDb().select()
       .from(agentWorkers)
       .where(lt(agentWorkers.lastHeartbeat, unhealthyThreshold));
 
@@ -126,12 +126,12 @@ class WorkerPoolService {
         await this.removeWorker(unhealthy.id);
       }
 
-      await db.update(agentWorkers)
+      await getDb().update(agentWorkers)
         .set({ status: "offline" })
         .where(eq(agentWorkers.id, unhealthy.id));
     }
 
-    const failedWorkers = await db.select()
+    const failedWorkers = await getDb().select()
       .from(agentWorkers)
       .where(sql`${agentWorkers.consecutiveFailures} >= ${this.config.maxConsecutiveFailures}`);
 
@@ -142,7 +142,7 @@ class WorkerPoolService {
         await this.removeWorker(failed.id);
       }
 
-      await db.update(agentWorkers)
+      await getDb().update(agentWorkers)
         .set({ status: "offline", consecutiveFailures: 0 })
         .where(eq(agentWorkers.id, failed.id));
     }
@@ -159,7 +159,7 @@ class WorkerPoolService {
   }
 
   async getIdleWorker(): Promise<AgentWorkerService | null> {
-    for (const worker of this.workers.values()) {
+    for (const worker of Array.from(this.workers.values())) {
       const status = await worker.getWorkerStatus();
       if (status?.status === "idle") {
         return worker;
@@ -180,7 +180,7 @@ class WorkerPoolService {
       return false;
     }
 
-    for (const [workerId, worker] of this.workers) {
+    for (const [workerId, worker] of Array.from(this.workers.entries())) {
       const status = await worker.getWorkerStatus();
       if (status?.status === "idle") {
         await this.removeWorker(workerId);
@@ -198,7 +198,7 @@ class WorkerPoolService {
     totalJobsProcessed: number;
     totalTokensUsed: number;
   }> {
-    const workers = await db.select()
+    const workers = await getDb().select()
       .from(agentWorkers)
       .where(sql`${agentWorkers.status} != 'offline'`);
 

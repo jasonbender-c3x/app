@@ -13,7 +13,7 @@
  */
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { db } from "../db";
+import { getDb } from "../db";
 import { agentWorkers, agentJobs, type AgentWorker, type AgentJob } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import type { JobPayload } from "./job-queue";
@@ -58,7 +58,7 @@ class AgentWorkerService {
 
     this.ai = new GoogleGenAI({ apiKey });
 
-    const [worker] = await db.insert(agentWorkers).values({
+    const [worker] = await getDb().insert(agentWorkers).values({
       name: this.config.name,
       type: "gemini",
       status: "idle",
@@ -83,7 +83,7 @@ class AgentWorkerService {
     }
 
     if (this.workerId) {
-      await db.update(agentWorkers)
+      await getDb().update(agentWorkers)
         .set({ status: "offline" })
         .where(eq(agentWorkers.id, this.workerId));
     }
@@ -96,7 +96,7 @@ class AgentWorkerService {
       if (!this.workerId) return;
       
       try {
-        await db.update(agentWorkers)
+        await getDb().update(agentWorkers)
           .set({ lastHeartbeat: new Date() })
           .where(eq(agentWorkers.id, this.workerId));
       } catch (error) {
@@ -110,7 +110,7 @@ class AgentWorkerService {
       return { output: null, error: "Worker not initialized" };
     }
 
-    await db.update(agentWorkers)
+    await getDb().update(agentWorkers)
       .set({ 
         status: "busy",
         currentJobId: job.id,
@@ -118,7 +118,7 @@ class AgentWorkerService {
       })
       .where(eq(agentWorkers.id, this.workerId));
 
-    await db.update(agentJobs)
+    await getDb().update(agentJobs)
       .set({ workerId: this.workerId })
       .where(eq(agentJobs.id, job.id));
 
@@ -140,7 +140,7 @@ class AgentWorkerService {
           result = { output: null, error: `Unknown job type: ${job.type}` };
       }
 
-      await db.update(agentWorkers)
+      await getDb().update(agentWorkers)
         .set({
           status: "idle",
           currentJobId: null,
@@ -156,7 +156,7 @@ class AgentWorkerService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       
-      await db.update(agentWorkers)
+      await getDb().update(agentWorkers)
         .set({
           status: "error",
           currentJobId: null,
@@ -226,7 +226,7 @@ Return a JSON object with the result.`;
   }
 
   private async executeCompositeJob(job: AgentJob, payload: JobPayload): Promise<JobExecutionResult> {
-    const childJobs = await db.select()
+    const childJobs = await getDb().select()
       .from(agentJobs)
       .where(eq(agentJobs.parentJobId, job.id));
 
@@ -259,7 +259,7 @@ Return a JSON object with the result.`;
   async getWorkerStatus(): Promise<AgentWorker | null> {
     if (!this.workerId) return null;
     
-    const [worker] = await db.select()
+    const [worker] = await getDb().select()
       .from(agentWorkers)
       .where(eq(agentWorkers.id, this.workerId));
     
