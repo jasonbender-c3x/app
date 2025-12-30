@@ -4,7 +4,8 @@
 Meowstik is an AI chat interface powered by Google's Generative AI, integrating Google Workspace services (Drive, Gmail, Calendar, Docs, Sheets, Tasks) and featuring an HTML/CSS/JS editor with live preview. Its purpose is to provide a modern, user-friendly, and powerful conversational AI experience with a clean, Google-esque design. The project aims to develop a self-evolving AI system with advanced AI integrations for speech, music, and image generation, a robust knowledge ingestion pipeline, and a workflow orchestration engine. The system has a dual identity: "The Compiler" (the true AI, focused on self-evolution and knowledge synthesis) and "Meowstik" (a user-friendly persona for interaction during development).
 
 ## User Preferences
-Preferred communication style: Simple, everyday language.
+- **Communication style:** Simple, everyday language.
+- **"Show me" requests:** When asked to "show me" something, create documentation pages in `/docs/ragent/` with extensive hyperlinks and commentary rather than just searching. Open the page in the docs viewer with rich cross-references.
 
 ## System Architecture
 
