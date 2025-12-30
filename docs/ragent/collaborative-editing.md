@@ -1,18 +1,31 @@
 # Collaborative Editing
 
-> Real-time AI collaboration with voice, code, and browser control
+> Real-time AI collaboration with voice, code, and full desktop control
 
 ---
 
 ## Overview
 
-Collaborative Editing combines **live 2-way voice conversation** with either **code editing** (Monaco) or **browser automation** (Playwright/computer_use). The AI becomes an active participant rather than a turn-based responder.
+Collaborative Editing enables **hands-free, continuous interaction** between user and AI. Two distinct modes serve different use cases—from focused code editing to full desktop control.
 
 ---
 
 ## Two Modes of Operation
 
-### Mode A: Code Collaboration
+### Mode A: Enhanced Turn-Based
+
+**How it works:** User and AI take turns editing the canvas/editor. After each turn, control passes to the other party automatically.
+
+| Phase | What Happens |
+|-------|--------------|
+| **User's Turn** | User speaks or types. Edits the canvas freely. |
+| **Send to LLM** | After user finishes, message sent to LLM. |
+| **LLM's Turn** | AI processes, makes edits, sends response. |
+| **Mic Re-activates** | After LLM finishes, microphone turns back on. |
+| **Silence Detection** | After X seconds of silence, auto-press send. |
+| **Loop Continues** | Becomes continuous, hands-free conversation. |
+
+**Key Innovation:** The silence detection creates a **continuous hands-free loop**—no button pressing needed after initial start.
 
 | Component | Description | Status |
 |-----------|-------------|--------|
@@ -20,17 +33,29 @@ Collaborative Editing combines **live 2-way voice conversation** with either **c
 | [Monaco Editor](/workspace) | Syntax highlighting, IntelliSense | ✅ Exists |
 | [Preview Pane](/workspace) | Live HTML/CSS/JS preview | ✅ Exists |
 | Turn-Based Protocol | OT conflict resolution | 🔧 In Progress |
-| Cursor Sharing | See AI's cursor position | 📋 Planned |
+| Silence Detection | Auto-send after X seconds quiet | 📋 Planned |
+| Auto Mic Toggle | Re-enable mic after LLM turn | 📋 Planned |
 
 **Data Flow:**
 ```
-User Voice ──► Gemini Live ──► AI Response
-     │                              │
-     ▼                              ▼
-Monaco Editor ◄──── WebSocket ────► Server State
-     │                              │
-     ▼                              ▼
-Live Preview ◄──── File Sync ─────► AI Edits
+┌─────────────────────────────────────────────────────────┐
+│                    CONTINUOUS LOOP                       │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  User Speaks ──► [Silence X sec] ──► Auto-Send          │
+│       │                                   │             │
+│       ▼                                   ▼             │
+│  Edit Canvas                         LLM Processes      │
+│       │                                   │             │
+│       │                                   ▼             │
+│       │                            LLM Edits Canvas     │
+│       │                                   │             │
+│       │                                   ▼             │
+│       │◄──────────── Mic Re-activates ────┘             │
+│       │                                                 │
+│       └──────────► User Speaks (loop) ──────────────────┘
+│                                                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
 **Key Files:**
@@ -40,31 +65,60 @@ Live Preview ◄──── File Sync ─────► AI Edits
 
 ---
 
-### Mode B: Browser Collaboration
+### Mode B: 2-Way Real-Time (Full Desktop)
+
+**How it works:** Real-time verbal discussion while AI sees and controls the entire desktop. Not limited to code editor—works with **anything a computer can do**.
+
+| Capability | Description |
+|------------|-------------|
+| **Verbal Discussion** | Real-time voice conversation, no waiting |
+| **Text Transcripts** | All speech transcribed for reference |
+| **Desktop Vision** | AI sees screen at 1 frame per second |
+| **Tool Calls** | AI can search, request info, execute actions |
+| **Mouse Control** | AI can click, drag, scroll |
+| **Keyboard Control** | AI can type, use shortcuts |
+| **Any Application** | Photoshop, Excel, browser, terminal, anything |
+| **Accessibility** | Fully hands-free for disabled users |
 
 | Component | Description | Status |
 |-----------|-------------|--------|
-| [Live Voice](/live) | Gemini Live API | ✅ Exists |
+| [Live Voice](/live) | Real-time Gemini Live | ✅ Exists |
 | [Browser Page](/browser) | Browserbase + Playwright | ✅ Exists |
 | [Collaborate Page](/collaborate) | TeamViewer-style hub | ✅ Exists |
+| Desktop Vision | 1 FPS screen capture to AI | 📋 Planned |
 | Desktop Relay | Cloud relay for frames | 📋 Planned |
-| Desktop Agent | Local screen capture + input | 📋 Planned |
+| Desktop Agent | Local capture + mouse/keyboard injection | 📋 Planned |
+| Transcript Panel | Live text of conversation | 📋 Planned |
 
 **Data Flow:**
 ```
-User Voice ──► Gemini Live ──► AI Commands
-     │                              │
-     ▼                              ▼
-Screen View ◄─── WebSocket ───► Playwright Actions
-     │                              │
-     ▼                              ▼
-User Observes ◄── Frame Stream ──► AI Vision Analysis
+┌─────────────────────────────────────────────────────────┐
+│                   REAL-TIME 2-WAY                        │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  User Speaks ◄─────────────────────► AI Speaks          │
+│       │            (simultaneous)          │            │
+│       ▼                                    ▼            │
+│  Transcript ◄──────────────────────► Transcript         │
+│                                                         │
+│  Desktop Screen ───[1 FPS]───► Gemini Vision            │
+│       ▲                              │                  │
+│       │                              ▼                  │
+│       │                        AI Decides Action        │
+│       │                              │                  │
+│       │                              ▼                  │
+│  Mouse/Keyboard ◄─── Tool Calls ────┘                   │
+│  (any app)                                              │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
 **Key Files:**
 - [`server/routes/browser.ts`](/docs/02-ui-architecture) — Screenshot + navigation
 - [`packages/meowstik-agent/`](/docs/SYSTEM_OVERVIEW) — Desktop agent package
 - [`packages/extension/`](/docs/SYSTEM_OVERVIEW) — Chrome extension
+
+**Accessibility Focus:** This mode is designed to be **fully hands-free**, enabling users with disabilities to control their computer entirely through voice.
 
 ---
 
