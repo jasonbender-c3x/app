@@ -155,7 +155,7 @@ export default function VisionPage() {
         
         <div className="mt-12 pt-8 border-t border-border" data-testid="vision-stats">
           <h3 className="text-lg font-semibold mb-4">Project Statistics</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="bg-card rounded-lg p-4 text-center" data-testid="stat-total">
               <div className="text-3xl font-bold text-primary">245</div>
               <div className="text-sm text-muted-foreground">Total Ideas</div>
@@ -171,6 +171,10 @@ export default function VisionPage() {
             <div className="bg-card rounded-lg p-4 text-center" data-testid="stat-pending">
               <div className="text-3xl font-bold text-amber-500">204</div>
               <div className="text-sm text-muted-foreground">Pending</div>
+            </div>
+            <div className="bg-card rounded-lg p-4 text-center" data-testid="stat-alternatives">
+              <div className="text-3xl font-bold text-purple-500">13</div>
+              <div className="text-sm text-muted-foreground">Needs Alternative</div>
             </div>
           </div>
         </div>
