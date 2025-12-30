@@ -1,431 +1,139 @@
-# AI Tool Usage Guide
+# Tool Reference
 
-## ⚠️ CRITICAL: No Text Before JSON
+## Output Tools
 
-**Your response must START with the JSON (or a code fence containing JSON). NO explanatory text before it.**
-
-❌ WRONG - text before JSON:
-```
-Let me help you with that.
-```json
-{"toolCalls": [...]}
-```
-```
-
-❌ WRONG - text before and after:
-```
-Here's my response:
-{"toolCalls": [...]}
-Hope that helps!
-```
-
-✅ CORRECT - JSON only (code fence optional):
-```json
-{"toolCalls": [...]}
-```
-
-✅ ALSO CORRECT - raw JSON:
-```
-{"toolCalls": [...]}
-```
-
-**All conversational text goes INSIDE the `send_chat` tool, not outside the JSON.**
-
-## Output Format
-
-Your response must be this JSON structure:
-
-```json
-{
-  "toolCalls": [
-    ...tool calls as needed...,
-    {"type": "send_chat", "id": "chat1", "operation": "respond", "parameters": {"content": "Your response..."}}
-  ]
-}
-```
+| Tool | Purpose |
+|------|---------|
+| `send_chat` | Text to chat (required) |
+| `say` | Voice TTS (optional) - params: `utterance`, `voiceId?`, `style?` |
 
 ---
 
-## Output Tools: say vs send_chat
-
-You have two output tools for communicating with the user:
-
-| Tool | Purpose | When to Use |
-|------|---------|-------------|
-| `send_chat` | Text output to chat | **Always required** - delivers your response to the chat window |
-| `say` | Voice output (TTS) | **Optional** - when you want to speak something aloud |
-
-### Usage Rules
-
-1. **`send_chat` is mandatory** - Every response needs a `send_chat` to appear in chat
-2. **`say` is optional** - Use when voice output adds value (greetings, confirmations, reading content aloud)
-3. **They can have the same OR different content** - depends on context
-4. **`say` generates HD audio** - The user hears your voice through their speakers
-
-### Example: Text-only response
-```json
-{
-  "toolCalls": [
-    {"type": "gmail_search", "id": "t1", "operation": "search", "parameters": {"query": "from:nick"}},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Found 5 emails from Nick..."}}
-  ]
-}
-```
-
-### Example: Voice + Text response
-```json
-{
-  "toolCalls": [
-    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Good morning! Here's your schedule for today.", "style": "Say cheerfully"}},
-    {"type": "calendar_events", "id": "t1", "operation": "list", "parameters": {"timeMin": "2024-01-01T00:00:00Z"}},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "## Today's Schedule\n\n1. **9am** - Team standup\n2. **2pm** - Client call"}}
-  ]
-}
-```
-
----
-
-## ID Freshness Rule
-
-**Never use remembered/fabricated IDs.** Always fetch fresh IDs from list/search operations in the same turn.
-
----
-
-## Tool Reference
+## Google Workspace
 
 ### Gmail
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `gmail_list` | `maxResults?:number`, `labelIds?:string[]` | List inbox emails |
-| `gmail_read` | `messageId:string` | Read full email content |
-| `gmail_search` | `query:string`, `maxResults?:number` | Search emails (Gmail syntax) |
-| `gmail_send` | `to:string`, `subject:string`, `body:string`, `cc?:string`, `bcc?:string` | Send email |
+| Tool | Parameters |
+|------|------------|
+| `gmail_list` | `maxResults?`, `labelIds?` |
+| `gmail_read` | `messageId` |
+| `gmail_search` | `query`, `maxResults?` |
+| `gmail_send` | `to`, `subject`, `body`, `cc?`, `bcc?` |
 
-### Google Drive
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `drive_list` | `folderId?:string`, `maxResults?:number` | List files |
-| `drive_read` | `fileId:string` | Read file content |
-| `drive_search` | `query:string`, `maxResults?:number` | Search files |
-| `drive_create` | `name:string`, `content:string`, `mimeType?:string`, `folderId?:string` | Create file |
-| `drive_update` | `fileId:string`, `content:string` | Update file |
-| `drive_delete` | `fileId:string` | Delete file |
+### Drive
+| Tool | Parameters |
+|------|------------|
+| `drive_list` | `folderId?`, `maxResults?` |
+| `drive_read` | `fileId` |
+| `drive_search` | `query`, `maxResults?` |
+| `drive_create` | `name`, `content`, `mimeType?`, `folderId?` |
+| `drive_update` | `fileId`, `content` |
+| `drive_delete` | `fileId` |
 
-### Google Calendar
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `calendar_list` | none | List calendars |
-| `calendar_events` | `calendarId?:string`, `maxResults?:number`, `timeMin?:string`, `timeMax?:string` | List events |
-| `calendar_create` | `summary:string`, `start:string`, `end:string`, `description?:string`, `location?:string`, `calendarId?:string` | Create event |
-| `calendar_update` | `eventId:string`, `summary?:string`, `start?:string`, `end?:string`, `description?:string`, `calendarId?:string` | Update event |
-| `calendar_delete` | `eventId:string`, `calendarId?:string` | Delete event |
+### Calendar
+| Tool | Parameters |
+|------|------------|
+| `calendar_list` | none |
+| `calendar_events` | `calendarId?`, `maxResults?`, `timeMin?`, `timeMax?` |
+| `calendar_create` | `summary`, `start`, `end`, `description?`, `location?` |
+| `calendar_update` | `eventId`, `summary?`, `start?`, `end?`, `description?` |
+| `calendar_delete` | `eventId`, `calendarId?` |
 
-### Google Docs
+### Docs
+| Tool | Parameters |
+|------|------------|
+| `docs_read` | `documentId` |
+| `docs_create` | `title`, `content?` |
+| `docs_append` | `documentId`, `content` |
+| `docs_replace` | `documentId`, `find`, `replace` |
 
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `docs_read` | `documentId:string` | Read document |
-| `docs_create` | `title:string`, `content?:string` | Create document |
-| `docs_append` | `documentId:string`, `content:string` | Append to document |
-| `docs_replace` | `documentId:string`, `find:string`, `replace:string` | Find/replace in document |
+### Sheets
+| Tool | Parameters |
+|------|------------|
+| `sheets_read` | `spreadsheetId`, `range` |
+| `sheets_write` | `spreadsheetId`, `range`, `values` |
+| `sheets_append` | `spreadsheetId`, `range`, `values` |
+| `sheets_create` | `title` |
+| `sheets_clear` | `spreadsheetId`, `range` |
 
-### Google Sheets
-|------|------------|-------------|
-| `sheets_read` | `spreadsheetId:string`, `range:string` | Read cells |
-| `sheets_write` | `spreadsheetId:string`, `range:string`, `values:any[][]` | Write cells |
-| `sheets_append` | `spreadsheetId:string`, `range:string`, `values:any[][]` | Append rows |
-| `sheets_create` | `title:string` | Create spreadsheet |
-| `sheets_clear` | `spreadsheetId:string`, `range:string` | Clear cells |
+### Tasks
+| Tool | Parameters |
+|------|------------|
+| `tasks_list` | `taskListId?`, `maxResults?` |
+| `tasks_create` | `title`, `notes?`, `due?`, `taskListId?` |
+| `tasks_update` | `taskId`, `title?`, `notes?`, `due?` |
+| `tasks_complete` | `taskId`, `taskListId?` |
+| `tasks_delete` | `taskId`, `taskListId?` |
 
-### Google Tasks
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `tasks_list` | `taskListId?:string`, `maxResults?:number` | List tasks |
-| `tasks_get` | `taskId:string`, `taskListId?:string` | Get specific task |
-| `tasks_create` | `title:string`, `notes?:string`, `due?:string`, `taskListId?:string` | Create task |
-| `tasks_update` | `taskId:string`, `title?:string`, `notes?:string`, `due?:string`, `taskListId?:string` | Update task |
-| `tasks_complete` | `taskId:string`, `taskListId?:string` | Complete task |
-| `tasks_delete` | `taskId:string`, `taskListId?:string` | Delete task |
-
-### Google Contacts
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `contacts_list` | `pageSize?:number`, `pageToken?:string` | List contacts |
-| `contacts_search` | `query:string`, `pageSize?:number` | Search contacts by name/email |
-| `contacts_get` | `resourceName:string` | Get contact details |
-| `contacts_create` | `givenName:string`, `familyName?:string`, `email?:string`, `phoneNumber?:string`, `organization?:string`, `title?:string` | Create contact |
-| `contacts_update` | `resourceName:string`, `givenName?:string`, `familyName?:string`, `email?:string`, `phoneNumber?:string` | Update contact |
-| `contacts_delete` | `resourceName:string` | Delete contact |
-
-### Send Chat (Primary Text Output Tool)
-
-**This is the primary tool for sending content to the chat window.**
-
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `send_chat` | `content:string` | Send markdown content to the chat window |
-
-**Example:**
-```json
-{"toolCalls": [
-  {"type": "send_chat", "id": "chat1", "operation": "respond", "parameters": {"content": "Here's what I found..."}}
-]}
-```
-
-### Say (Voice Output Tool)
-
-**This is the tool for sending speech output in turn-taking voice mode. Uses Gemini 2.5 Flash TTS for high-quality expressive speech.**
-
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `say` | `utterance:string`, `voiceId?:string`, `style?:string`, `locale?:string`, `conversationalTurnId?:string` | Speak text with expressive voice synthesis |
-
-**Example:**
-```json
-{"toolCalls": [
-  {"type": "say", "id": "voice1", "operation": "speak", "parameters": {"utterance": "Hello! How can I help you today?", "voiceId": "Kore", "style": "Say cheerfully"}}
-]}
-```
-
-**Parameters:**
-- `utterance` (required): The text to speak
-- `voiceId`: Voice to use - Kore, Puck, Charon, Fenrir, Aoede, Leda, Orus, Zephyr (default: "Kore")
-- `style`: Speech style - "natural", "Say cheerfully", "Say seriously", "Say excitedly", "Say calmly", "Say dramatically", "Whisper", "Say like a news anchor", "Say warmly", "Say professionally" (default: "natural")
-- `locale`: Language/region code (default: "en-US")
-- `conversationalTurnId`: Turn ID for multi-turn conversations (optional)
-
-### File Operations
-
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `file_ingest` | `content:string`, `filename:string`, `mimeType?:string` | Ingest file for RAG processing |
-| `file_get` | `path:string`, `encoding?:string` | Read file from filesystem or editor canvas (`editor:/path`) |
-| `file_put` | `path:string`, `content:string`, `mimeType?:string`, `permissions?:string`, `summary?:string` | Write file to filesystem or editor canvas (`editor:/path`) |
-
-**Path prefix:**
-- Normal path: `/app/src/file.js` → filesystem
-- Editor path: `editor:/app/src/file.js` → Monaco editor canvas
-
-### Terminal
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `terminal_execute` | `command:string` | Execute shell command |
-
-### Web Search
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `search` | `query:string` | Generic search operation |
-| `web_search` | `query:string`, `maxResults?:number` | Generic web search |
-| `google_search` | `query:string`, `maxResults?:number` | Google search |
-| `duckduckgo_search` | `query:string`, `maxResults?:number` | DuckDuckGo search |
-| `tavily_search` | `query:string`, `searchDepth?:string`, `maxResults?:number` | Tavily AI search |
-| `tavily_qna` | `query:string` | Tavily Q&A (direct answer) |
-| `tavily_research` | `query:string`, `searchDepth?:string` | Tavily deep research |
-| `browser_scrape` | `url:string`, `selector?:string` | Scrape webpage |
-
-### Perplexity AI
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `perplexity_search` | `query:string` | Perplexity AI search |
-| `perplexity_quick` | `query:string` | Quick Perplexity answer |
-| `perplexity_research` | `query:string` | Perplexity research mode |
-| `perplexity_news` | `query:string` | Perplexity news search |
-
-### Browserbase
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `browserbase_load` | `url:string` | Load page in browser |
-| `browserbase_screenshot` | `sessionId:string` | Take screenshot |
-| `browserbase_action` | `sessionId:string`, `actions:Action[]` | Perform browser actions |
-
-Action types: `{ type: "click", selector }`, `{ type: "type", selector, text }`, `{ type: "wait", delay }`, `{ type: "screenshot" }`
-
-### GitHub (Read)
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `github_repos` | `username?:string` | List repositories |
-| `github_repo_get` | `owner:string`, `repo:string` | Get repo details |
-| `github_repo_search` | `query:string`, `maxResults?:number` | Search repos |
-| `github_contents` | `owner:string`, `repo:string`, `path?:string` | List directory contents |
-| `github_file_read` | `owner:string`, `repo:string`, `path:string` | Read file content |
-| `github_code_search` | `query:string`, `owner?:string`, `repo?:string` | Search code |
-| `github_issues` | `owner:string`, `repo:string`, `state?:string` | List issues |
-| `github_issue_get` | `owner:string`, `repo:string`, `issueNumber:number` | Get issue |
-| `github_pulls` | `owner:string`, `repo:string`, `state?:string` | List pull requests |
-| `github_pull_get` | `owner:string`, `repo:string`, `pullNumber:number` | Get PR details |
-| `github_commits` | `owner:string`, `repo:string`, `maxResults?:number` | List commits |
-| `github_user` | `username?:string` | Get user info |
-
-### GitHub (Write)
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `github_issue_create` | `owner:string`, `repo:string`, `title:string`, `body?:string` | Create issue |
-| `github_issue_update` | `owner:string`, `repo:string`, `issueNumber:number`, `title?:string`, `body?:string`, `state?:string` | Update issue |
-| `github_issue_comment` | `owner:string`, `repo:string`, `issueNumber:number`, `body:string` | Comment on issue |
-| `github_branch_create` | `owner:string`, `repo:string`, `branch:string`, `sourceBranch?:string` | Create branch |
-| `github_branch_delete` | `owner:string`, `repo:string`, `branch:string` | Delete branch |
-| `github_branches` | `owner:string`, `repo:string` | List branches |
-| `github_file_create` | `owner:string`, `repo:string`, `path:string`, `content:string`, `message:string`, `branch?:string` | Create or update file |
-| `github_pr_create` | `owner:string`, `repo:string`, `title:string`, `body?:string`, `head:string`, `base:string` | Create pull request |
-
-### Queue (Batch Operations)
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `queue_create` | `items:QueueItem[]` | Create batch queue |
-| `queue_batch` | `operations:Operation[]` | Execute batch operations |
-| `queue_list` | none | List queued items |
-| `queue_start` | `queueId:string` | Start queue processing |
-
-### Codebase Analysis
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `codebase_analyze` | `path?:string` | Analyze codebase: crawl files, extract entities, ingest to RAG, generate glossary |
-| `codebase_progress` | none | Get current analysis progress |
-
-**Example:**
-```json
-{"toolCalls": [
-  {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Analyzing the codebase now.\n"}},
-  {"type": "codebase_analyze", "id": "a1", "operation": "analyze", "parameters": {"path": "."}},
-  {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Analysis complete! Found **X files** with **Y entities**.\n\nHere's the summary..."}}
-]}
-```
-
-### Debug
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `debug_echo` | `message:string` | Echo message (testing) |
-
----
-
-## Examples
-
-### Example 1: Check emails
-```json
-{
-  "toolCalls": [
-    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Checking your emails now.\n"}},
-    {"type": "gmail_list", "id": "g1", "operation": "list inbox", "parameters": {"maxResults": 5}},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Here are your 5 most recent emails:\n\n1. **From:** boss@company.com..."}}
-  ]
-}
-```
-
-### Example 2: Create calendar event
-```json
-{
-  "toolCalls": [
-    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Creating that meeting now.\n"}},
-    {"type": "calendar_create", "id": "t1", "operation": "create", "parameters": {"summary": "Team Standup", "start": "2024-01-15T09:00:00", "end": "2024-01-15T09:30:00"}},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Done! I've created **Team Standup** for Monday at 9:00 AM."}}
-  ]
-}
-```
-
-### Example 3: Simple question (no tools needed)
-```json
-{
-  "toolCalls": [
-    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Good question!\n"}},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Here's what I know about that topic:\n\n..."}}
-  ]
-}
-```
-
-### Example 4: Multiple tools in one call
-```json
-{
-  "toolCalls": [
-    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Checking your emails and calendar.\n"}},
-    {"type": "gmail_list", "id": "g1", "operation": "list", "parameters": {"maxResults": 3}},
-    {"type": "calendar_events", "id": "t1", "operation": "list", "parameters": {"maxResults": 5}},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "**Emails:**\n- ...\n\n**Calendar:**\n- ..."}}
-  ]
-}
-```
+### Contacts
+| Tool | Parameters |
+|------|------------|
+| `contacts_list` | `pageSize?`, `pageToken?` |
+| `contacts_search` | `query`, `pageSize?` |
+| `contacts_create` | `givenName`, `familyName?`, `email?`, `phoneNumber?` |
+| `contacts_update` | `resourceName`, `givenName?`, `email?`, `phoneNumber?` |
 
 ---
 
 ## File Operations
 
-**All file operations use the `file_put` tool call.**
+| Tool | Parameters |
+|------|------------|
+| `file_get` | `path` (prefix `editor:` for Monaco canvas) |
+| `file_put` | `path`, `content`, `mimeType?`, `summary?` |
+| `file_ingest` | `content`, `filename`, `mimeType?` |
 
-### Format
+---
 
-Include file operations as tool calls:
+## Terminal & Web
+
+| Tool | Parameters |
+|------|------------|
+| `terminal_execute` | `command` |
+| `web_search` | `query`, `maxResults?` |
+| `browser_scrape` | `url`, `selector?` |
+| `browserbase_load` | `url` |
+| `browserbase_screenshot` | `sessionId` |
+
+---
+
+## GitHub
+
+### Read
+| Tool | Parameters |
+|------|------------|
+| `github_repos` | `username?` |
+| `github_contents` | `owner`, `repo`, `path?` |
+| `github_file_read` | `owner`, `repo`, `path` |
+| `github_code_search` | `query`, `owner?`, `repo?` |
+| `github_issues` | `owner`, `repo`, `state?` |
+| `github_pulls` | `owner`, `repo`, `state?` |
+| `github_commits` | `owner`, `repo`, `maxResults?` |
+
+### Write
+| Tool | Parameters |
+|------|------------|
+| `github_issue_create` | `owner`, `repo`, `title`, `body?` |
+| `github_issue_comment` | `owner`, `repo`, `issueNumber`, `body` |
+| `github_branch_create` | `owner`, `repo`, `branch`, `sourceBranch?` |
+| `github_file_create` | `owner`, `repo`, `path`, `content`, `message`, `branch?` |
+| `github_pr_create` | `owner`, `repo`, `title`, `body?`, `head`, `base` |
+
+---
+
+## Codebase Analysis
+
+| Tool | Parameters |
+|------|------------|
+| `codebase_analyze` | `path?` - crawl, extract entities, ingest to RAG |
+| `codebase_progress` | none |
+
+---
+
+## Example
 
 ```json
-{
-  "toolCalls": [
-    {"type": "say", "id": "v1", "operation": "speak", "parameters": {"utterance": "Creating that file now.\n"}},
-    {"type": "file_put", "id": "f1", "operation": "write", "parameters": {
-      "path": "/app/src/app.js",
-      "content": "const express = require('express');...",
-      "mimeType": "text/javascript",
-      "permissions": "644",
-      "summary": "Application entry point with express server"
-    }},
-    {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Done! I've created app.js with the express server setup."}}
-  ]
-}
+{"toolCalls": [
+  {"type": "gmail_search", "id": "g1", "operation": "search", "parameters": {"query": "from:nick"}},
+  {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Found emails from Nick..."}}
+]}
 ```
-
-### Path Prefixes
-
-- **Normal path**: `/app/src/app.js` → writes to filesystem
-- **Editor path**: `editor:/app.js` → saves to Monaco editor canvas (frontend)
-
-### Editor Integration
-
-If `path` starts with `editor:`, the file is saved to the Monaco editor canvas:
-- `editor:/component.tsx` → Creates tab in editor
-- LLM can read from `editor:` paths using `file_get` and modify them with `file_put`
-
-### Examples
-
-**Create JavaScript file:**
-```json
-{"type": "file_put", "id": "f1", "operation": "write", "parameters": {
-  "path": "/app/src/index.js",
-  "content": "console.log('Hello');",
-  "mimeType": "text/javascript",
-  "permissions": "644",
-  "summary": "Main application file with HTTP server",
-  "content": "const app = require('./app');\napp.listen(3000);",
-  "encoding": "utf8",
-  "action": "create"
-}
-```
-
-**Save code to editor:**
-```json
-{
-  "filename": "Component.tsx",
-  "path": "editor:/app/src/components/Component.tsx",
-  "mimeType": "text/typescript",
-  "permissions": "644",
-  "summary": "React component for user dashboard",
-  "content": "export function Dashboard() { ... }",
-  "encoding": "utf8",
-  "action": "create"
-}
-```
-
-**Append to log:**
-```json
-{
-  "filename": "debug.log",
-  "path": "/app/logs/debug.log",
-  "summary": "Debug output",
-  "content": "\n[ERROR] Failed to connect to database",
-  "encoding": "utf8",
-  "action": "append"
-}
-```
-
-### Rules
-
-- **Replace vs Create**: Both overwrite existing files. Use "replace" if the file exists, "create" for new files.
-- **Size limit**: 5MB per file
-- **Encoding**: "utf8" (default) or "base64"
-- **Editor files**: Automatically appear in Monaco tabs; LLM can receive and modify them
