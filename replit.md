@@ -46,7 +46,7 @@ Preferred communication style: Simple, everyday language.
 See `docs/v2-roadmap/MASTER-ROADMAP.md` for the consolidated roadmap (13 priority groups from 245 extracted ideas).
 
 **Current Priorities:**
-1. Verbosity Slider (3-stop: Muse/Quiet/Verbose/Experimental)
+1. ~~Verbosity Slider~~ ✅ COMPLETE (4-stop: Muse/Quiet/Verbose/Experimental)
 2. Collaborative Editing (live voice + Monaco editor)
 3. Desktop/Browser Control (extension + local agent)
 4. Kernel + Personality + Tools (installable modules)
@@ -61,6 +61,15 @@ See `docs/v2-roadmap/MASTER-ROADMAP.md` for the consolidated roadmap (13 priorit
 - **send_chat:** Primary tool for LLM to send text to the chat window.
 - **say:** Voice output tool using Gemini 2.5 Flash TTS for expressive speech.
 - **file_get/file_put:** Tools for reading and writing files.
+
+### Verbosity Slider
+4-mode voice output control in chat header:
+- **Muse:** Silent - no audio output at all
+- **Quiet:** Only play HD audio from `say` tool (voice-on-demand)
+- **Verbose:** Speak all chat responses (browser TTS + HD audio)
+- **Experimental:** Multi-voice TTS (future feature)
+
+Stored in `localStorage` with key `meowstik-verbosity-mode`. Uses `tts-context.tsx` for state and `verbosity-slider.tsx` for UI.
 
 ### AI Desktop Collaboration
 - **Collaborate Page (`/collaborate`):** TeamViewer-style AI collaboration hub with headless browser or full desktop modes.

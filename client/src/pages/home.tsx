@@ -61,6 +61,7 @@ import { Button } from "@/components/ui/button";
  * - Code2: Icon for coding/debug prompt
  */
 import { Menu, Sparkles, Compass, Lightbulb, Code2, Volume2, VolumeX, ChevronLeft, ChevronRight, PawPrint, Moon, Fish, Heart, Zap, BookOpen, AlertTriangle } from "lucide-react";
+import { VerbositySlider } from "@/components/ui/verbosity-slider";
 import { useLocation } from "wouter";
 
 /**
@@ -193,8 +194,13 @@ export default function Home() {
 
   /**
    * Text-to-Speech hook for reading AI responses aloud
+   * Includes verbosity mode for controlling what gets spoken
    */
-  const { isMuted, toggleMuted, speak, isSpeaking, stopSpeaking, isSupported: isTTSSupported, isUsingBrowserTTS } = useTTS();
+  const { 
+    isMuted, toggleMuted, speak, isSpeaking, stopSpeaking, 
+    isSupported: isTTSSupported, isUsingBrowserTTS,
+    shouldPlayHDAudio, shouldPlayBrowserTTS 
+  } = useTTS();
 
   /**
    * Authentication state from Replit Auth
@@ -581,8 +587,8 @@ export default function Home() {
                     });
                   }
                   
-                  // Play generated audio if available, otherwise fall back to browser TTS
-                  if (speechData.audioGenerated && speechData.audioBase64) {
+                  // Play generated audio if allowed by verbosity mode
+                  if (shouldPlayHDAudio() && speechData.audioGenerated && speechData.audioBase64) {
                     hdAudioPlayed = true; // Mark that HD audio will be played (suppress browser TTS)
                     // Create and play audio from base64 data
                     const audioBlob = new Blob(
@@ -594,11 +600,13 @@ export default function Home() {
                     audio.onended = () => URL.revokeObjectURL(audioUrl);
                     audio.play().catch(err => {
                       console.error('[Speech] Audio playback failed:', err);
-                      // Fall back to browser TTS
-                      speak(speechData.utterance);
+                      // Fall back to browser TTS only if verbose mode
+                      if (shouldPlayBrowserTTS()) {
+                        speak(speechData.utterance);
+                      }
                     });
-                  } else {
-                    // Fall back to browser TTS if audio generation failed
+                  } else if (shouldPlayBrowserTTS()) {
+                    // Fall back to browser TTS if audio generation failed and verbose mode
                     speak(speechData.utterance);
                   }
                 }
@@ -669,8 +677,8 @@ export default function Home() {
               // Step 6: Stream complete - reload final messages and speak response
               if (data.done) {
                 setIsLoading(false);
-                // Only use browser TTS if HD audio wasn't already played via say tool
-                if (aiMessageContent && !hdAudioPlayed) {
+                // Only use browser TTS if HD audio wasn't already played and verbosity allows
+                if (aiMessageContent && !hdAudioPlayed && shouldPlayBrowserTTS()) {
                   speak(aiMessageContent);
                 }
                 // Get actual stored messages with real IDs
@@ -857,25 +865,9 @@ export default function Home() {
                 <AlertTriangle className="h-6 w-6 text-red-400" />
               </Button>
             )}
-            {/* Mobile TTS Toggle - only shown if browser supports TTS */}
+            {/* Mobile Verbosity Slider - controls voice output level */}
             {isTTSSupported && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => {
-                  if (isSpeaking) stopSpeaking();
-                  toggleMuted();
-                }}
-                className={`rounded-full h-11 w-11 ${isUsingBrowserTTS && isSpeaking ? 'ring-2 ring-yellow-400 shadow-[0_0_12px_rgba(250,204,21,0.6)]' : ''}`}
-                data-testid="button-tts-toggle-mobile"
-                title={isMuted ? "Enable voice" : "Mute voice"}
-              >
-                {isMuted ? (
-                  <VolumeX className="h-7 w-7 text-muted-foreground" />
-                ) : (
-                  <Volume2 className={`h-7 w-7 ${isUsingBrowserTTS && isSpeaking ? 'text-yellow-400' : 'text-primary'}`} />
-                )}
-              </Button>
+              <VerbositySlider />
             )}
           </div>
         </div>
@@ -899,25 +891,9 @@ export default function Home() {
                 <AlertTriangle className="h-6 w-6 text-red-400" />
               </Button>
             )}
-            {/* TTS Toggle Button - only shown if browser supports TTS */}
+            {/* Verbosity Slider - controls voice output level */}
             {isTTSSupported && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => {
-                  if (isSpeaking) stopSpeaking();
-                  toggleMuted();
-                }}
-                className={`rounded-full h-11 w-11 ${isUsingBrowserTTS && isSpeaking ? 'ring-2 ring-yellow-400 shadow-[0_0_12px_rgba(250,204,21,0.6)]' : ''}`}
-                data-testid="button-tts-toggle"
-                title={isMuted ? "Enable voice (click to hear AI responses)" : "Mute voice"}
-              >
-                {isMuted ? (
-                  <VolumeX className="h-7 w-7 text-muted-foreground" />
-                ) : (
-                  <Volume2 className={`h-7 w-7 ${isUsingBrowserTTS && isSpeaking ? 'text-yellow-400' : 'text-primary'}`} />
-                )}
-              </Button>
+              <VerbositySlider />
             )}
             
             {/* User Avatar / Login Button */}
