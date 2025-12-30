@@ -516,6 +516,200 @@ ipcMain.handle('show-open-dialog', async (event, options) => {
 });
 
 // =============================================================================
+// EXTENSION BRIDGE - IPC for browser extension communication
+// =============================================================================
+
+let localAgentProcess = null;
+
+/**
+ * Start the local-agent for Playwright automation
+ */
+ipcMain.handle('start-local-agent', async () => {
+  if (localAgentProcess) {
+    return { success: true, message: 'Local agent already running' };
+  }
+
+  const agentPath = getResourcePath('local-agent');
+  
+  try {
+    localAgentProcess = spawn('node', ['src/index.js'], {
+      cwd: agentPath,
+      env: { ...process.env, PORT: '9222' },
+      shell: true,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    localAgentProcess.stdout.on('data', (data) => {
+      console.log(`[LocalAgent] ${data.toString().trim()}`);
+      if (mainWindow) {
+        mainWindow.webContents.send('local-agent-log', data.toString());
+      }
+    });
+
+    localAgentProcess.stderr.on('data', (data) => {
+      console.error(`[LocalAgent Error] ${data.toString().trim()}`);
+    });
+
+    localAgentProcess.on('close', (code) => {
+      console.log(`Local agent exited with code ${code}`);
+      localAgentProcess = null;
+    });
+
+    return { success: true, message: 'Local agent started on port 9222' };
+  } catch (error) {
+    console.error('Failed to start local agent:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+/**
+ * Stop the local-agent
+ */
+ipcMain.handle('stop-local-agent', () => {
+  if (localAgentProcess) {
+    localAgentProcess.kill('SIGTERM');
+    localAgentProcess = null;
+    return { success: true };
+  }
+  return { success: false, message: 'Agent not running' };
+});
+
+/**
+ * Get local-agent status
+ */
+ipcMain.handle('get-local-agent-status', () => {
+  return { running: localAgentProcess !== null };
+});
+
+/**
+ * Execute terminal command (for extension bridge)
+ * 
+ * SECURITY: Only allow whitelisted commands to prevent command injection
+ */
+const ALLOWED_COMMANDS = new Set([
+  'ls', 'pwd', 'whoami', 'date', 'cat', 'head', 'tail', 'wc',
+  'grep', 'find', 'which', 'echo', 'node', 'npm', 'git'
+]);
+
+ipcMain.handle('execute-terminal', async (event, { command, args, cwd }) => {
+  // Validate command is a single whitelisted executable
+  if (!command || typeof command !== 'string') {
+    return { exitCode: -1, stdout: '', stderr: 'Invalid command' };
+  }
+  
+  // Extract base command (first word)
+  const baseCommand = command.split(/\s+/)[0];
+  
+  if (!ALLOWED_COMMANDS.has(baseCommand)) {
+    return { exitCode: -1, stdout: '', stderr: `Command not allowed: ${baseCommand}` };
+  }
+  
+  // Validate cwd is a safe path (no path traversal)
+  const safeCwd = cwd && typeof cwd === 'string' 
+    ? cwd.replace(/\.\./g, '').replace(/~|\$/g, '') 
+    : process.env.HOME;
+  
+  return new Promise((resolve) => {
+    // Use spawn without shell:true for safer execution
+    const cmdParts = command.split(/\s+/);
+    const proc = spawn(cmdParts[0], cmdParts.slice(1), {
+      cwd: safeCwd,
+      shell: false,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (data) => { stdout += data.toString(); });
+    proc.stderr.on('data', (data) => { stderr += data.toString(); });
+
+    proc.on('close', (code) => {
+      resolve({ exitCode: code, stdout, stderr });
+    });
+
+    proc.on('error', (error) => {
+      resolve({ exitCode: -1, stdout: '', stderr: error.message });
+    });
+  });
+});
+
+/**
+ * File operations for extension bridge
+ * 
+ * SECURITY: Validate paths to prevent directory traversal attacks
+ */
+function validatePath(inputPath) {
+  if (!inputPath || typeof inputPath !== 'string') return null;
+  
+  // Normalize and resolve the path
+  const resolved = path.resolve(inputPath);
+  
+  // Only allow access within home directory or /tmp
+  const homeDir = process.env.HOME || '/home';
+  const tmpDir = '/tmp';
+  
+  if (resolved.startsWith(homeDir) || resolved.startsWith(tmpDir)) {
+    return resolved;
+  }
+  
+  return null;
+}
+
+ipcMain.handle('file-read', async (event, { path: filePath }) => {
+  const fs = require('fs').promises;
+  const safePath = validatePath(filePath);
+  
+  if (!safePath) {
+    return { success: false, error: 'Access denied: path outside allowed directories' };
+  }
+  
+  try {
+    const content = await fs.readFile(safePath, 'utf-8');
+    return { success: true, content };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('file-write', async (event, { path: filePath, content }) => {
+  const fs = require('fs').promises;
+  const safePath = validatePath(filePath);
+  
+  if (!safePath) {
+    return { success: false, error: 'Access denied: path outside allowed directories' };
+  }
+  
+  try {
+    await fs.writeFile(safePath, content, 'utf-8');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('file-list', async (event, { path: dirPath }) => {
+  const fs = require('fs').promises;
+  const safePath = validatePath(dirPath);
+  
+  if (!safePath) {
+    return { success: false, error: 'Access denied: path outside allowed directories' };
+  }
+  
+  try {
+    const entries = await fs.readdir(safePath, { withFileTypes: true });
+    const files = entries.map(e => ({
+      name: e.name,
+      isDirectory: e.isDirectory(),
+      isFile: e.isFile()
+    }));
+    return { success: true, files };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// =============================================================================
 // APPLICATION LIFECYCLE
 // =============================================================================
 
@@ -572,10 +766,18 @@ app.on('activate', () => {
 // Clean up before quitting
 app.on('before-quit', () => {
   isQuitting = true;
+  if (localAgentProcess) {
+    localAgentProcess.kill('SIGTERM');
+    localAgentProcess = null;
+  }
   stopBackend();
 });
 
 app.on('will-quit', () => {
+  if (localAgentProcess) {
+    localAgentProcess.kill('SIGTERM');
+    localAgentProcess = null;
+  }
   stopBackend();
 });
 
