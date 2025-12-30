@@ -104,6 +104,7 @@ import GlassesPage from "@/pages/glasses";
 import CollaboratePage from "@/pages/collaborate";
 import ProposalDesktopCollaborationPage from "@/pages/proposal-desktop-collaboration";
 import WorkspacePage from "@/pages/workspace";
+import VisionPage from "@/pages/vision";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -220,6 +221,9 @@ function Router() {
       
       {/* Workspace - Integrated Chat + Editor + Preview with resizable panels */}
       <Route path="/workspace" component={WorkspacePage} />
+      
+      {/* Vision - Project vision and roadmap blog post */}
+      <Route path="/vision" component={VisionPage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything
