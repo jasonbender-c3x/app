@@ -195,8 +195,10 @@ Response
 
 | Item | Date |
 |------|------|
+| JIT Tool Protocol v2 (Compressed Manifest - 78 tools) | 2025-12-30 |
+| Master Roadmap Consolidation (245 ideas → 13 priorities) | 2025-12-30 |
 | Deep Codebase Analysis Agent | 2025-12-29 |
-| JIT Tool Protocol | 2025-12-29 |
+| JIT Tool Protocol v1 | 2025-12-29 |
 | RAG Pipeline with Vector Store | 2025-12-28 |
 | Gemini TTS Integration | 2025-12-27 |
 | GitHub Integration | 2025-12-26 |
