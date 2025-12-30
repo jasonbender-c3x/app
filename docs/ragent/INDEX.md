@@ -9,6 +9,7 @@ Welcome to the Ragent (AI Agent) documentation. This index provides comprehensiv
 ### Configuration & Behavior
 - [Agent Configuration Guide](./agent-configuration.md) - How to customize agent behavior, personality, and decision-making
 - [Workflow Orchestration](./job-orchestration.md) - Multi-worker job processing and task dependencies
+- [Collaborative Editing](./collaborative-editing.md) - Real-time AI collaboration with voice, code, and browser control
 
 ### Core Systems
 - [RAG Pipeline](../RAG_PIPELINE.md) - Retrieval-Augmented Generation for context-aware responses
