@@ -540,6 +540,32 @@ export function useCollaborativeEditing(options: UseCollaborativeEditingOptions)
     });
   }, [session.isConnected, sendCursorUpdate]);
 
+  const isEditingAllowed = useCallback(() => {
+    if (!session.isConnected) return true;
+    return session.turnState.isMyTurn;
+  }, [session.isConnected, session.turnState.isMyTurn]);
+
+  const getEditorOptions = useCallback((): Partial<Monaco.editor.IStandaloneEditorConstructionOptions> => {
+    const readOnly = session.isConnected && !session.turnState.isMyTurn;
+    return {
+      readOnly,
+      readOnlyMessage: readOnly 
+        ? { value: `Waiting for ${session.turnState.currentTurn === "ai" ? "AI" : "other participant"}'s turn` }
+        : undefined,
+    };
+  }, [session.isConnected, session.turnState.isMyTurn, session.turnState.currentTurn]);
+
+  const updateEditorReadOnly = useCallback(() => {
+    if (editorRef.current) {
+      const readOnly = session.isConnected && !session.turnState.isMyTurn;
+      editorRef.current.updateOptions({ readOnly });
+    }
+  }, [session.isConnected, session.turnState.isMyTurn]);
+
+  useEffect(() => {
+    updateEditorReadOnly();
+  }, [session.turnState.isMyTurn, updateEditorReadOnly]);
+
   return {
     session,
     connect,
@@ -557,6 +583,9 @@ export function useCollaborativeEditing(options: UseCollaborativeEditingOptions)
     passTurn,
     sendScreenshot,
     sendBrowserAction,
+    isEditingAllowed,
+    getEditorOptions,
+    updateEditorReadOnly,
   };
 }
 

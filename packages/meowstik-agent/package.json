@@ -1,0 +1,38 @@
+{
+  "name": "meowstik-agent",
+  "version": "1.0.0",
+  "description": "Desktop agent for Meowstik AI collaboration - screen capture and input injection",
+  "main": "dist/index.js",
+  "bin": {
+    "meowstik-agent": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "dev": "tsx src/cli.ts"
+  },
+  "keywords": [
+    "ai",
+    "desktop",
+    "automation",
+    "screen-capture",
+    "collaboration"
+  ],
+  "author": "Meowstik",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.0.0",
+    "robotjs": "^0.6.0",
+    "screenshot-desktop": "^1.15.0",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

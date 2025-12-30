@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meowstik AI</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🐱</span>
+        <span class="logo-text">Meowstik</span>
+      </div>
+      <div class="status" id="status">
+        <span class="status-dot disconnected"></span>
+        <span class="status-text">Disconnected</span>
+      </div>
+    </header>
+
+    <div class="connection-section" id="connection-section">
+      <input type="text" id="server-url" placeholder="Server URL (e.g., https://your-app.replit.app)" />
+      <button id="connect-btn" class="btn primary">Connect</button>
+    </div>
+
+    <div class="chat-section hidden" id="chat-section">
+      <div class="messages" id="messages"></div>
+      <div class="input-area">
+        <textarea id="message-input" placeholder="Ask Meowstik anything..." rows="2"></textarea>
+        <div class="input-actions">
+          <button id="capture-btn" class="btn icon" title="Capture page">📷</button>
+          <button id="send-btn" class="btn primary">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tools-section hidden" id="tools-section">
+      <h3>Quick Actions</h3>
+      <div class="tool-grid">
+        <button class="tool-btn" id="tool-screenshot">
+          <span class="tool-icon">📸</span>
+          <span class="tool-label">Screenshot</span>
+        </button>
+        <button class="tool-btn" id="tool-extract">
+          <span class="tool-icon">📄</span>
+          <span class="tool-label">Extract Text</span>
+        </button>
+        <button class="tool-btn" id="tool-console">
+          <span class="tool-icon">🖥️</span>
+          <span class="tool-label">Console Logs</span>
+        </button>
+        <button class="tool-btn" id="tool-network">
+          <span class="tool-icon">🌐</span>
+          <span class="tool-label">Network</span>
+        </button>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <button id="settings-btn" class="btn text">⚙️ Settings</button>
+      <span class="version">v1.0.0</span>
+    </footer>
+  </div>
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

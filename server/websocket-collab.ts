@@ -24,6 +24,7 @@ import type { Duplex } from "stream";
 import { db } from "./db";
 import { collaborativeSessions, sessionParticipants, cursorPositions, editOperations } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
+import { collabIntegration } from "./services/collab-integration";
 
 interface CollabMessage {
   type: string;
@@ -593,6 +594,31 @@ async function handleBrowserAction(session: Session, participantId: string, data
   target?: string;
   value?: string;
 }): Promise<void> {
+  const collabSession = collabIntegration.getSession(session.id);
+  if (collabSession && data.action !== "screenshot") {
+    const result = await collabIntegration.executeBrowserAction(session.id, {
+      type: data.action === "navigate" ? "navigate" : 
+            data.action === "click" ? "click" :
+            data.action === "type" ? "type" :
+            data.action === "scroll" ? "scroll" : "screenshot",
+      url: data.action === "navigate" ? data.value : undefined,
+      x: 0,
+      y: 0,
+      text: data.action === "type" ? data.value : undefined,
+      selector: data.target,
+    });
+    
+    broadcastToSession(session, {
+      type: "browser_action_result",
+      data: {
+        participantId,
+        action: data.action,
+        success: result.success,
+        error: result.error,
+      },
+    });
+  }
+
   broadcastToSession(session, {
     type: "browser_action",
     data: {

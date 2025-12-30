@@ -664,4 +664,158 @@ router.get('/ws-status', (req, res) => {
   });
 });
 
+interface ExtensionSession {
+  id: string;
+  createdAt: Date;
+  lastActivity: Date;
+  messages: Array<{ role: "user" | "ai" | "system"; content: string; timestamp: Date }>;
+  context: Record<string, any>;
+}
+
+const extensionSessions = new Map<string, ExtensionSession>();
+
+router.post("/connect", async (req, res) => {
+  try {
+    const { source } = req.body;
+    const sessionId = `ext_${uuidv4()}`;
+    
+    const session: ExtensionSession = {
+      id: sessionId,
+      createdAt: new Date(),
+      lastActivity: new Date(),
+      messages: [
+        { role: "system", content: "Extension connected successfully", timestamp: new Date() }
+      ],
+      context: { source: source || "extension" },
+    };
+    
+    extensionSessions.set(sessionId, session);
+    
+    res.json({ 
+      sessionId,
+      message: "Connected successfully",
+    });
+  } catch (error) {
+    console.error("[Extension API] Connect error:", error);
+    res.status(500).json({ error: "Failed to connect" });
+  }
+});
+
+router.post("/chat", async (req, res) => {
+  try {
+    const { message, sessionId } = req.body;
+    
+    if (!sessionId || !extensionSessions.has(sessionId)) {
+      const result = await handleChat({ message, url: "", title: "" });
+      return res.json({ response: result.message });
+    }
+    
+    const session = extensionSessions.get(sessionId)!;
+    session.lastActivity = new Date();
+    session.messages.push({ role: "user", content: message, timestamp: new Date() });
+    
+    const result = await handleChat({ message, url: session.context.lastUrl || "", title: session.context.lastTitle || "" });
+    session.messages.push({ role: "ai", content: result.message || "", timestamp: new Date() });
+    
+    res.json({ response: result.message });
+  } catch (error) {
+    console.error("[Extension API] Chat error:", error);
+    res.status(500).json({ error: "Failed to process message" });
+  }
+});
+
+router.post("/screenshot", async (req, res) => {
+  try {
+    const { image, url, title, sessionId } = req.body;
+    
+    if (sessionId && extensionSessions.has(sessionId)) {
+      const session = extensionSessions.get(sessionId)!;
+      session.lastActivity = new Date();
+      session.context.lastScreenshot = {
+        url,
+        title,
+        capturedAt: new Date(),
+        hasImage: !!image,
+      };
+    }
+    
+    console.log(`[Extension API] Screenshot received from ${url}`);
+    
+    res.json({ 
+      success: true,
+      message: "Screenshot captured",
+    });
+  } catch (error) {
+    console.error("[Extension API] Screenshot error:", error);
+    res.status(500).json({ error: "Failed to process screenshot" });
+  }
+});
+
+router.post("/content", async (req, res) => {
+  try {
+    const { content, url, title, sessionId } = req.body;
+    
+    if (sessionId && extensionSessions.has(sessionId)) {
+      const session = extensionSessions.get(sessionId)!;
+      session.lastActivity = new Date();
+      session.context.pageContent = {
+        url,
+        title,
+        contentLength: content?.length || 0,
+        extractedAt: new Date(),
+      };
+      session.context.lastUrl = url;
+      session.context.lastTitle = title;
+    }
+    
+    console.log(`[Extension API] Page content extracted from ${url} (${content?.length || 0} chars)`);
+    
+    res.json({ 
+      success: true,
+      message: "Content extracted",
+    });
+  } catch (error) {
+    console.error("[Extension API] Content error:", error);
+    res.status(500).json({ error: "Failed to process content" });
+  }
+});
+
+router.post("/context", async (req, res) => {
+  try {
+    const { content, pageUrl, pageTitle, sessionId } = req.body;
+    
+    if (sessionId && extensionSessions.has(sessionId)) {
+      const session = extensionSessions.get(sessionId)!;
+      session.lastActivity = new Date();
+      session.messages.push({
+        role: "user",
+        content: `Context from page "${pageTitle}": ${content}`,
+        timestamp: new Date(),
+      });
+    }
+    
+    console.log(`[Extension API] Context received from ${pageUrl}: ${content}`);
+    
+    res.json({ 
+      success: true,
+      message: "Context received",
+    });
+  } catch (error) {
+    console.error("[Extension API] Context error:", error);
+    res.status(500).json({ error: "Failed to process context" });
+  }
+});
+
+setInterval(() => {
+  const now = Date.now();
+  const timeout = 30 * 60 * 1000;
+  
+  for (const [id, session] of extensionSessions.entries()) {
+    if (now - session.lastActivity.getTime() > timeout) {
+      extensionSessions.delete(id);
+      console.log(`[Extension API] Session ${id} expired`);
+    }
+  }
+}, 5 * 60 * 1000);
+
 export default router;

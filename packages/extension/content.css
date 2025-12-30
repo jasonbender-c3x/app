@@ -1,0 +1,28 @@
+.meowstik-highlight {
+  outline: 3px solid #4285f4 !important;
+  outline-offset: 2px !important;
+}
+
+.meowstik-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999999;
+  pointer-events: none;
+}
+
+.meowstik-tooltip {
+  position: fixed;
+  background: #202124;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Google Sans', sans-serif;
+  z-index: 1000000;
+  max-width: 300px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
