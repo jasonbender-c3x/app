@@ -107,6 +107,7 @@ import WorkspacePage from "@/pages/workspace";
 import VisionPage from "@/pages/vision";
 import DocsPage from "@/pages/docs";
 import AgentSettingsPage from "@/pages/agent-settings";
+import LandingPage from "@/pages/landing";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -232,6 +233,9 @@ function Router() {
       
       {/* Agent Settings - Configure agent behavior, tools, and preferences */}
       <Route path="/agent-settings" component={AgentSettingsPage} />
+      
+      {/* Landing Page - Polished entry point with feature overview */}
+      <Route path="/landing" component={LandingPage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything

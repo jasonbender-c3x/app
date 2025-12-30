@@ -399,7 +399,7 @@ export default function AgentSettingsPage() {
                 </div>
                 
                 <Link href="/">
-                  <Button variant="outline" className="gap-2">
+                  <Button variant="outline" className="gap-2" data-testid="button-go-to-chat">
                     <MessageSquare className="h-4 w-4" />
                     Go to Chat to Adjust Voice
                   </Button>
@@ -466,7 +466,7 @@ export default function AgentSettingsPage() {
                   </div>
                   <Separator />
                   <Link href="/docs/job-orchestration">
-                    <Button variant="outline" className="w-full gap-2">
+                    <Button variant="outline" className="w-full gap-2" data-testid="button-view-orchestration-docs">
                       <Database className="h-4 w-4" />
                       View Orchestration Documentation
                     </Button>

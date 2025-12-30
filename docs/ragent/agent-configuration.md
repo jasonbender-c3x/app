@@ -279,10 +279,10 @@ const MAX_CONTEXT_TOKENS = 4000; // Reduced from 8000
 
 ## Related Documentation
 
-- [Tool Protocol Reference](./tool-protocol.md)
 - [Job Orchestration](./job-orchestration.md)
 - [RAG Pipeline](../RAG_PIPELINE.md)
 - [System Overview](../SYSTEM_OVERVIEW.md)
+- [Ragent Index](./INDEX.md)
 
 ---
 

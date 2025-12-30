@@ -8,18 +8,12 @@ Welcome to the Ragent (AI Agent) documentation. This index provides comprehensiv
 
 ### Configuration & Behavior
 - [Agent Configuration Guide](./agent-configuration.md) - How to customize agent behavior, personality, and decision-making
-- [Tool Protocol Reference](./tool-protocol.md) - Understanding and customizing the JIT tool system
 - [Workflow Orchestration](./job-orchestration.md) - Multi-worker job processing and task dependencies
 
 ### Core Systems
 - [RAG Pipeline](../RAG_PIPELINE.md) - Retrieval-Augmented Generation for context-aware responses
 - [System Overview](../SYSTEM_OVERVIEW.md) - High-level architecture and component interactions
 - [Prompt Lifecycle](../03-prompt-lifecycle.md) - How prompts flow through the system
-
-### Integrations
-- [Google Services](./google-services.md) - Gmail, Drive, Calendar, Docs, Sheets, Tasks
-- [GitHub Integration](./github-integration.md) - Repository operations, issues, PRs
-- [Twilio SMS/Voice](./twilio-integration.md) - SMS messaging and voice calls
 
 ### Developer Reference
 - [Database Schemas](../01-database-schemas.md) - Data models and storage structure
