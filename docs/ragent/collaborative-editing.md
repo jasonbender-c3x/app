@@ -32,9 +32,11 @@ Collaborative Editing enables **hands-free, continuous interaction** between use
 | [Live Voice](/live) | Gemini Live API with WebSocket streaming | ✅ Exists |
 | [Monaco Editor](/workspace) | Syntax highlighting, IntelliSense | ✅ Exists |
 | [Preview Pane](/workspace) | Live HTML/CSS/JS preview | ✅ Exists |
-| Turn-Based Protocol | OT conflict resolution | 🔧 In Progress |
-| Silence Detection | Auto-send after X seconds quiet | 📋 Planned |
-| Auto Mic Toggle | Re-enable mic after LLM turn | 📋 Planned |
+| Turn-Based Protocol | OT conflict resolution | 🔧 Backend Ready (frontend simulates) |
+| Silence Detection | Auto-send after X seconds quiet | ✅ Implemented |
+| Auto Mic Toggle | Re-enable mic after LLM turn | ✅ Implemented |
+| Silence Duration Slider | Configure 0.5-5s timeout | ✅ Implemented |
+| Audio Level Visualizer | Real-time audio waveform | ✅ Implemented |
 
 **Data Flow:**
 ```
@@ -61,6 +63,8 @@ Collaborative Editing enables **hands-free, continuous interaction** between use
 **Key Files:**
 - [`server/websocket-collab.ts`](/docs/02-ui-architecture) — Turn state management
 - [`client/src/hooks/use-collaborative-editing.ts`](/docs/02-ui-architecture) — Editor guards
+- [`client/src/hooks/use-silence-detection.ts`](/docs/02-ui-architecture) — Silence detection hook
+- [`client/src/hooks/use-voice-recording.ts`](/docs/02-ui-architecture) — Voice recording hook
 - [`server/services/collab-integration.ts`](/docs/02-ui-architecture) — WebSocket wiring
 
 ---
@@ -84,11 +88,12 @@ Collaborative Editing enables **hands-free, continuous interaction** between use
 |-----------|-------------|--------|
 | [Live Voice](/live) | Real-time Gemini Live | ✅ Exists |
 | [Browser Page](/browser) | Browserbase + Playwright | ✅ Exists |
-| [Collaborate Page](/collaborate) | TeamViewer-style hub | ✅ Exists |
-| Desktop Vision | 1 FPS screen capture to AI | 📋 Planned |
+| [Collaborate Page](/collaborate) | TeamViewer-style hub | ✅ Implemented |
+| Mode Selector UI | Switch between Mode A/B | ✅ Implemented |
+| Desktop Vision | 1 FPS screen capture to AI | 🔧 UI Ready |
 | Desktop Relay | Cloud relay for frames | 📋 Planned |
-| Desktop Agent | Local capture + mouse/keyboard injection | 📋 Planned |
-| Transcript Panel | Live text of conversation | 📋 Planned |
+| Desktop Agent | Local capture + mouse/keyboard injection | ✅ Package Ready |
+| Transcript Panel | Live text of conversation | ✅ Implemented |
 
 **Data Flow:**
 ```

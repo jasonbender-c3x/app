@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { useSilenceDetection } from "@/hooks/use-silence-detection";
 import { 
   Monitor, 
   Globe, 
@@ -42,7 +45,10 @@ import {
   Lock,
   Unlock,
   Zap,
-  Brain
+  Brain,
+  Radio,
+  Timer,
+  AudioLines
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -53,15 +59,21 @@ interface Message {
   timestamp: Date;
 }
 
+type CollabMode = "mode_a" | "mode_b"; // Mode A: Turn-based, Mode B: Real-time
+
 interface SessionState {
   connected: boolean;
   mode: "headless" | "desktop" | null;
+  collabMode: CollabMode;
   controlling: "user" | "ai" | "shared";
   audioEnabled: boolean;
   aiVisionEnabled: boolean;
   sessionId: string | null;
   token: string | null;
   agentConnected: boolean;
+  silenceDuration: number; // ms before auto-send
+  isAiTurn: boolean; // For Mode A turn tracking
+  autoMicReactivate: boolean; // Mic reactivates after AI turn
 }
 
 export default function CollaboratePage() {
@@ -69,13 +81,18 @@ export default function CollaboratePage() {
   const [session, setSession] = useState<SessionState>({
     connected: false,
     mode: null,
+    collabMode: "mode_a",
     controlling: "shared",
     audioEnabled: true,
     aiVisionEnabled: true,
     sessionId: null,
     token: null,
     agentConnected: false,
+    silenceDuration: 2000,
+    isAiTurn: false,
+    autoMicReactivate: true,
   });
+  
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -92,6 +109,64 @@ export default function CollaboratePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  
+  // Ref to track latest autoMicReactivate value (avoids stale closure issue)
+  const autoMicReactivateRef = useRef(session.autoMicReactivate);
+  useEffect(() => {
+    autoMicReactivateRef.current = session.autoMicReactivate;
+  }, [session.autoMicReactivate]);
+  
+  // Handle silence detection for Mode A auto-send
+  const handleSilenceDetected = useCallback(() => {
+    if (session.collabMode === "mode_a" && isMicOn && !session.isAiTurn) {
+      // Auto-send voice input after silence
+      toast({ title: "Silence detected", description: "Sending your message..." });
+      setIsMicOn(false);
+      setSession(prev => ({ ...prev, isAiTurn: true }));
+      
+      // Simulate AI response and turn completion (placeholder until backend turn protocol)
+      setTimeout(() => {
+        const aiMsg: Message = {
+          id: Date.now().toString(),
+          role: "ai",
+          content: "I heard you. Let me process that and take action on your screen...",
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, aiMsg]);
+        
+        // After AI turn, reactivate mic if enabled (use ref for latest value)
+        setTimeout(() => {
+          setSession(prev => ({ ...prev, isAiTurn: false }));
+          if (autoMicReactivateRef.current) {
+            setIsMicOn(true);
+            toast({ title: "Your turn", description: "Microphone reactivated" });
+          }
+        }, 2000);
+      }, 1500);
+    }
+  }, [session.collabMode, session.isAiTurn, isMicOn, toast]);
+  
+  const {
+    isListening,
+    isSpeaking,
+    silenceProgress,
+    audioLevel,
+    startListening,
+    stopListening,
+    resetSilenceTimer,
+  } = useSilenceDetection(handleSilenceDetected, {
+    silenceDuration: session.silenceDuration,
+    enabled: session.collabMode === "mode_a" && isMicOn && !session.isAiTurn,
+  });
+  
+  // Effect to start/stop listening when mic toggles
+  useEffect(() => {
+    if (isMicOn && session.collabMode === "mode_a") {
+      startListening();
+    } else {
+      stopListening();
+    }
+  }, [isMicOn, session.collabMode, startListening, stopListening]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -256,12 +331,16 @@ export default function CollaboratePage() {
     setSession({ 
       connected: false, 
       mode: null, 
+      collabMode: "mode_a",
       controlling: "shared", 
       audioEnabled: true, 
       aiVisionEnabled: true,
       sessionId: null,
       token: null,
       agentConnected: false,
+      silenceDuration: 2000,
+      isAiTurn: false,
+      autoMicReactivate: true,
     });
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
@@ -578,9 +657,120 @@ export default function CollaboratePage() {
             </div>
 
             <div className="w-80 border-l flex flex-col bg-card">
-              <div className="p-3 border-b flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                <span className="font-medium">AI Assistant</span>
+              <div className="p-3 border-b space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    <span className="font-medium">AI Assistant</span>
+                  </div>
+                  {session.isAiTurn && (
+                    <Badge variant="secondary" className="animate-pulse">
+                      <Cpu className="h-3 w-3 mr-1" />
+                      AI Turn
+                    </Badge>
+                  )}
+                </div>
+                
+                <div className="flex gap-1">
+                  <Button
+                    variant={session.collabMode === "mode_a" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => setSession(prev => ({ ...prev, collabMode: "mode_a" }))}
+                    data-testid="button-mode-a"
+                  >
+                    <Timer className="h-3 w-3 mr-1" />
+                    Mode A: Turn-Based
+                  </Button>
+                  <Button
+                    variant={session.collabMode === "mode_b" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => setSession(prev => ({ ...prev, collabMode: "mode_b" }))}
+                    data-testid="button-mode-b"
+                  >
+                    <Radio className="h-3 w-3 mr-1" />
+                    Mode B: Real-Time
+                  </Button>
+                </div>
+                
+                {session.collabMode === "mode_a" && (
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Silence timeout</span>
+                      <span>{(session.silenceDuration / 1000).toFixed(1)}s</span>
+                    </div>
+                    <Slider
+                      value={[session.silenceDuration]}
+                      onValueChange={([v]) => setSession(prev => ({ ...prev, silenceDuration: v }))}
+                      min={500}
+                      max={5000}
+                      step={250}
+                      className="w-full"
+                      data-testid="slider-silence-duration"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="autoMic"
+                        checked={session.autoMicReactivate}
+                        onCheckedChange={(v) => setSession(prev => ({ ...prev, autoMicReactivate: v }))}
+                        data-testid="switch-auto-mic"
+                      />
+                      <Label htmlFor="autoMic" className="text-xs">Auto-reactivate mic after AI</Label>
+                    </div>
+                  </div>
+                )}
+                
+                {session.collabMode === "mode_b" && (
+                  <div className="space-y-2 text-xs">
+                    <div className="p-2 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                      <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                        <Radio className="h-4 w-4" />
+                        <span className="font-medium">2-Way Real-Time Mode</span>
+                      </div>
+                      <p className="mt-1 text-muted-foreground">
+                        AI sees your desktop at 1 FPS and can control mouse/keyboard. Speak naturally for hands-free operation.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="aiControl"
+                        checked={session.controlling === "ai" || session.controlling === "shared"}
+                        onCheckedChange={(v) => setSession(prev => ({ 
+                          ...prev, 
+                          controlling: v ? "shared" : "user" 
+                        }))}
+                        data-testid="switch-ai-control"
+                      />
+                      <Label htmlFor="aiControl" className="text-xs">Allow AI control</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="continuousVoice"
+                        checked={true}
+                        disabled
+                        data-testid="switch-continuous-voice"
+                      />
+                      <Label htmlFor="continuousVoice" className="text-xs text-muted-foreground">
+                        Continuous voice (always on)
+                      </Label>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 text-center">
+                      <div className="p-2 bg-muted rounded">
+                        <Eye className="h-4 w-4 mx-auto mb-1" />
+                        <span className="text-[10px]">1 FPS Vision</span>
+                      </div>
+                      <div className="p-2 bg-muted rounded">
+                        <MousePointer2 className="h-4 w-4 mx-auto mb-1" />
+                        <span className="text-[10px]">Mouse</span>
+                      </div>
+                      <div className="p-2 bg-muted rounded">
+                        <Keyboard className="h-4 w-4 mx-auto mb-1" />
+                        <span className="text-[10px]">Keyboard</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <ScrollArea className="flex-1 p-3">
@@ -606,11 +796,38 @@ export default function CollaboratePage() {
               </ScrollArea>
 
               <div className="p-3 border-t space-y-2">
+                {session.collabMode === "mode_a" && isMicOn && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${isSpeaking ? "bg-green-500 animate-pulse" : "bg-yellow-500"}`} />
+                        <span className="text-muted-foreground">
+                          {isSpeaking ? "Listening..." : "Silence detected"}
+                        </span>
+                      </div>
+                      <span className="text-muted-foreground">
+                        {Math.round(silenceProgress * 100)}%
+                      </span>
+                    </div>
+                    <Progress value={silenceProgress * 100} className="h-1" />
+                    <div className="flex items-center gap-1">
+                      <AudioLines className="h-3 w-3 text-muted-foreground" />
+                      <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary transition-all duration-100" 
+                          style={{ width: `${Math.min(audioLevel * 500, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex gap-2">
                   <Button 
                     variant={isMicOn ? "default" : "outline"} 
                     size="icon"
                     onClick={() => setIsMicOn(!isMicOn)}
+                    disabled={session.isAiTurn}
                     data-testid="button-mic"
                   >
                     {isMicOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
@@ -620,9 +837,15 @@ export default function CollaboratePage() {
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                    disabled={session.isAiTurn && session.collabMode === "mode_a"}
                     data-testid="input-message"
                   />
-                  <Button size="icon" onClick={sendMessage} data-testid="button-send">
+                  <Button 
+                    size="icon" 
+                    onClick={sendMessage} 
+                    disabled={session.isAiTurn && session.collabMode === "mode_a"}
+                    data-testid="button-send"
+                  >
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
