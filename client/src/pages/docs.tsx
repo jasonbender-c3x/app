@@ -2,13 +2,14 @@
  * Documentation Page - Renders markdown docs as beautiful web pages
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRoute, Link } from "wouter";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronLeft, FileText, FolderOpen, Home, ExternalLink } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ChevronLeft, FileText, FolderOpen, Home, ExternalLink, Search, Download, MonitorSmartphone, Globe } from "lucide-react";
 
 // Documentation structure
 const docCategories = [
@@ -19,6 +20,18 @@ const docCategories = [
       { slug: "ragent-index", title: "Ragent Index", path: "ragent/INDEX.md" },
       { slug: "agent-configuration", title: "Agent Configuration", path: "ragent/agent-configuration.md" },
       { slug: "job-orchestration", title: "Job Orchestration", path: "ragent/job-orchestration.md" },
+      { slug: "scheduler", title: "Scheduler & Workflows", path: "ragent/scheduler.md" },
+      { slug: "collaborative-editing", title: "Collaborative Editing", path: "ragent/collaborative-editing.md" },
+      { slug: "browser-computer-use", title: "Browser & Computer Use", path: "ragent/browser-computer-use.md" },
+      { slug: "docs-site", title: "Docs Site Guide", path: "ragent/docs-site.md" },
+    ]
+  },
+  {
+    name: "Installation",
+    icon: "📦",
+    docs: [
+      { slug: "install-browser-extension", title: "Browser Extension", path: "ragent/install-browser-extension.md" },
+      { slug: "install-desktop-agent", title: "Desktop Agent", path: "ragent/install-desktop-agent.md" },
     ]
   },
   {
@@ -87,8 +100,24 @@ export default function DocsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const currentDoc = slug ? allDocs.find(d => d.slug === slug) : null;
+
+  // Filter docs based on search query
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return docCategories;
+    const query = searchQuery.toLowerCase();
+    return docCategories
+      .map(cat => ({
+        ...cat,
+        docs: cat.docs.filter(doc => 
+          doc.title.toLowerCase().includes(query) ||
+          doc.slug.toLowerCase().includes(query)
+        )
+      }))
+      .filter(cat => cat.docs.length > 0);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (currentDoc) {
@@ -117,7 +146,7 @@ export default function DocsPage() {
         <ScrollArea className="h-full">
           <div className="p-4">
             {/* Header */}
-            <div className="flex items-center gap-2 mb-6">
+            <div className="flex items-center gap-2 mb-4">
               <Link href="/">
                 <Button variant="ghost" size="sm" className="gap-2" data-testid="link-back-home">
                   <Home className="h-4 w-4" />
@@ -126,35 +155,71 @@ export default function DocsPage() {
               </Link>
             </div>
             
-            <h2 className="text-lg font-semibold mb-4">Documentation</h2>
+            <h2 className="text-lg font-semibold mb-3">Documentation</h2>
+            
+            {/* Search */}
+            <div className="relative mb-4">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search docs..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8"
+                data-testid="input-docs-search"
+              />
+            </div>
+            
+            {/* Quick Actions */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <Link href="/install">
+                <Button variant="outline" size="sm" className="w-full gap-1 text-xs" data-testid="link-install">
+                  <Download className="h-3 w-3" />
+                  Install
+                </Button>
+              </Link>
+              <Link href="/collaborate">
+                <Button variant="outline" size="sm" className="w-full gap-1 text-xs" data-testid="link-collaborate">
+                  <MonitorSmartphone className="h-3 w-3" />
+                  Collab
+                </Button>
+              </Link>
+            </div>
             
             {/* Categories */}
-            {docCategories.map((category) => (
-              <div key={category.name} className="mb-4">
-                <h3 className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
-                  <span>{category.icon}</span>
-                  {category.name}
-                </h3>
-                <ul className="space-y-1">
-                  {category.docs.map((doc) => (
-                    <li key={doc.slug}>
-                      <Link href={`/docs/${doc.slug}`}>
-                        <button
-                          className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
-                            slug === doc.slug
-                              ? 'bg-primary text-primary-foreground'
-                              : 'hover:bg-muted'
-                          }`}
-                          data-testid={`doc-link-${doc.slug}`}
-                        >
-                          {doc.title}
-                        </button>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+            {filteredCategories.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground" data-testid="search-empty-state">
+                <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No documents found</p>
+                <p className="text-xs mt-1">Try a different search term</p>
               </div>
-            ))}
+            ) : (
+              filteredCategories.map((category) => (
+                <div key={category.name} className="mb-4">
+                  <h3 className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
+                    <span>{category.icon}</span>
+                    {category.name}
+                  </h3>
+                  <ul className="space-y-1">
+                    {category.docs.map((doc) => (
+                      <li key={doc.slug}>
+                        <Link href={`/docs/${doc.slug}`}>
+                          <button
+                            className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
+                              slug === doc.slug
+                                ? 'bg-primary text-primary-foreground'
+                                : 'hover:bg-muted'
+                            }`}
+                            data-testid={`doc-link-${doc.slug}`}
+                          >
+                            {doc.title}
+                          </button>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
           </div>
         </ScrollArea>
       </aside>
