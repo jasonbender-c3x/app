@@ -97,6 +97,13 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-display;
   }
+  /* Remove browser default focus outlines - we use ring instead */
+  *:focus {
+    outline: none;
+  }
+  *:focus-visible {
+    outline: none;
+  }
 }
 
 /* Custom Markdown Styles */
