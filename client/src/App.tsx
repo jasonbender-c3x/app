@@ -89,7 +89,7 @@ import TerminalPage from "@/pages/terminal";
 import DebugPage from "@/pages/debug";
 import SettingsPage from "@/pages/settings";
 import PythonSandboxPage from "@/pages/python-sandbox";
-import PlaywrightTestingPage from "@/pages/playwright-testing";
+// PlaywrightTestingPage removed - functionality moved to /browser and /collaborate
 import WebSearchPage from "@/pages/web-search";
 import KnowledgeIngestionPage from "@/pages/knowledge-ingestion";
 import MarkdownPlaygroundPage from "@/pages/markdown-playground";
@@ -108,6 +108,7 @@ import VisionPage from "@/pages/vision";
 import DocsPage from "@/pages/docs";
 import AgentSettingsPage from "@/pages/agent-settings";
 import LandingPage from "@/pages/landing";
+import InstallPage from "@/pages/install";
 
 import { TTSProvider } from "@/contexts/tts-context";
 
@@ -182,8 +183,8 @@ function Router() {
       {/* Python Sandbox Route - Python code execution */}
       <Route path="/python" component={PythonSandboxPage} />
       
-      {/* Playwright Testing Route - Browser automation testing */}
-      <Route path="/testing" component={PlaywrightTestingPage} />
+      {/* Testing route redirects to browser automation */}
+      <Route path="/testing">{() => { window.location.href = '/browser'; return null; }}</Route>
       
       {/* Web Search Route - Web search and scraping */}
       <Route path="/search" component={WebSearchPage} />
@@ -236,6 +237,9 @@ function Router() {
       
       {/* Landing Page - Polished entry point with feature overview */}
       <Route path="/landing" component={LandingPage} />
+      
+      {/* Install Page - Browser extension and desktop agent downloads */}
+      <Route path="/install" component={InstallPage} />
       
       {/* 
        * Fallback Route (404) - No path specified means it matches everything

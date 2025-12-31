@@ -10,11 +10,18 @@ Welcome to the Ragent (AI Agent) documentation. This index provides comprehensiv
 - [Agent Configuration Guide](./agent-configuration.md) - How to customize agent behavior, personality, and decision-making
 - [Workflow Orchestration](./job-orchestration.md) - Multi-worker job processing and task dependencies
 - [Collaborative Editing](./collaborative-editing.md) - Real-time AI collaboration with voice, code, and browser control
+- [Scheduler & Cron Jobs](./scheduler.md) - Automated task scheduling with cron expressions
+
+### Browser & Desktop Control
+- [Browser & Computer Use](./browser-computer-use.md) - AI-controlled browser and full desktop automation
+- [Installing the Browser Extension](./install-browser-extension.md) - Chrome extension setup guide
+- [Installing the Desktop Agent](./install-desktop-agent.md) - Desktop agent installation and configuration
 
 ### Core Systems
 - [RAG Pipeline](../RAG_PIPELINE.md) - Retrieval-Augmented Generation for context-aware responses
 - [System Overview](../SYSTEM_OVERVIEW.md) - High-level architecture and component interactions
 - [Prompt Lifecycle](../03-prompt-lifecycle.md) - How prompts flow through the system
+- [Documentation Site](./docs-site.md) - How the docs system works (frontend and backend)
 
 ### Developer Reference
 - [Database Schemas](../01-database-schemas.md) - Data models and storage structure
