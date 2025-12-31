@@ -33,6 +33,9 @@ interface TTSContextValue {
   isUsingBrowserTTS: boolean;
   shouldPlayHDAudio: () => boolean;
   shouldPlayBrowserTTS: () => boolean;
+  unlockAudio: () => Promise<void>;
+  isAudioUnlocked: boolean;
+  playTestTone: () => Promise<boolean>;
 }
 
 const TTSContext = createContext<TTSContextValue | undefined>(undefined);
@@ -61,9 +64,76 @@ export function TTSProvider({ children }: { children: ReactNode }) {
   
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isUsingBrowserTTS, setIsUsingBrowserTTS] = useState(false);
+  const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
   const isSupported = true;
+
+  // Unlock audio context (required for browser autoplay policy)
+  const unlockAudio = useCallback(async () => {
+    if (isAudioUnlocked) return;
+    
+    try {
+      // Create a silent audio context and play it
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContext) {
+        const ctx = new AudioContext();
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start();
+        await ctx.resume();
+        console.log("[TTS] Audio context unlocked");
+      }
+      
+      // Also try playing a silent Audio element
+      const silentAudio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
+      silentAudio.volume = 0.01;
+      await silentAudio.play().catch(() => {});
+      silentAudio.pause();
+      
+      setIsAudioUnlocked(true);
+      console.log("[TTS] Audio unlocked successfully");
+    } catch (err) {
+      console.warn("[TTS] Failed to unlock audio:", err);
+    }
+  }, [isAudioUnlocked]);
+
+  // Play a test tone to verify audio works
+  const playTestTone = useCallback(async (): Promise<boolean> => {
+    try {
+      // First unlock audio
+      await unlockAudio();
+      
+      // Create a simple beep using Web Audio API
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) {
+        console.warn("[TTS] AudioContext not supported");
+        return false;
+      }
+      
+      const ctx = new AudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.frequency.value = 440; // A4 note
+      gainNode.gain.value = 0.3;
+      
+      oscillator.start();
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      oscillator.stop(ctx.currentTime + 0.3);
+      
+      console.log("[TTS] Test tone played successfully");
+      return true;
+    } catch (err) {
+      console.error("[TTS] Failed to play test tone:", err);
+      return false;
+    }
+  }, [unlockAudio]);
 
   useEffect(() => {
     localStorage.setItem(TTS_STORAGE_KEY, String(isMuted));
@@ -221,7 +291,10 @@ export function TTSProvider({ children }: { children: ReactNode }) {
         isSupported,
         isUsingBrowserTTS,
         shouldPlayHDAudio,
-        shouldPlayBrowserTTS
+        shouldPlayBrowserTTS,
+        unlockAudio,
+        isAudioUnlocked,
+        playTestTone
       }}
     >
       {children}
