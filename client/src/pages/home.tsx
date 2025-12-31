@@ -199,7 +199,8 @@ export default function Home() {
   const { 
     isMuted, toggleMuted, speak, isSpeaking, stopSpeaking, 
     isSupported: isTTSSupported, isUsingBrowserTTS,
-    shouldPlayHDAudio, shouldPlayBrowserTTS, unlockAudio, isAudioUnlocked, playTestTone
+    shouldPlayHDAudio, shouldPlayBrowserTTS, unlockAudio, isAudioUnlocked, playTestTone,
+    registerHDAudio
   } = useTTS();
 
   /**
@@ -628,12 +629,18 @@ export default function Home() {
                       const audioUrl = URL.createObjectURL(audioBlob);
                       const audio = new Audio(audioUrl);
                       audio.volume = 1.0;
+                      
+                      // Register with TTS context so stopSpeaking can halt it
+                      registerHDAudio(audio);
+                      
                       audio.onended = () => {
                         console.log('[TTS] Audio playback ended');
                         URL.revokeObjectURL(audioUrl);
+                        registerHDAudio(null); // Unregister when done
                       };
                       audio.onerror = (e) => {
                         console.error('[TTS] Audio element error:', e);
+                        registerHDAudio(null); // Unregister on error
                       };
                       audio.oncanplaythrough = () => {
                         console.log('[TTS] Audio can play through');
@@ -651,6 +658,7 @@ export default function Home() {
                           })
                           .catch(err => {
                             console.error('[TTS] Audio playback failed:', err.name, err.message);
+                            registerHDAudio(null); // Unregister on failure
                             // Fall back to browser TTS only if verbose mode
                             if (shouldPlayBrowserTTS()) {
                               console.log('[TTS] Falling back to browser TTS');

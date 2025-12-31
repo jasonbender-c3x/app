@@ -36,6 +36,7 @@ interface TTSContextValue {
   unlockAudio: () => Promise<void>;
   isAudioUnlocked: boolean;
   playTestTone: () => Promise<boolean>;
+  registerHDAudio: (audio: HTMLAudioElement | null) => void;
 }
 
 const TTSContext = createContext<TTSContextValue | undefined>(undefined);
@@ -155,8 +156,24 @@ export function TTSProvider({ children }: { children: ReactNode }) {
     }
   }, []); // Only run on mount
 
+  // Register an external HD audio element so stopSpeaking can halt it
+  const registerHDAudio = useCallback((audio: HTMLAudioElement | null) => {
+    // Stop any previous audio first
+    if (audioRef.current && audioRef.current !== audio) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    audioRef.current = audio;
+    if (audio) {
+      setIsSpeaking(true);
+    } else {
+      // Clear speaking state when audio is unregistered (ended/error)
+      setIsSpeaking(false);
+    }
+  }, []);
+
   const stopSpeaking = useCallback(() => {
-    // Stop audio element playback
+    // Stop HD audio element playback
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -294,7 +311,8 @@ export function TTSProvider({ children }: { children: ReactNode }) {
         shouldPlayBrowserTTS,
         unlockAudio,
         isAudioUnlocked,
-        playTestTone
+        playTestTone,
+        registerHDAudio
       }}
     >
       {children}
