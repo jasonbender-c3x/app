@@ -177,7 +177,11 @@ export function TTSProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const speak = useCallback(async (text: string) => {
-    if (isMuted) return;
+    console.log("[TTS Context] speak() called, isMuted:", isMuted, "verbosityMode:", verbosityMode);
+    if (isMuted) {
+      console.log("[TTS Context] Skipping - muted");
+      return;
+    }
     
     stopSpeaking();
     
@@ -195,13 +199,13 @@ export function TTSProvider({ children }: { children: ReactNode }) {
       .trim();
     
     if (!cleanText) {
-      console.log("[TTS] No text to speak after cleaning");
+      console.log("[TTS Context] No text to speak after cleaning");
       return;
     }
     
-    console.log("[TTS] Speaking:", cleanText.substring(0, 50) + "...");
+    console.log("[TTS Context] Speaking:", cleanText.substring(0, 50) + "...");
     speakWithBrowserTTS(cleanText);
-  }, [isMuted, stopSpeaking, speakWithBrowserTTS]);
+  }, [isMuted, verbosityMode, stopSpeaking, speakWithBrowserTTS]);
 
   return (
     <TTSContext.Provider
