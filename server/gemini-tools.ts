@@ -861,12 +861,12 @@ export function getToolDeclarations(toolNames?: string[]): FunctionDeclaration[]
   if (!toolNames) {
     return geminiFunctionDeclarations;
   }
-  return geminiFunctionDeclarations.filter(tool => toolNames.includes(tool.name));
+  return geminiFunctionDeclarations.filter(tool => tool.name && toolNames.includes(tool.name));
 }
 
 /**
  * Get tool names as a string array for toolConfig.allowedFunctionNames
  */
 export function getAllToolNames(): string[] {
-  return geminiFunctionDeclarations.map(tool => tool.name);
+  return geminiFunctionDeclarations.map(tool => tool.name).filter((name): name is string => !!name);
 }

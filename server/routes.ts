@@ -85,7 +85,8 @@ import { insertChatSchema, insertMessageSchema } from "@shared/schema";
  * Google Generative AI SDK for Gemini model interactions.
  * Provides streaming text generation capabilities.
  */
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, FunctionCallingConfigMode, type FunctionCall } from "@google/genai";
+import { geminiFunctionDeclarations } from "./gemini-tools";
 
 /**
  * Prompt Composer for building system prompts from modular components.
@@ -93,7 +94,7 @@ import { GoogleGenAI } from "@google/genai";
  */
 import { promptComposer } from "./services/prompt-composer";
 import { ragDispatcher } from "./services/rag-dispatcher";
-import { structuredLLMResponseSchema, type ToolCall } from "@shared/schema";
+import { type ToolCall } from "@shared/schema";
 
 import { createApiRouter } from "./routes/index";
 
@@ -652,60 +653,25 @@ The user has voice output enabled. You MUST use the \`say\` tool to speak your r
 
       const result = await genAI.models.generateContentStream({
         model: modelMode,
-        // Pass the composed system prompt via systemInstruction parameter
         config: {
           systemInstruction: modifiedPrompt.systemPrompt,
+          // Enable native function calling with all available tools
+          tools: [{ functionDeclarations: geminiFunctionDeclarations }],
+          toolConfig: {
+            functionCallingConfig: {
+              // ANY mode forces the model to always call at least one function
+              mode: FunctionCallingConfigMode.ANY,
+            },
+          },
         },
-        // Include full history plus the new user message with text and media
         contents: [...history, { role: "user", parts: userParts }],
       });
 
       // ─────────────────────────────────────────────────────────────────────
-      // STEP 5: Stream AI response and parse structured JSON
+      // STEP 5: Stream response and collect native function calls
       // ─────────────────────────────────────────────────────────────────────
-
-      // Helper to strip markdown code fences and extract JSON from response
-      // Robust parser that handles LLM adding text before JSON
-      const stripCodeFences = (text: string): string => {
-        let result = text.trim();
-        
-        // Strip opening fence (```json, ```JSON, ``` etc.)
-        const openFenceMatch = result.match(/^```(?:json|JSON)?\s*\n?/);
-        if (openFenceMatch) {
-          result = result.slice(openFenceMatch[0].length);
-        }
-        // Strip closing fence
-        const closeFenceMatch = result.match(/\n?```\s*$/);
-        if (closeFenceMatch) {
-          result = result.slice(0, -closeFenceMatch[0].length);
-        }
-        result = result.trim();
-        
-        // If it already starts with { or [, return as-is
-        if (result.startsWith('{') || result.startsWith('[')) {
-          return result;
-        }
-        
-        // LLM sometimes adds conversational text before JSON - find the JSON start
-        const firstBrace = result.indexOf('{');
-        const firstBracket = result.indexOf('[');
-        
-        let jsonStart = -1;
-        if (firstBrace !== -1 && firstBracket !== -1) {
-          jsonStart = Math.min(firstBrace, firstBracket);
-        } else if (firstBrace !== -1) {
-          jsonStart = firstBrace;
-        } else if (firstBracket !== -1) {
-          jsonStart = firstBracket;
-        }
-        
-        if (jsonStart > 0) {
-          console.log(`[Routes] Stripped ${jsonStart} chars of preamble before JSON`);
-          result = result.substring(jsonStart);
-        }
-        
-        return result;
-      };
+      // With native function calling, the model returns FunctionCall objects
+      // directly - no JSON parsing from text needed!
 
       let fullResponse = "";
       let cleanContentForStorage = "";
@@ -724,222 +690,52 @@ The user has voice output enabled. You MUST use the \`say\` tool to speak your r
           }
         | undefined;
 
-      // Simplified streaming: Stream text with minimal tail buffer to suppress tool JSON
-      // New format: Text first, then optional {"toolCalls": [...]} at end
-      // Strategy: Keep small tail buffer, flush text minus tail, suppress tool JSON
+      // Collect function calls from response chunks
+      const collectedFunctionCalls: FunctionCall[] = [];
       let parsedResponse: { toolCalls?: ToolCall[] } | null = null;
-      let tailBuffer = ""; // Small tail buffer to catch start of tool JSON
-      const TAIL_SIZE = 20; // Only need to catch '{"toolCalls"' which is 13 chars
-      const JSON_MARKER = '{"toolCalls"';
-      let foundJsonMarker = false;
       
       for await (const chunk of result) {
+        // Capture any text content (rare with function calling mode)
         const text = chunk.text || "";
-        fullResponse += text;
+        if (text) {
+          fullResponse += text;
+          cleanContentForStorage += text;
+          // Stream text to client if any
+          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        }
+
+        // Capture function calls from the response
+        if (chunk.functionCalls && chunk.functionCalls.length > 0) {
+          collectedFunctionCalls.push(...chunk.functionCalls);
+          console.log(`[Routes] Received ${chunk.functionCalls.length} function calls from Gemini`);
+        }
 
         // Capture usage metadata from the final chunk
         if (chunk.usageMetadata) {
           usageMetadata = chunk.usageMetadata;
         }
-
-        if (!text) continue;
-
-        // If we already found JSON marker, buffer everything (don't stream)
-        if (foundJsonMarker) {
-          tailBuffer += text;
-          continue;
-        }
-
-        // Add to tail buffer
-        tailBuffer += text;
-        
-        // Check for JSON marker in buffer
-        const markerIndex = tailBuffer.indexOf(JSON_MARKER);
-        if (markerIndex >= 0) {
-          // Found tool JSON - stream text before marker, hold the rest
-          foundJsonMarker = true;
-          const textToStream = tailBuffer.substring(0, markerIndex);
-          if (textToStream.length > 0) {
-            cleanContentForStorage += textToStream;
-            res.write(`data: ${JSON.stringify({ text: textToStream })}\n\n`);
-          }
-          tailBuffer = tailBuffer.substring(markerIndex);
-          continue;
-        }
-        
-        // No marker found - flush all but tail portion
-        if (tailBuffer.length > TAIL_SIZE) {
-          const flushLength = tailBuffer.length - TAIL_SIZE;
-          const textToStream = tailBuffer.substring(0, flushLength);
-          cleanContentForStorage += textToStream;
-          res.write(`data: ${JSON.stringify({ text: textToStream })}\n\n`);
-          tailBuffer = tailBuffer.substring(flushLength);
-        }
       }
       
-      // Process remaining tail buffer (normal case - no JSON marker found)
-      if (tailBuffer.length > 0 && !foundJsonMarker) {
-        // No JSON found - stream remaining buffer (including whitespace)
-        cleanContentForStorage += tailBuffer;
-        res.write(`data: ${JSON.stringify({ text: tailBuffer })}\n\n`);
-        tailBuffer = "";
-      }
-
-      // ─────────────────────────────────────────────────────────────────────
-      // STEP 5b: Extract JSON tools from end of response
-      // ─────────────────────────────────────────────────────────────────────
-
-      // Try to extract JSON tool block from end of full response
-      // Handle both raw JSON and code-fenced JSON (```json...```)
-      // Regex allows optional trailing code fence with whitespace before and after
-      const jsonMatch = fullResponse.match(/\{[\s\S]*"toolCalls"[\s\S]*\}(?:\s*```\s*)?$/);
-      let toolsExtracted = false;
-      
-      if (jsonMatch) {
-        try {
-          const stripped = stripCodeFences(jsonMatch[0]);
-          const jsonData = JSON.parse(stripped);
-          const validation = structuredLLMResponseSchema.safeParse(jsonData);
-          if (validation.success && validation.data.toolCalls && validation.data.toolCalls.length > 0) {
-            parsedResponse = validation.data;
-            toolsExtracted = true;
-            // Update stored content to exclude JSON block (preserve all whitespace)
-            cleanContentForStorage = fullResponse.substring(0, fullResponse.lastIndexOf(jsonMatch[0]));
-            // Send cleanup event to remove JSON from display
-            res.write(`data: ${JSON.stringify({ finalContent: cleanContentForStorage })}\n\n`);
-            console.log(`[Routes] Extracted ${validation.data.toolCalls.length} tool calls from response`);
-          }
-        } catch (e) {
-          console.log("[Routes] Found JSON-like block but failed to parse:", e);
+      // Convert Gemini FunctionCall objects to our ToolCall format
+      if (collectedFunctionCalls.length > 0) {
+        const toolCalls: ToolCall[] = collectedFunctionCalls.map((fc, index) => ({
+          id: `fc_${index}_${Date.now()}`,
+          type: fc.name as ToolCall["type"],
+          operation: fc.name || "execute",
+          parameters: (fc.args as Record<string, unknown>) || {},
+          priority: 0,
+        }));
+        parsedResponse = { toolCalls };
+        console.log(`[Routes] Converted ${toolCalls.length} function calls to ToolCall format`);
+        for (const tc of toolCalls) {
+          console.log(`  • ${tc.type}: ${JSON.stringify(tc.parameters).substring(0, 100)}`);
         }
       } else {
-        console.log("[Routes] No toolCalls JSON found in response (length:", fullResponse.length, ")");
-      }
-      
-      // If we withheld content but didn't extract valid tools, recover natural text
-      // Strategy: JSON-grammar scan - find first char that cannot be JSON and stream from there
-      if (foundJsonMarker && !toolsExtracted && tailBuffer.length > 0) {
-        console.log("[Routes] Processing malformed JSON block:", tailBuffer.length, "chars");
-        
-        const afterMarker = tailBuffer.substring(JSON_MARKER.length);
-        
-        // findFirstNonJsonIndex: Find prose after JSON structure ends
-        // Buffer starts after '{"toolCalls"' so we expect ': [...]' or ': [...]}' followed by optional prose
-        // We're inside the toolCalls object, so depth starts at 1
-        const findFirstNonJsonIndex = (buffer: string): number => {
-          let i = 0;
-          let depth = 1; // We're already inside {"toolCalls" so start at depth 1
-          let inString = false;
-          
-          // Skip leading colon and whitespace (the ': ' after "toolCalls")
-          while (i < buffer.length && (buffer[i] === ':' || /\s/.test(buffer[i]))) {
-            i++;
-          }
-          
-          while (i < buffer.length) {
-            const c = buffer[i];
-            
-            // Track string state
-            if (c === '"' && (i === 0 || buffer[i - 1] !== '\\')) {
-              inString = !inString;
-              i++;
-              continue;
-            }
-            
-            if (inString) {
-              i++;
-              continue;
-            }
-            
-            // Track nesting depth
-            if (c === '{' || c === '[') {
-              depth++;
-              i++;
-              continue;
-            }
-            
-            if (c === '}' || c === ']') {
-              depth--;
-              i++;
-              // After closing the entire toolCalls block (depth 0), everything following is prose
-              if (depth <= 0) {
-                // Skip any trailing whitespace to find start of prose
-                while (i < buffer.length && /\s/.test(buffer[i])) i++;
-                return i < buffer.length ? i : -1;
-              }
-              continue;
-            }
-            
-            // Inside JSON structure - skip valid JSON content
-            if (depth > 0) {
-              // Skip structural chars, whitespace, colons, commas
-              if (':,'.includes(c) || /\s/.test(c)) {
-                i++;
-                continue;
-              }
-              // Skip numbers
-              if ('-0123456789'.includes(c)) {
-                while (i < buffer.length && /[-+0-9.eE]/.test(buffer[i])) i++;
-                continue;
-              }
-              // Skip literals
-              if (buffer.substring(i, i + 4) === 'true') { i += 4; continue; }
-              if (buffer.substring(i, i + 5) === 'false') { i += 5; continue; }
-              if (buffer.substring(i, i + 4) === 'null') { i += 4; continue; }
-            }
-            
-            // Outside JSON structure or unrecognized - this is prose
-            return i;
-          }
-          
-          return -1; // Entire buffer consumed (incomplete or complete JSON, no prose)
-        }
-        
-        const proseStart = findFirstNonJsonIndex(afterMarker);
-        
-        // Stream recovered text if we found prose (preserve ALL content including whitespace)
-        if (proseStart >= 0 && proseStart < afterMarker.length) {
-          const recoveredText = afterMarker.substring(proseStart);
-          if (recoveredText.length > 0) {
-            cleanContentForStorage += recoveredText;
-            res.write(`data: ${JSON.stringify({ text: recoveredText })}\n\n`);
-            console.log("[Routes] Recovered text from malformed JSON:", recoveredText.length, "chars");
-          }
-        } else {
-          // No recoverable prose - this is pure/incomplete JSON, discard silently
-          console.log("[Routes] No prose found in malformed block, discarding JSON");
-        }
-        
-        tailBuffer = ""; // Clear buffer
+        console.log("[Routes] No function calls in response");
       }
 
-      // Detect error patterns in markdown format - treat as uncaught exception
-      const errorPatterns = [
-        /^#+\s*Error/im,                          // # Error, ## Error, etc.
-        /^Error:/im,                              // Error: message
-        /I apologize.*error/i,                    // "I apologize" + error
-        /I cannot.*because/i,                     // "I cannot" + reason
-        /failed to (parse|process|execute)/i,    // failed to X
-        /exception occurred/i,                   // exception occurred
-        /unexpected (error|exception)/i,         // unexpected error/exception
-        /internal error/i,                       // internal error
-      ];
-      
-      const responseText = cleanContentForStorage || fullResponse;
-      const isErrorResponse = errorPatterns.some(pattern => pattern.test(responseText));
-      
-      if (isErrorResponse && !parsedResponse) {
-        console.error(`[Routes] UNCAUGHT EXCEPTION: AI returned error in markdown format`);
-        console.error(`[Routes] Response: ${responseText.substring(0, 500)}`);
-        
-        // Send error event to client
-        res.write(`data: ${JSON.stringify({ 
-          error: true, 
-          errorType: "ai_error_response",
-          message: "The AI encountered an error and could not complete the request",
-          details: responseText.substring(0, 1000)
-        })}\n\n`);
-      }
+      // Note: With native function calling, no JSON parsing needed!
+      // Function calls are already extracted above from chunk.functionCalls
 
       // ─────────────────────────────────────────────────────────────────────
       // AGENTIC LOOP: Execute tools repeatedly until send_chat terminates
@@ -1064,8 +860,12 @@ The user has voice output enabled. You MUST use the \`say\` tool to speak your r
         toolResults.push(...execResult.results);
         sendChatContent = execResult.sendChatContent;
         
-        // Add model response to agentic history
-        agenticHistory.push({ role: "model", parts: [{ text: fullResponse }] });
+        // Add model response with function calls to agentic history
+        // Use proper function call format for multi-turn context
+        agenticHistory.push({
+          role: "model",
+          parts: collectedFunctionCalls.map(fc => ({ functionCall: fc }))
+        });
         
         // AGENTIC LOOP: Continue if send_chat was NOT called
         while (!sendChatContent && loopIteration < MAX_LOOP_ITERATIONS) {
@@ -1116,20 +916,35 @@ The user has voice output enabled. You MUST use the \`say\` tool to speak your r
             parts: [{ text: `Tool results:\n${toolResultsText}\n\nContinue with more tools or call send_chat to respond.` }]
           });
           
-          // Call LLM again
+          // Call LLM again with native function calling
           const loopResult = await genAI.models.generateContentStream({
             model: modelMode,
-            config: { systemInstruction: modifiedPrompt.systemPrompt },
+            config: {
+              systemInstruction: modifiedPrompt.systemPrompt,
+              tools: [{ functionDeclarations: geminiFunctionDeclarations }],
+              toolConfig: {
+                functionCallingConfig: {
+                  mode: FunctionCallingConfigMode.ANY,
+                },
+              },
+            },
             contents: agenticHistory,
           });
           
-          // Parse the response
+          // Collect function calls from loop response
           let loopResponse = "";
+          const loopFunctionCalls: FunctionCall[] = [];
           let loopParsedResponse: { toolCalls?: ToolCall[] } | null = null;
           
           for await (const chunk of loopResult) {
             const text = chunk.text || "";
-            loopResponse += text;
+            if (text) loopResponse += text;
+            
+            // Collect function calls
+            if (chunk.functionCalls && chunk.functionCalls.length > 0) {
+              loopFunctionCalls.push(...chunk.functionCalls);
+            }
+            
             if (chunk.usageMetadata) {
               usageMetadata = chunk.usageMetadata;
             }
@@ -1137,36 +952,37 @@ The user has voice output enabled. You MUST use the \`say\` tool to speak your r
           
           fullResponse += `\n\n[Turn ${loopIteration}]\n${loopResponse}`;
           
-          // Try to parse tool calls from response (handle code fences with trailing whitespace)
-          const jsonMatch = loopResponse.match(/\{"toolCalls"\s*:\s*\[[\s\S]*\]\s*\}(?:\s*```\s*)?/);
-          if (jsonMatch) {
-            try {
-              loopParsedResponse = JSON.parse(stripCodeFences(jsonMatch[0]));
-            } catch (e) {
-              console.error(`[AGENTIC LOOP] Failed to parse tool JSON:`, e);
-            }
-          } else {
-            console.log(`[AGENTIC LOOP] Turn ${loopIteration} - No JSON found in response`);
-          }
-          
-          if (loopParsedResponse?.toolCalls && loopParsedResponse.toolCalls.length > 0) {
-            console.log(`[AGENTIC LOOP] Turn ${loopIteration} - ${loopParsedResponse.toolCalls.length} tool calls`);
-            for (const tc of loopParsedResponse.toolCalls) {
-              console.log(`  • ${tc.type} (${tc.id})`);
+          // Convert function calls to ToolCall format
+          if (loopFunctionCalls.length > 0) {
+            const toolCalls: ToolCall[] = loopFunctionCalls.map((fc, index) => ({
+              id: `fc_loop${loopIteration}_${index}_${Date.now()}`,
+              type: fc.name as ToolCall["type"],
+              operation: fc.name || "execute",
+              parameters: (fc.args as Record<string, unknown>) || {},
+              priority: 0,
+            }));
+            loopParsedResponse = { toolCalls };
+            
+            console.log(`[AGENTIC LOOP] Turn ${loopIteration} - ${toolCalls.length} function calls`);
+            for (const tc of toolCalls) {
+              console.log(`  • ${tc.type}: ${JSON.stringify(tc.parameters).substring(0, 80)}`);
             }
             
             // Execute tools
-            const loopExecResult = await executeToolsAndGetResults(loopParsedResponse.toolCalls, savedMessage.id);
+            const loopExecResult = await executeToolsAndGetResults(toolCalls, savedMessage.id);
             toolResults.push(...loopExecResult.results);
             sendChatContent = loopExecResult.sendChatContent;
             
-            // Update history for next iteration
-            agenticHistory.push({ role: "model", parts: [{ text: loopResponse }] });
+            // Update history for next iteration - use proper function call format
+            agenticHistory.push({
+              role: "model",
+              parts: loopFunctionCalls.map(fc => ({ functionCall: fc }))
+            });
             parsedResponse = loopParsedResponse;
           } else {
-            // No tool calls - LLM responded with plain text, treat as implicit send_chat
-            console.log(`[AGENTIC LOOP] Turn ${loopIteration} - No tool calls, treating as implicit send_chat`);
-            sendChatContent = loopResponse.replace(/\{"toolCalls"[\s\S]*$/, "").trim();
+            // No function calls - LLM responded with plain text, treat as implicit send_chat
+            console.log(`[AGENTIC LOOP] Turn ${loopIteration} - No function calls, treating as implicit send_chat`);
+            sendChatContent = loopResponse.trim();
             if (sendChatContent) {
               res.write(`data: ${JSON.stringify({ text: sendChatContent })}\n\n`);
             }

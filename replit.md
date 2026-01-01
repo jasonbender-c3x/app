@@ -26,6 +26,7 @@ Meowstik is an AI chat interface powered by Google's Generative AI, integrating 
 
 ### AI Integration
 - **Generative AI:** Google's Gemini models (`gemini-2.5-pro` and `gemini-2.5-flash`) via `@google/genai`.
+- **Native Function Calling:** Uses Gemini SDK's native `tools` parameter with `FunctionDeclaration` objects for reliable tool invocation (replaces prompt-based JSON parsing). Tool definitions in `server/gemini-tools.ts`.
 - **Expressive Speech (TTS):** Gemini 2.5 Flash/Pro TTS for multi-speaker text-to-speech.
 - **Music Generation:** Lyria RealTime experimental API.
 - **Image Generation:** Gemini 2.0 Flash Preview Image Generation with canvas editor and AI editing.
