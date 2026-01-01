@@ -790,7 +790,9 @@ The user has voice output enabled. You MUST use the \`say\` tool to speak your r
       // ─────────────────────────────────────────────────────────────────────
 
       // Try to extract JSON tool block from end of full response
-      const jsonMatch = fullResponse.match(/\{[\s\S]*"toolCalls"[\s\S]*\}$/);
+      // Handle both raw JSON and code-fenced JSON (```json...```)
+      // Regex allows optional trailing code fence with whitespace before and after
+      const jsonMatch = fullResponse.match(/\{[\s\S]*"toolCalls"[\s\S]*\}(?:\s*```\s*)?$/);
       let toolsExtracted = false;
       
       if (jsonMatch) {
@@ -808,8 +810,10 @@ The user has voice output enabled. You MUST use the \`say\` tool to speak your r
             console.log(`[Routes] Extracted ${validation.data.toolCalls.length} tool calls from response`);
           }
         } catch (e) {
-          console.log("[Routes] Found JSON-like block but failed to parse");
+          console.log("[Routes] Found JSON-like block but failed to parse:", e);
         }
+      } else {
+        console.log("[Routes] No toolCalls JSON found in response (length:", fullResponse.length, ")");
       }
       
       // If we withheld content but didn't extract valid tools, recover natural text
@@ -1133,14 +1137,16 @@ The user has voice output enabled. You MUST use the \`say\` tool to speak your r
           
           fullResponse += `\n\n[Turn ${loopIteration}]\n${loopResponse}`;
           
-          // Try to parse tool calls from response
-          const jsonMatch = loopResponse.match(/\{"toolCalls"\s*:\s*\[[\s\S]*\]\s*\}/);
+          // Try to parse tool calls from response (handle code fences with trailing whitespace)
+          const jsonMatch = loopResponse.match(/\{"toolCalls"\s*:\s*\[[\s\S]*\]\s*\}(?:\s*```\s*)?/);
           if (jsonMatch) {
             try {
               loopParsedResponse = JSON.parse(stripCodeFences(jsonMatch[0]));
             } catch (e) {
               console.error(`[AGENTIC LOOP] Failed to parse tool JSON:`, e);
             }
+          } else {
+            console.log(`[AGENTIC LOOP] Turn ${loopIteration} - No JSON found in response`);
           }
           
           if (loopParsedResponse?.toolCalls && loopParsedResponse.toolCalls.length > 0) {
