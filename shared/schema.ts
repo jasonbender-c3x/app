@@ -591,6 +591,20 @@ export const ToolTypes = {
   // File operations
   FILE_GET: "file_get",
   FILE_PUT: "file_put",
+  
+  // Twilio SMS/Voice operations
+  SMS_SEND: "sms_send",
+  SMS_LIST: "sms_list",
+  CALL_MAKE: "call_make",
+  CALL_LIST: "call_list",
+  
+  // Google Contacts operations
+  CONTACTS_LIST: "contacts_list",
+  CONTACTS_SEARCH: "contacts_search",
+  CONTACTS_GET: "contacts_get",
+  CONTACTS_CREATE: "contacts_create",
+  CONTACTS_UPDATE: "contacts_update",
+  CONTACTS_DELETE: "contacts_delete",
 } as const;
 
 export type ToolType = typeof ToolTypes[keyof typeof ToolTypes];
@@ -643,6 +657,8 @@ export const toolCallSchema = z.object({
     "debug_echo",
     // Contacts
     "contacts_list", "contacts_search", "contacts_get", "contacts_create", "contacts_update", "contacts_delete",
+    // Twilio SMS/Voice
+    "sms_send", "sms_list", "call_make", "call_list",
   ]),
   operation: z.string(),
   parameters: z.record(z.unknown()),
