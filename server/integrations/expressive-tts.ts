@@ -1,16 +1,16 @@
 /**
  * =============================================================================
- * GEMINI 2.5 TEXT-TO-SPEECH INTEGRATION
+ * GOOGLE CLOUD TEXT-TO-SPEECH INTEGRATION
  * =============================================================================
  * 
- * Single-speaker TTS using Gemini 2.5 Flash TTS model.
+ * High-quality TTS using Google Cloud Text-to-Speech API.
+ * Free tier: 1M characters/month (vs Gemini TTS's 100/day limit)
  * 
- * @see https://ai.google.dev/gemini-api/docs/speech-generation
+ * @see https://cloud.google.com/text-to-speech/docs
  */
 
-import { GoogleGenAI } from "@google/genai";
-import ffmpeg from "fluent-ffmpeg";
-import { Readable, PassThrough } from "stream";
+import { google } from "googleapis";
+import { getAuthenticatedClient, isAuthenticated } from "./google-auth";
 
 export interface TTSResponse {
   success: boolean;
@@ -20,120 +20,19 @@ export interface TTSResponse {
   error?: string;
 }
 
-const AVAILABLE_VOICES = [
-  "Kore", "Puck", "Charon", "Fenrir", "Aoede", 
-  "Leda", "Orus", "Zephyr"
-];
+const AVAILABLE_VOICES: Record<string, { languageCode: string; name: string; ssmlGender: string }> = {
+  "Kore": { languageCode: "en-US", name: "en-US-Neural2-C", ssmlGender: "FEMALE" },
+  "Puck": { languageCode: "en-US", name: "en-US-Neural2-D", ssmlGender: "MALE" },
+  "Charon": { languageCode: "en-US", name: "en-US-Neural2-A", ssmlGender: "MALE" },
+  "Fenrir": { languageCode: "en-US", name: "en-US-Neural2-J", ssmlGender: "MALE" },
+  "Aoede": { languageCode: "en-US", name: "en-US-Neural2-E", ssmlGender: "FEMALE" },
+  "Leda": { languageCode: "en-US", name: "en-US-Neural2-F", ssmlGender: "FEMALE" },
+  "Orus": { languageCode: "en-US", name: "en-US-Neural2-I", ssmlGender: "MALE" },
+  "Zephyr": { languageCode: "en-US", name: "en-US-Neural2-H", ssmlGender: "FEMALE" },
+};
 
 export function getAvailableVoices(): string[] {
-  return AVAILABLE_VOICES;
-}
-
-async function convertPcmToMp3(pcmBase64: string, sampleRate: number = 24000): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const pcmBuffer = Buffer.from(pcmBase64, "base64");
-    const inputStream = new Readable();
-    inputStream.push(pcmBuffer);
-    inputStream.push(null);
-
-    const chunks: Buffer[] = [];
-    const outputStream = new PassThrough();
-    let resolved = false;
-    
-    const finish = () => {
-      if (!resolved) {
-        resolved = true;
-        const mp3Buffer = Buffer.concat(chunks);
-        if (mp3Buffer.length > 0) {
-          resolve(mp3Buffer.toString("base64"));
-        } else {
-          reject(new Error("FFmpeg produced no output"));
-        }
-      }
-    };
-    
-    outputStream.on("data", (chunk: Buffer) => chunks.push(chunk));
-    outputStream.on("end", finish);
-    outputStream.on("close", finish);
-    outputStream.on("error", (err) => {
-      if (!resolved) {
-        resolved = true;
-        reject(err);
-      }
-    });
-
-    const command = ffmpeg(inputStream)
-      .inputFormat("s16le")
-      .inputOptions([`-ar ${sampleRate}`, "-ac 1"])
-      .audioCodec("libmp3lame")
-      .audioBitrate("128k")
-      .format("mp3")
-      .outputOptions(["-timeout", "120"])
-      .on("end", () => {
-        finish();
-      })
-      .on("error", (err: Error) => {
-        console.error("[TTS] FFmpeg conversion error:", err.message);
-        if (!resolved) {
-          resolved = true;
-          reject(err);
-        }
-      });
-    
-    command.pipe(outputStream, { end: false });
-  });
-}
-
-async function callTTSAPI(client: GoogleGenAI, text: string, voice: string): Promise<TTSResponse> {
-  const modelName = "gemini-2.5-flash-preview-tts";
-
-  const response = await client.models.generateContent({
-    model: modelName,
-    contents: [{
-      role: "user",
-      parts: [{ text: `Read the following text aloud exactly as written:\n\n${text}` }]
-    }],
-    config: {
-      responseModalities: ["AUDIO"],
-      speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: {
-            voiceName: voice
-          }
-        }
-      }
-    }
-  } as any);
-
-  const candidate = response.candidates?.[0];
-  const part = candidate?.content?.parts?.[0];
-  
-  if (part && 'inlineData' in part && part.inlineData?.data) {
-    console.log("[TTS] Audio generated, converting to MP3...");
-    
-    try {
-      const mp3Base64 = await convertPcmToMp3(part.inlineData.data);
-      return {
-        success: true,
-        audioBase64: mp3Base64,
-        mimeType: "audio/mpeg",
-        duration: 30
-      };
-    } catch (conversionError) {
-      console.warn("[TTS] MP3 conversion failed, returning raw audio");
-      return {
-        success: true,
-        audioBase64: part.inlineData.data,
-        mimeType: part.inlineData.mimeType || "audio/wav",
-        duration: 30
-      };
-    }
-  }
-
-  return {
-    success: false,
-    error: "No audio data in response"
-  };
+  return Object.keys(AVAILABLE_VOICES);
 }
 
 export async function generateSingleSpeakerAudio(
@@ -141,16 +40,16 @@ export async function generateSingleSpeakerAudio(
   voice: string = "Kore",
   maxRetries: number = 2
 ): Promise<TTSResponse> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const authenticated = await isAuthenticated();
   
-  if (!apiKey) {
+  if (!authenticated) {
     return {
       success: false,
-      error: "GEMINI_API_KEY is not configured"
+      error: "Google authentication not available. Please connect your Google account."
     };
   }
 
-  const client = new GoogleGenAI({ apiKey });
+  const voiceConfig = AVAILABLE_VOICES[voice] || AVAILABLE_VOICES["Kore"];
   let lastError: any;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -160,17 +59,74 @@ export async function generateSingleSpeakerAudio(
         await new Promise(r => setTimeout(r, 500 * attempt));
       }
 
-      console.log(`[TTS] Generating audio with gemini-2.5-flash-preview-tts, voice: ${voice}`);
-      return await callTTSAPI(client, text, voice);
+      console.log(`[TTS] Generating audio with Google Cloud TTS, voice: ${voiceConfig.name}`);
+
+      const auth = await getAuthenticatedClient();
+      const tts = google.texttospeech({ version: "v1", auth });
+      
+      const response = await tts.text.synthesize({
+        requestBody: {
+          input: { text },
+          voice: {
+            languageCode: voiceConfig.languageCode,
+            name: voiceConfig.name,
+            ssmlGender: voiceConfig.ssmlGender as any
+          },
+          audioConfig: {
+            audioEncoding: "MP3",
+            speakingRate: 1.0,
+            pitch: 0,
+            effectsProfileId: ["headphone-class-device"]
+          }
+        }
+      });
+
+      const audioContent = response.data.audioContent;
+      
+      if (audioContent) {
+        console.log("[TTS] Audio generated successfully");
+        return {
+          success: true,
+          audioBase64: typeof audioContent === 'string' ? audioContent : Buffer.from(audioContent).toString('base64'),
+          mimeType: "audio/mpeg",
+          duration: Math.ceil(text.length / 15)
+        };
+      }
+
+      return {
+        success: false,
+        error: "No audio data in response"
+      };
 
     } catch (error: any) {
       lastError = error;
       const errorStr = error.message || String(error);
       
+      if (errorStr.includes("403") || errorStr.includes("PERMISSION_DENIED") || 
+          errorStr.includes("insufficient") || errorStr.includes("scope")) {
+        console.error("[TTS] Permission denied - likely missing cloud-platform scope:", errorStr);
+        
+        const { logLLMError } = await import("../services/llm-error-buffer");
+        logLLMError("tts", "generateSingleSpeakerAudio", error, {
+          textLength: text.length,
+          voice: voiceConfig.name,
+          attempt,
+          scopeIssue: true
+        }, {
+          model: "google-cloud-tts-neural2"
+        });
+        
+        return {
+          success: false,
+          error: "TTS requires Cloud Platform permissions. Please re-authorize your Google account to enable text-to-speech."
+        };
+      }
+      
       const isRetryable = errorStr.includes("500") || 
                          errorStr.includes("INTERNAL") || 
                          errorStr.includes("503") ||
-                         errorStr.includes("UNAVAILABLE");
+                         errorStr.includes("UNAVAILABLE") ||
+                         errorStr.includes("429");
       
       if (!isRetryable || attempt === maxRetries) {
         console.error("[TTS] Generation error:", errorStr);
@@ -178,10 +134,10 @@ export async function generateSingleSpeakerAudio(
         const { logLLMError } = await import("../services/llm-error-buffer");
         logLLMError("tts", "generateSingleSpeakerAudio", error, {
           textLength: text.length,
-          voice,
+          voice: voiceConfig.name,
           attempt
         }, {
-          model: "gemini-2.5-flash-preview-tts"
+          model: "google-cloud-tts-neural2"
         });
         
         return {
@@ -200,7 +156,6 @@ export async function generateSingleSpeakerAudio(
   };
 }
 
-// Legacy export for compatibility
 export async function generateMultiSpeakerAudio(request: { text: string; speakers: Array<{ voice?: string }>; model?: string }): Promise<TTSResponse> {
   const voice = request.speakers[0]?.voice || "Kore";
   return generateSingleSpeakerAudio(request.text, voice);
