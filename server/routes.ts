@@ -1283,6 +1283,42 @@ The user has voice output enabled. You MUST use the \`say\` tool to speak your r
         console.error("Failed to log LLM token usage:", usageError);
       }
 
+      // ─────────────────────────────────────────────────────────────────────
+      // FALLBACK TTS: Generate speech if voice mode enabled but no say tool called
+      // ─────────────────────────────────────────────────────────────────────
+      const sayToolCalled = toolResults.some(r => r.type === "say" && r.success);
+      if (useVoice && !sayToolCalled && finalContent && finalContent.trim().length > 0) {
+        console.log(`[Routes][TTS-Fallback] Voice mode enabled but no say tool called, generating fallback TTS`);
+        try {
+          const { generateSingleSpeakerAudio } = await import("./integrations/expressive-tts");
+          // Truncate long content for TTS (max ~500 chars for reasonable audio length)
+          const ttsText = finalContent.length > 500 
+            ? finalContent.substring(0, 500) + "..."
+            : finalContent;
+          
+          const ttsResult = await generateSingleSpeakerAudio(ttsText, "Kore");
+          if (ttsResult.audioBase64) {
+            console.log(`[Routes][TTS-Fallback] ✓ Generated fallback audio, length: ${ttsResult.audioBase64.length}`);
+            res.write(
+              `data: ${JSON.stringify({
+                speech: {
+                  utterance: ttsText,
+                  audioGenerated: true,
+                  audioBase64: ttsResult.audioBase64,
+                  mimeType: ttsResult.mimeType || "audio/mpeg",
+                  duration: ttsResult.duration,
+                  fallback: true,
+                },
+              })}\n\n`,
+            );
+          } else {
+            console.log(`[Routes][TTS-Fallback] ✗ No audio generated`);
+          }
+        } catch (ttsError) {
+          console.error(`[Routes][TTS-Fallback] Failed to generate fallback TTS:`, ttsError);
+        }
+      }
+
       // Send completion event with tool results summary and close the stream
       res.write(
         `data: ${JSON.stringify({
