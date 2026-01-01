@@ -644,9 +644,11 @@ export async function registerRoutes(
       // STEP 5: Stream AI response and parse structured JSON
       // ─────────────────────────────────────────────────────────────────────
 
-      // Helper to strip markdown code fences from JSON responses
+      // Helper to strip markdown code fences and extract JSON from response
+      // Robust parser that handles LLM adding text before JSON
       const stripCodeFences = (text: string): string => {
         let result = text.trim();
+        
         // Strip opening fence (```json, ```JSON, ``` etc.)
         const openFenceMatch = result.match(/^```(?:json|JSON)?\s*\n?/);
         if (openFenceMatch) {
@@ -657,7 +659,32 @@ export async function registerRoutes(
         if (closeFenceMatch) {
           result = result.slice(0, -closeFenceMatch[0].length);
         }
-        return result.trim();
+        result = result.trim();
+        
+        // If it already starts with { or [, return as-is
+        if (result.startsWith('{') || result.startsWith('[')) {
+          return result;
+        }
+        
+        // LLM sometimes adds conversational text before JSON - find the JSON start
+        const firstBrace = result.indexOf('{');
+        const firstBracket = result.indexOf('[');
+        
+        let jsonStart = -1;
+        if (firstBrace !== -1 && firstBracket !== -1) {
+          jsonStart = Math.min(firstBrace, firstBracket);
+        } else if (firstBrace !== -1) {
+          jsonStart = firstBrace;
+        } else if (firstBracket !== -1) {
+          jsonStart = firstBracket;
+        }
+        
+        if (jsonStart > 0) {
+          console.log(`[Routes] Stripped ${jsonStart} chars of preamble before JSON`);
+          result = result.substring(jsonStart);
+        }
+        
+        return result;
       };
 
       let fullResponse = "";
