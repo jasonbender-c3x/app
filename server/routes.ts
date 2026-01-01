@@ -991,14 +991,19 @@ The user has voice output enabled. You MUST use the \`say\` tool to speak your r
             
             // Special handling for say tool - send speech event for HD audio playback
             if (toolCall.type === "say" && toolResult.success) {
+              console.log(`[Routes][SAY] Tool result:`, JSON.stringify(toolResult.result).substring(0, 200));
               const sayResult = toolResult.result as { 
                 audioBase64?: string; 
                 mimeType?: string; 
                 duration?: number;
                 utterance?: string;
+                success?: boolean;
               };
-              if (sayResult?.audioBase64) {
-                console.log(`[Routes] Sending speech event for HD audio, length: ${sayResult.audioBase64.length}`);
+              // Check if the say tool itself reported success
+              if (sayResult?.success === false) {
+                console.log(`[Routes][SAY] Tool execution failed internally:`, sayResult);
+              } else if (sayResult?.audioBase64) {
+                console.log(`[Routes][SAY] ✓ Sending speech event, audio length: ${sayResult.audioBase64.length}`);
                 res.write(
                   `data: ${JSON.stringify({
                     speech: {
@@ -1010,8 +1015,9 @@ The user has voice output enabled. You MUST use the \`say\` tool to speak your r
                     },
                   })}\n\n`,
                 );
+                console.log(`[Routes][SAY] ✓ Speech event sent to client`);
               } else {
-                console.log(`[Routes] say tool succeeded but no audioBase64 in result`);
+                console.log(`[Routes][SAY] ✗ No audioBase64 in result. Keys:`, Object.keys(sayResult || {}));
               }
             }
           } catch (err: any) {

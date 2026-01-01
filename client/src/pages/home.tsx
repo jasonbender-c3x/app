@@ -601,7 +601,9 @@ export default function Home() {
               }
 
               // Handle speech events from say tool (voice output in turn-taking mode)
+              console.log('[SSE] Data received:', Object.keys(data));
               if (data.speech) {
+                console.log('[TTS] ▶ Speech event detected!');
                 const speechData = data.speech as { 
                   utterance: string; 
                   locale?: string; 

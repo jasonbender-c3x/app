@@ -2071,6 +2071,8 @@ export class RAGDispatcher {
   private async executeSay(toolCall: ToolCall): Promise<unknown> {
     const params = toolCall.parameters as { utterance: string; voice?: string };
     
+    console.log(`[Say] ▶ executeSay called, utterance length: ${params.utterance?.length || 0}`);
+    
     if (!params.utterance) {
       throw new Error("say tool requires 'utterance' parameter (text to speak)");
     }
@@ -2079,7 +2081,7 @@ export class RAGDispatcher {
       const { generateSingleSpeakerAudio } = await import("../integrations/expressive-tts");
       const voice = params.voice || "Kore";
       
-      console.log(`[Say] Generating HD audio for: "${params.utterance.substring(0, 50)}..." with voice ${voice}`);
+      console.log(`[Say] Calling TTS API: "${params.utterance.substring(0, 50)}..." with voice ${voice}`);
       
       const ttsResult = await generateSingleSpeakerAudio(params.utterance, voice);
       
