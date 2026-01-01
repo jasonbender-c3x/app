@@ -541,6 +541,27 @@ export default function Home() {
             try {
               const data = JSON.parse(line.slice(6)); // Remove "data: " prefix
               
+              // Handle AI error response (markdown error instead of JSON)
+              if (data.error && data.errorType === 'ai_error_response') {
+                console.error('[Chat] AI returned error response:', data.message);
+                const errorContent = `⚠️ **Error:** ${data.message}\n\n${data.details || ''}`;
+                aiMessageContent = errorContent;
+                setMessages((prev) => {
+                  const filtered = prev.filter(m => !m.id.startsWith('temp-ai-'));
+                  return [
+                    ...filtered,
+                    {
+                      id: `temp-ai-${Date.now()}`,
+                      chatId: chatId,
+                      role: "ai",
+                      content: aiMessageContent,
+                      createdAt: new Date(),
+                    } as Message
+                  ];
+                });
+                continue; // Skip further processing for this line
+              }
+
               // Step 5: Update UI as tokens arrive
               if (data.text) {
                 // If replace flag is set, replace content entirely (for structured responses)

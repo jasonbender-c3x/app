@@ -880,6 +880,34 @@ export async function registerRoutes(
         }
       }
 
+      // Detect error patterns in markdown format - treat as uncaught exception
+      const errorPatterns = [
+        /^#+\s*Error/im,                          // # Error, ## Error, etc.
+        /^Error:/im,                              // Error: message
+        /I apologize.*error/i,                    // "I apologize" + error
+        /I cannot.*because/i,                     // "I cannot" + reason
+        /failed to (parse|process|execute)/i,    // failed to X
+        /exception occurred/i,                   // exception occurred
+        /unexpected (error|exception)/i,         // unexpected error/exception
+        /internal error/i,                       // internal error
+      ];
+      
+      const responseText = cleanContentForStorage || fullResponse;
+      const isErrorResponse = errorPatterns.some(pattern => pattern.test(responseText));
+      
+      if (isErrorResponse && !confirmedStructured) {
+        console.error(`[Routes] UNCAUGHT EXCEPTION: AI returned error in markdown format`);
+        console.error(`[Routes] Response: ${responseText.substring(0, 500)}`);
+        
+        // Send error event to client
+        res.write(`data: ${JSON.stringify({ 
+          error: true, 
+          errorType: "ai_error_response",
+          message: "The AI encountered an error and could not complete the request",
+          details: responseText.substring(0, 1000)
+        })}\n\n`);
+      }
+
       // Execute tool calls if we have a valid structured response
       if (confirmedStructured && parsedResponse) {
         // Log all tool calls for debugging
