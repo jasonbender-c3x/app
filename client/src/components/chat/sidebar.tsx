@@ -92,7 +92,8 @@ import {
   Calendar,
   LogIn,
   LogOut,
-  User
+  User,
+  Info
 } from "lucide-react";
 
 import { useAppSession } from "@/hooks/use-app-session";
@@ -297,11 +298,13 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
             <X className="h-5 w-5" />
           </Button>
           
-          {/* Logo and Brand Name */}
-          <div className={cn("flex items-center gap-3", effectiveCollapsed ? "px-0" : "px-2")}>
-             <img src={logo} alt="Logo" className="w-8 h-8 rounded-lg" />
-             {!effectiveCollapsed && <span className="font-display font-semibold text-lg tracking-tight">Meowstik</span>}
-          </div>
+          {/* Logo and Brand Name - Links to landing page */}
+          <Link href="/landing">
+            <div className={cn("flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity", effectiveCollapsed ? "px-0" : "px-2")}>
+               <img src={logo} alt="Logo" className="w-8 h-8 rounded-lg" />
+               {!effectiveCollapsed && <span className="font-display font-semibold text-lg tracking-tight">Meowstik</span>}
+            </div>
+          </Link>
           
           {/* Collapse toggle button - only visible on desktop */}
           <Button 
@@ -577,6 +580,23 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
             >
               <Globe className="h-4 w-4" />
               {!effectiveCollapsed && "Web Search"}
+            </Button>
+          </Link>
+          
+          {/* About Button */}
+          <Link href="/landing">
+            <Button 
+              variant="ghost" 
+              className={cn(
+                "font-normal text-muted-foreground hover:text-foreground",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                location === "/landing" && "bg-secondary/50 text-foreground"
+              )}
+              title={effectiveCollapsed ? "About Meowstik" : undefined}
+              data-testid="button-about"
+            >
+              <Info className="h-4 w-4" />
+              {!effectiveCollapsed && "About Meowstik"}
             </Button>
           </Link>
           
