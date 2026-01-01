@@ -120,14 +120,64 @@
 
 ---
 
-## Example
+## Chat & Voice
 
-When tools are needed, append a JSON block at the end:
+| Tool | Parameters | Purpose |
+|------|------------|---------|
+| `send_chat` | `content` | **TERMINATES LOOP** - Sends final response to chat window |
+| `say` | `utterance`, `voice?` | Generates HD audio (voices: Kore, Puck, Charon, Fenrir, Aoede, Leda, Orus, Zephyr) |
+
+---
+
+## SMS & Calls (Twilio)
+
+| Tool | Parameters |
+|------|------------|
+| `sms_send` | `to`, `body` |
+| `sms_list` | `limit?` |
+| `call_make` | `to`, `message?`, `twimlUrl?` |
+| `call_list` | `limit?` |
+
+---
+
+## Job Queue
+
+| Tool | Parameters |
+|------|------------|
+| `queue_create` | `name`, `goal`, `priority?`, `dependencies?` |
+| `queue_batch` | `jobs[]` (array of job definitions) |
+| `queue_list` | `status?`, `limit?` |
+| `queue_start` | none |
+
+---
+
+## Agentic Loop Pattern
+
+You operate in a **continuous loop** until `send_chat` terminates it:
 
 ```
-I'll search for Nick's emails now.
-
-{"toolCalls": [{"type": "gmail_search", "id": "g1", "parameters": {"query": "from:nick"}}]}
+User → You output toolCalls → Executed → Results back → More toolCalls → ... → send_chat → Done
 ```
 
-Or respond with plain text if no tools are needed.
+### Example: Multi-step task
+
+**Turn 1:** Gather information
+```json
+{"toolCalls": [
+  {"type": "gmail_search", "id": "g1", "parameters": {"query": "from:nick"}},
+  {"type": "say", "id": "s1", "parameters": {"utterance": "Searching your emails..."}}
+]}
+```
+
+**Turn 2:** Process results and respond
+```json
+{"toolCalls": [
+  {"type": "send_chat", "id": "c1", "parameters": {"content": "Found 3 emails from Nick:\n\n1. Project update (Jan 1)\n2. ..."}}
+]}
+```
+
+### Key Rules
+- **Always output JSON** with `toolCalls` array
+- **`send_chat` terminates** the loop and displays content in chat
+- **`say` generates audio** but does NOT terminate the loop
+- Chain independent tools in one turn for efficiency

@@ -917,22 +917,28 @@ export async function registerRoutes(
         })}\n\n`);
       }
 
-      // Execute tool calls if we parsed any
-      if (parsedResponse && parsedResponse.toolCalls && parsedResponse.toolCalls.length > 0) {
-        // Log all tool calls for debugging
-        console.log(`\n${"=".repeat(60)}`);
-        console.log(`[LLM] AI RESPONSE - ${parsedResponse.toolCalls.length} TOOL CALLS:`);
-        console.log(`${"─".repeat(60)}`);
-        for (const tc of parsedResponse.toolCalls) {
-          console.log(`  • ${tc.type} (${tc.id})`);
-        }
-        console.log(`${"=".repeat(60)}\n`);
+      // ─────────────────────────────────────────────────────────────────────
+      // AGENTIC LOOP: Execute tools repeatedly until send_chat terminates
+      // ─────────────────────────────────────────────────────────────────────
+      
+      let loopIteration = 0;
+      const MAX_LOOP_ITERATIONS = 10; // Safety limit to prevent infinite loops
+      let sendChatContent: string | null = null;
+      let agenticHistory = [...history, { role: "user", parts: userParts }];
+      
+      // Helper function to execute tools and return results
+      const executeToolsAndGetResults = async (
+        toolCalls: ToolCall[],
+        messageId: string
+      ): Promise<{ results: typeof toolResults; sendChatContent: string | null }> => {
+        const results: typeof toolResults = [];
+        let chatContent: string | null = null;
         
-        for (const toolCall of parsedResponse.toolCalls) {
+        for (const toolCall of toolCalls) {
           console.log(`[Routes] Executing tool call: ${toolCall.type} (${toolCall.id})`);
           try {
-            const toolResult = await ragDispatcher.executeToolCall(toolCall, savedMessage.id);
-            toolResults.push({
+            const toolResult = await ragDispatcher.executeToolCall(toolCall, messageId);
+            results.push({
               toolId: toolResult.toolId,
               type: toolResult.type,
               success: toolResult.success,
@@ -952,6 +958,16 @@ export async function registerRoutes(
                 },
               })}\n\n`,
             );
+            
+            // Check for send_chat - this terminates the agentic loop
+            if (toolCall.type === "send_chat" && toolResult.success) {
+              const sendChatResult = toolResult.result as { content?: string };
+              if (sendChatResult?.content) {
+                chatContent = sendChatResult.content;
+                // Stream the send_chat content to the client
+                res.write(`data: ${JSON.stringify({ text: sendChatResult.content })}\n\n`);
+              }
+            }
             
             // Special handling for say tool - send speech event for HD audio playback
             if (toolCall.type === "say" && toolResult.success) {
@@ -980,6 +996,12 @@ export async function registerRoutes(
             }
           } catch (err: any) {
             console.error(`[Routes] Tool execution error:`, err);
+            results.push({
+              toolId: toolCall.id,
+              type: toolCall.type,
+              success: false,
+              error: err.message,
+            });
             res.write(
               `data: ${JSON.stringify({
                 toolResult: {
@@ -992,7 +1014,144 @@ export async function registerRoutes(
             );
           }
         }
-
+        
+        return { results, sendChatContent: chatContent };
+      };
+      
+      // Execute initial tool calls if we parsed any
+      if (parsedResponse && parsedResponse.toolCalls && parsedResponse.toolCalls.length > 0) {
+        // Log all tool calls for debugging
+        console.log(`\n${"=".repeat(60)}`);
+        console.log(`[LLM] AI RESPONSE (Turn ${loopIteration}) - ${parsedResponse.toolCalls.length} TOOL CALLS:`);
+        console.log(`${"─".repeat(60)}`);
+        for (const tc of parsedResponse.toolCalls) {
+          console.log(`  • ${tc.type} (${tc.id})`);
+        }
+        console.log(`${"=".repeat(60)}\n`);
+        
+        // Execute tools
+        const execResult = await executeToolsAndGetResults(parsedResponse.toolCalls, savedMessage.id);
+        toolResults.push(...execResult.results);
+        sendChatContent = execResult.sendChatContent;
+        
+        // Add model response to agentic history
+        agenticHistory.push({ role: "model", parts: [{ text: fullResponse }] });
+        
+        // AGENTIC LOOP: Continue if send_chat was NOT called
+        while (!sendChatContent && loopIteration < MAX_LOOP_ITERATIONS) {
+          loopIteration++;
+          console.log(`\n${"═".repeat(60)}`);
+          console.log(`[AGENTIC LOOP] Turn ${loopIteration} - Feeding tool results back to LLM`);
+          console.log(`${"═".repeat(60)}\n`);
+          
+          // Build tool results message for the LLM (compact, strip large binary data)
+          const lastToolCount = parsedResponse?.toolCalls?.length || 0;
+          const toolResultsText = toolResults
+            .slice(-lastToolCount) // Only include results from last turn
+            .map(r => {
+              // Strip large binary data from results before sending back to LLM
+              let resultSummary: unknown = r.result;
+              if (typeof r.result === "object" && r.result !== null) {
+                const res = r.result as Record<string, unknown>;
+                // Remove known large binary fields to save tokens
+                const sanitized = { ...res };
+                if ("audioBase64" in sanitized) {
+                  sanitized.audioBase64 = "[audio generated]";
+                }
+                if ("base64" in sanitized) {
+                  sanitized.base64 = "[binary data]";
+                }
+                if ("screenshot" in sanitized && typeof sanitized.screenshot === "string" && (sanitized.screenshot as string).length > 100) {
+                  sanitized.screenshot = "[screenshot captured]";
+                }
+                if ("content" in sanitized && typeof sanitized.content === "string" && (sanitized.content as string).length > 2000) {
+                  sanitized.content = (sanitized.content as string).substring(0, 2000) + "... [truncated]";
+                }
+                resultSummary = sanitized;
+              }
+              // Compact output format
+              const summary = r.success ? JSON.stringify(resultSummary) : `ERROR: ${r.error}`;
+              return `• ${r.type}: ${summary.length > 500 ? summary.substring(0, 500) + "..." : summary}`;
+            })
+            .join("\n");
+          
+          // Add tool results as a "model" response followed by concise tool feedback
+          // Use function-call result format that LLMs understand better
+          agenticHistory.push({
+            role: "model",
+            parts: [{ text: `{"toolCalls": ${JSON.stringify(parsedResponse?.toolCalls || [])}}` }]
+          });
+          agenticHistory.push({
+            role: "user", 
+            parts: [{ text: `Tool results:\n${toolResultsText}\n\nContinue with more tools or call send_chat to respond.` }]
+          });
+          
+          // Call LLM again
+          const loopResult = await genAI.models.generateContentStream({
+            model: modelMode,
+            config: { systemInstruction: composedPrompt.systemPrompt },
+            contents: agenticHistory,
+          });
+          
+          // Parse the response
+          let loopResponse = "";
+          let loopParsedResponse: { toolCalls?: ToolCall[] } | null = null;
+          
+          for await (const chunk of loopResult) {
+            const text = chunk.text || "";
+            loopResponse += text;
+            if (chunk.usageMetadata) {
+              usageMetadata = chunk.usageMetadata;
+            }
+          }
+          
+          fullResponse += `\n\n[Turn ${loopIteration}]\n${loopResponse}`;
+          
+          // Try to parse tool calls from response
+          const jsonMatch = loopResponse.match(/\{"toolCalls"\s*:\s*\[[\s\S]*\]\s*\}/);
+          if (jsonMatch) {
+            try {
+              loopParsedResponse = JSON.parse(stripCodeFences(jsonMatch[0]));
+            } catch (e) {
+              console.error(`[AGENTIC LOOP] Failed to parse tool JSON:`, e);
+            }
+          }
+          
+          if (loopParsedResponse?.toolCalls && loopParsedResponse.toolCalls.length > 0) {
+            console.log(`[AGENTIC LOOP] Turn ${loopIteration} - ${loopParsedResponse.toolCalls.length} tool calls`);
+            for (const tc of loopParsedResponse.toolCalls) {
+              console.log(`  • ${tc.type} (${tc.id})`);
+            }
+            
+            // Execute tools
+            const loopExecResult = await executeToolsAndGetResults(loopParsedResponse.toolCalls, savedMessage.id);
+            toolResults.push(...loopExecResult.results);
+            sendChatContent = loopExecResult.sendChatContent;
+            
+            // Update history for next iteration
+            agenticHistory.push({ role: "model", parts: [{ text: loopResponse }] });
+            parsedResponse = loopParsedResponse;
+          } else {
+            // No tool calls - LLM responded with plain text, treat as implicit send_chat
+            console.log(`[AGENTIC LOOP] Turn ${loopIteration} - No tool calls, treating as implicit send_chat`);
+            sendChatContent = loopResponse.replace(/\{"toolCalls"[\s\S]*$/, "").trim();
+            if (sendChatContent) {
+              res.write(`data: ${JSON.stringify({ text: sendChatContent })}\n\n`);
+            }
+            break;
+          }
+        }
+        
+        if (loopIteration >= MAX_LOOP_ITERATIONS && !sendChatContent) {
+          console.warn(`[AGENTIC LOOP] Hit max iterations (${MAX_LOOP_ITERATIONS}), forcing termination`);
+          sendChatContent = "[Loop limit reached - response truncated]";
+          res.write(`data: ${JSON.stringify({ text: sendChatContent })}\n\n`);
+        }
+        
+        // Update cleanContentForStorage with send_chat content if available
+        if (sendChatContent) {
+          cleanContentForStorage = sendChatContent;
+        }
       }
 
       // ─────────────────────────────────────────────────────────────────────
