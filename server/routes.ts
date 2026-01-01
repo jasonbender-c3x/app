@@ -565,6 +565,10 @@ export async function registerRoutes(
       // - Tools from prompts/tools.md
       // - RAG context from relevant document chunks
       // - Contextual instructions based on attachments
+      // Get verbosity mode from client (mute, quiet, verbose, experimental)
+      const verbosityMode = req.body.verbosityMode || "mute";
+      const useVoice = verbosityMode !== "mute";
+      
       const composedPrompt = await promptComposer.compose({
         textContent: req.body.content || "",
         voiceTranscript: "",
@@ -573,6 +577,22 @@ export async function registerRoutes(
         chatId: req.params.id,
         userId: userId, // Pass userId for data isolation in RAG context
       });
+      
+      // Add voice instructions if voice mode is enabled
+      let finalSystemPrompt = composedPrompt.systemPrompt;
+      if (useVoice) {
+        const voiceInstruction = `
+## VOICE MODE ENABLED
+The user has voice output enabled. You MUST use the \`say\` tool to speak your responses.
+- Use \`say\` with your response text BEFORE calling \`send_chat\`
+- Both tools can be called in the same turn
+- Example: {"toolCalls": [{"type": "say", "id": "s1", "parameters": {"utterance": "Here's what I found..."}}, {"type": "send_chat", "id": "c1", "parameters": {"content": "Here's what I found..."}}]}
+`;
+        finalSystemPrompt = voiceInstruction + "\n\n" + finalSystemPrompt;
+      }
+      
+      // Replace composedPrompt.systemPrompt with our modified version
+      const modifiedPrompt = { ...composedPrompt, systemPrompt: finalSystemPrompt };
 
       console.log(
         `System prompt composed: ${composedPrompt.systemPrompt.length} chars, ${composedPrompt.attachments.length} attachments`,
@@ -634,7 +654,7 @@ export async function registerRoutes(
         model: modelMode,
         // Pass the composed system prompt via systemInstruction parameter
         config: {
-          systemInstruction: composedPrompt.systemPrompt,
+          systemInstruction: modifiedPrompt.systemPrompt,
         },
         // Include full history plus the new user message with text and media
         contents: [...history, { role: "user", parts: userParts }],
@@ -1089,7 +1109,7 @@ export async function registerRoutes(
           // Call LLM again
           const loopResult = await genAI.models.generateContentStream({
             model: modelMode,
-            config: { systemInstruction: composedPrompt.systemPrompt },
+            config: { systemInstruction: modifiedPrompt.systemPrompt },
             contents: agenticHistory,
           });
           
@@ -1208,7 +1228,7 @@ export async function registerRoutes(
         llmDebugBuffer.add({
           chatId: req.params.id,
           messageId: savedMessage.id,
-          systemPrompt: composedPrompt.systemPrompt,
+          systemPrompt: modifiedPrompt.systemPrompt,
           userMessage: composedPrompt.userMessage,
           conversationHistory: chatMessages.map((m) => ({
             role: m.role,

@@ -200,7 +200,7 @@ export default function Home() {
     isMuted, toggleMuted, speak, isSpeaking, stopSpeaking, 
     isSupported: isTTSSupported, isUsingBrowserTTS,
     shouldPlayHDAudio, shouldPlayBrowserTTS, unlockAudio, isAudioUnlocked, playTestTone,
-    registerHDAudio
+    registerHDAudio, verbosityMode
   } = useTTS();
 
   /**
@@ -494,6 +494,7 @@ export default function Home() {
         body: JSON.stringify({ 
           content,
           model: modelMode, // "pro" or "flash"
+          verbosityMode: verbosityMode, // "mute", "quiet", "verbose", "experimental"
           attachments: attachments.map(a => ({
             filename: a.filename,
             type: a.type,
