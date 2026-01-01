@@ -567,6 +567,11 @@ export class RAGDispatcher {
         case "say":
           result = await this.executeSay(toolCall);
           break;
+        case "send_chat":
+          // send_chat is special - it returns the content directly to terminate the agentic loop
+          const sendChatParams = toolCall.parameters as { content?: string };
+          result = { content: sendChatParams?.content || "" };
+          break;
         default:
           result = { message: `Custom tool type: ${toolCall.type}` };
       }

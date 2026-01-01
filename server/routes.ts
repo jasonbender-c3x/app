@@ -862,9 +862,10 @@ The user has voice output enabled. You MUST use the \`say\` tool to speak your r
         
         // Add model response with function calls to agentic history
         // Use proper function call format for multi-turn context
+        // Note: The Gemini API supports functionCall parts but TypeScript types don't reflect this
         agenticHistory.push({
           role: "model",
-          parts: collectedFunctionCalls.map(fc => ({ functionCall: fc }))
+          parts: collectedFunctionCalls.map(fc => ({ functionCall: fc })) as any
         });
         
         // AGENTIC LOOP: Continue if send_chat was NOT called
@@ -976,7 +977,7 @@ The user has voice output enabled. You MUST use the \`say\` tool to speak your r
             // Update history for next iteration - use proper function call format
             agenticHistory.push({
               role: "model",
-              parts: loopFunctionCalls.map(fc => ({ functionCall: fc }))
+              parts: loopFunctionCalls.map(fc => ({ functionCall: fc })) as any
             });
             parsedResponse = loopParsedResponse;
           } else {
