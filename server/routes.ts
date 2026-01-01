@@ -952,6 +952,32 @@ export async function registerRoutes(
                 },
               })}\n\n`,
             );
+            
+            // Special handling for say tool - send speech event for HD audio playback
+            if (toolCall.type === "say" && toolResult.success) {
+              const sayResult = toolResult.result as { 
+                audioBase64?: string; 
+                mimeType?: string; 
+                duration?: number;
+                utterance?: string;
+              };
+              if (sayResult?.audioBase64) {
+                console.log(`[Routes] Sending speech event for HD audio, length: ${sayResult.audioBase64.length}`);
+                res.write(
+                  `data: ${JSON.stringify({
+                    speech: {
+                      utterance: sayResult.utterance || "",
+                      audioGenerated: true,
+                      audioBase64: sayResult.audioBase64,
+                      mimeType: sayResult.mimeType || "audio/mpeg",
+                      duration: sayResult.duration,
+                    },
+                  })}\n\n`,
+                );
+              } else {
+                console.log(`[Routes] say tool succeeded but no audioBase64 in result`);
+              }
+            }
           } catch (err: any) {
             console.error(`[Routes] Tool execution error:`, err);
             res.write(

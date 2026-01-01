@@ -564,6 +564,9 @@ export class RAGDispatcher {
         case "queue_start":
           result = await this.executeQueueStart(toolCall);
           break;
+        case "say":
+          result = await this.executeSay(toolCall);
+          break;
         default:
           result = { message: `Custom tool type: ${toolCall.type}` };
       }
@@ -2054,6 +2057,64 @@ export class RAGDispatcher {
         success: false,
         error: errorMessage,
         message: `Failed to list calls: ${errorMessage}`,
+      };
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VOICE / TTS HANDLERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Generate speech audio using Gemini TTS
+   */
+  private async executeSay(toolCall: ToolCall): Promise<unknown> {
+    const params = toolCall.parameters as { utterance: string; voice?: string };
+    
+    if (!params.utterance) {
+      throw new Error("say tool requires 'utterance' parameter (text to speak)");
+    }
+
+    try {
+      const { generateSingleSpeakerAudio } = await import("../integrations/expressive-tts");
+      const voice = params.voice || "Kore";
+      
+      console.log(`[Say] Generating HD audio for: "${params.utterance.substring(0, 50)}..." with voice ${voice}`);
+      
+      const ttsResult = await generateSingleSpeakerAudio(params.utterance, voice);
+      
+      if (!ttsResult.success) {
+        return {
+          type: "say",
+          success: false,
+          utterance: params.utterance,
+          voice,
+          error: ttsResult.error || "TTS generation failed",
+          message: `Failed to generate speech: ${ttsResult.error}`,
+        };
+      }
+
+      console.log(`[Say] Audio generated successfully, base64 length: ${ttsResult.audioBase64?.length || 0}`);
+
+      return {
+        type: "say",
+        success: true,
+        utterance: params.utterance,
+        voice,
+        audioBase64: ttsResult.audioBase64,
+        mimeType: ttsResult.mimeType || "audio/mpeg",
+        duration: ttsResult.duration,
+        message: `Generated speech for: "${params.utterance.substring(0, 50)}${params.utterance.length > 50 ? '...' : ''}"`,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error(`[Say] Error:`, error);
+      return {
+        type: "say",
+        success: false,
+        utterance: params.utterance,
+        error: errorMessage,
+        message: `Failed to generate speech: ${errorMessage}`,
       };
     }
   }
