@@ -799,12 +799,18 @@ export async function registerRoutes(
         
         const afterMarker = tailBuffer.substring(JSON_MARKER.length);
         
-        // findFirstNonJsonIndex: Conservative approach - after structural closers }], treat almost everything as prose
-        // Only skip clearly incomplete JSON syntax, preserve all prose including punctuation and whitespace
-        function findFirstNonJsonIndex(buffer: string): number {
+        // findFirstNonJsonIndex: Find prose after JSON structure ends
+        // Buffer starts after '{"toolCalls"' so we expect ': [...]' or ': [...]}' followed by optional prose
+        // We're inside the toolCalls object, so depth starts at 1
+        const findFirstNonJsonIndex = (buffer: string): number => {
           let i = 0;
-          let depth = 0; // Track nesting depth
+          let depth = 1; // We're already inside {"toolCalls" so start at depth 1
           let inString = false;
+          
+          // Skip leading colon and whitespace (the ': ' after "toolCalls")
+          while (i < buffer.length && (buffer[i] === ':' || /\s/.test(buffer[i]))) {
+            i++;
+          }
           
           while (i < buffer.length) {
             const c = buffer[i];
@@ -831,7 +837,7 @@ export async function registerRoutes(
             if (c === '}' || c === ']') {
               depth--;
               i++;
-              // After closing at depth 0, everything following is prose
+              // After closing the entire toolCalls block (depth 0), everything following is prose
               if (depth <= 0) {
                 // Skip any trailing whitespace to find start of prose
                 while (i < buffer.length && /\s/.test(buffer[i])) i++;
@@ -862,7 +868,7 @@ export async function registerRoutes(
             return i;
           }
           
-          return -1; // Entire buffer consumed (incomplete JSON or pure JSON)
+          return -1; // Entire buffer consumed (incomplete or complete JSON, no prose)
         }
         
         const proseStart = findFirstNonJsonIndex(afterMarker);
