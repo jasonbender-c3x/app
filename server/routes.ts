@@ -704,21 +704,14 @@ export async function registerRoutes(
           }
         | undefined;
 
-      // Dual-path streaming with incremental JSON detection and timeout guard
-      // Buffer only until we can confirm valid structured response or fallback to streaming
-      let braceDepth = 0;
-      let bracketDepth = 0;
-      let inString = false;
-      let escapeNext = false;
-      let mightBeJson = false;
-      let confirmedPlainText = false;
-      let confirmedStructured = false;
-      let bufferedContent = "";
-      let bufferStartTime = 0;
+      // Simplified streaming: Stream text with minimal tail buffer to suppress tool JSON
+      // New format: Text first, then optional {"toolCalls": [...]} at end
+      // Strategy: Keep small tail buffer, flush text minus tail, suppress tool JSON
       let parsedResponse: { toolCalls?: ToolCall[] } | null = null;
-      let hasCodeFence = false; // Track if response uses code fences
-      const MAX_JSON_BUFFER = 16384; // Max bytes to buffer before forcing plain text mode (16KB for structured)
-      const MAX_BUFFER_TIME_MS = 10000; // Max time to buffer (10s - structured responses can be large)
+      let tailBuffer = ""; // Small tail buffer to catch start of tool JSON
+      const TAIL_SIZE = 20; // Only need to catch '{"toolCalls"' which is 13 chars
+      const JSON_MARKER = '{"toolCalls"';
+      let foundJsonMarker = false;
       
       for await (const chunk of result) {
         const text = chunk.text || "";
@@ -731,153 +724,163 @@ export async function registerRoutes(
 
         if (!text) continue;
 
-        // Already confirmed as plain text - stream directly
-        if (confirmedPlainText) {
-          cleanContentForStorage += text;
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        // If we already found JSON marker, buffer everything (don't stream)
+        if (foundJsonMarker) {
+          tailBuffer += text;
           continue;
         }
 
-        // Already confirmed as structured JSON - just buffer
-        if (confirmedStructured) {
-          continue;
-        }
-
-        // Buffer content and track JSON structure
-        bufferedContent += text;
+        // Add to tail buffer
+        tailBuffer += text;
         
-        // Check first non-whitespace character to detect potential JSON
-        // Handle markdown code fences (```json...```)
-        if (!mightBeJson && bufferedContent.trim().length > 0) {
-          const trimmed = bufferedContent.trim();
-          const firstChar = trimmed[0];
-          
-          // Check for code fence or direct JSON
-          if (firstChar === "{" || firstChar === "[") {
-            mightBeJson = true;
-            bufferStartTime = Date.now();
-            braceDepth = firstChar === "{" ? 1 : 0;
-            bracketDepth = firstChar === "[" ? 1 : 0;
-          } else if (trimmed.startsWith("```")) {
-            // Markdown code fence detected - wait for complete JSON inside
-            mightBeJson = true;
-            hasCodeFence = true;
-            bufferStartTime = Date.now();
-            console.log("[Routes] Detected code fence wrapper, buffering for structured response");
-            // Don't track depth yet - we'll parse when we see closing fence
-          } else {
-            // Definitely not JSON - flush buffer and stream
-            confirmedPlainText = true;
-            cleanContentForStorage += bufferedContent;
-            res.write(`data: ${JSON.stringify({ text: bufferedContent })}\n\n`);
-            continue;
+        // Check for JSON marker in buffer
+        const markerIndex = tailBuffer.indexOf(JSON_MARKER);
+        if (markerIndex >= 0) {
+          // Found tool JSON - stream text before marker, hold the rest
+          foundJsonMarker = true;
+          const textToStream = tailBuffer.substring(0, markerIndex);
+          if (textToStream.length > 0) {
+            cleanContentForStorage += textToStream;
+            res.write(`data: ${JSON.stringify({ text: textToStream })}\n\n`);
           }
-        }
-
-        // Track brace/bracket depth for JSON detection (skip first char already counted)
-        const startIdx = mightBeJson && bufferedContent.length === text.length ? 1 : 0;
-        for (let i = startIdx; i < text.length; i++) {
-          const char = text[i];
-          if (escapeNext) {
-            escapeNext = false;
-            continue;
-          }
-          if (char === "\\") {
-            escapeNext = true;
-            continue;
-          }
-          if (char === '"') {
-            inString = !inString;
-            continue;
-          }
-          if (!inString) {
-            if (char === "{") braceDepth++;
-            else if (char === "}") braceDepth--;
-            else if (char === "[") bracketDepth++;
-            else if (char === "]") bracketDepth--;
-          }
-        }
-
-        // When depth returns to zero, try to validate as structured response
-        // Also check for closing code fence which indicates complete JSON block
-        const hasClosingFence = bufferedContent.trim().endsWith("```");
-        if (mightBeJson && ((braceDepth === 0 && bracketDepth === 0 && !inString) || hasClosingFence)) {
-          try {
-            const stripped = stripCodeFences(bufferedContent);
-            const jsonData = JSON.parse(stripped);
-            const validation = structuredLLMResponseSchema.safeParse(jsonData);
-            if (validation.success && validation.data.toolCalls && validation.data.toolCalls.length > 0) {
-              parsedResponse = validation.data;
-              confirmedStructured = true;
-              console.log(`[Routes] Parsed structured response with ${validation.data.toolCalls.length} tool calls`);
-              continue;
-            }
-          } catch (e) {
-            // Parse failed - not valid JSON (may still be incomplete)
-            if (hasClosingFence) {
-              console.log("[Routes] Code fence closed but JSON parse failed, flushing as text");
-              // Code fence closed but invalid JSON - flush as plain text
-              confirmedPlainText = true;
-              cleanContentForStorage += bufferedContent;
-              res.write(`data: ${JSON.stringify({ text: bufferedContent })}\n\n`);
-              continue;
-            }
-            // For code fences, continue buffering until closing fence
-            if (hasCodeFence) {
-              continue;
-            }
-          }
-          
-          // Not a valid structured response (and not code fence) - flush buffer and stream
-          confirmedPlainText = true;
-          cleanContentForStorage += bufferedContent;
-          res.write(`data: ${JSON.stringify({ text: bufferedContent })}\n\n`);
+          tailBuffer = tailBuffer.substring(markerIndex);
           continue;
         }
-
-        // Timeout guard: if buffering too long without confirmation, flush and stream
-        // Skip timeout for code-fenced responses - wait for closing fence
-        if (mightBeJson && !hasCodeFence && (Date.now() - bufferStartTime) > MAX_BUFFER_TIME_MS) {
-          console.log("[Routes] Buffer timeout reached, flushing as plain text");
-          confirmedPlainText = true;
-          cleanContentForStorage += bufferedContent;
-          res.write(`data: ${JSON.stringify({ text: bufferedContent })}\n\n`);
-          continue;
+        
+        // No marker found - flush all but tail portion
+        if (tailBuffer.length > TAIL_SIZE) {
+          const flushLength = tailBuffer.length - TAIL_SIZE;
+          const textToStream = tailBuffer.substring(0, flushLength);
+          cleanContentForStorage += textToStream;
+          res.write(`data: ${JSON.stringify({ text: textToStream })}\n\n`);
+          tailBuffer = tailBuffer.substring(flushLength);
         }
-
-        // Check if buffer exceeded - force plain text mode
-        if (bufferedContent.length > MAX_JSON_BUFFER) {
-          confirmedPlainText = true;
-          cleanContentForStorage += bufferedContent;
-          res.write(`data: ${JSON.stringify({ text: bufferedContent })}\n\n`);
-          continue;
-        }
+      }
+      
+      // Process remaining tail buffer (normal case - no JSON marker found)
+      if (tailBuffer.length > 0 && !foundJsonMarker) {
+        // No JSON found - stream remaining buffer (including whitespace)
+        cleanContentForStorage += tailBuffer;
+        res.write(`data: ${JSON.stringify({ text: tailBuffer })}\n\n`);
+        tailBuffer = "";
       }
 
       // ─────────────────────────────────────────────────────────────────────
-      // STEP 5b: Handle end of stream - execute tools or flush remaining buffer
+      // STEP 5b: Extract JSON tools from end of response
       // ─────────────────────────────────────────────────────────────────────
 
-      // If stream ended while still buffering, try to parse as JSON
-      if (mightBeJson && !confirmedPlainText && !confirmedStructured) {
+      // Try to extract JSON tool block from end of full response
+      const jsonMatch = fullResponse.match(/\{[\s\S]*"toolCalls"[\s\S]*\}$/);
+      let toolsExtracted = false;
+      
+      if (jsonMatch) {
         try {
-          const stripped = stripCodeFences(fullResponse);
+          const stripped = stripCodeFences(jsonMatch[0]);
           const jsonData = JSON.parse(stripped);
           const validation = structuredLLMResponseSchema.safeParse(jsonData);
           if (validation.success && validation.data.toolCalls && validation.data.toolCalls.length > 0) {
             parsedResponse = validation.data;
-            confirmedStructured = true;
-            console.log(`[Routes] End-of-stream parsed ${validation.data.toolCalls.length} tool calls`);
+            toolsExtracted = true;
+            // Update stored content to exclude JSON block (preserve all whitespace)
+            cleanContentForStorage = fullResponse.substring(0, fullResponse.lastIndexOf(jsonMatch[0]));
+            // Send cleanup event to remove JSON from display
+            res.write(`data: ${JSON.stringify({ finalContent: cleanContentForStorage })}\n\n`);
+            console.log(`[Routes] Extracted ${validation.data.toolCalls.length} tool calls from response`);
           }
         } catch (e) {
-          console.log("[Routes] Response looked like JSON but failed to parse, streaming as text");
+          console.log("[Routes] Found JSON-like block but failed to parse");
         }
-
-        // If not valid structured response, flush the content
-        if (!confirmedStructured) {
-          cleanContentForStorage = fullResponse;
-          res.write(`data: ${JSON.stringify({ text: fullResponse })}\n\n`);
+      }
+      
+      // If we withheld content but didn't extract valid tools, recover natural text
+      // Strategy: JSON-grammar scan - find first char that cannot be JSON and stream from there
+      if (foundJsonMarker && !toolsExtracted && tailBuffer.length > 0) {
+        console.log("[Routes] Processing malformed JSON block:", tailBuffer.length, "chars");
+        
+        const afterMarker = tailBuffer.substring(JSON_MARKER.length);
+        
+        // findFirstNonJsonIndex: Conservative approach - after structural closers }], treat almost everything as prose
+        // Only skip clearly incomplete JSON syntax, preserve all prose including punctuation and whitespace
+        function findFirstNonJsonIndex(buffer: string): number {
+          let i = 0;
+          let depth = 0; // Track nesting depth
+          let inString = false;
+          
+          while (i < buffer.length) {
+            const c = buffer[i];
+            
+            // Track string state
+            if (c === '"' && (i === 0 || buffer[i - 1] !== '\\')) {
+              inString = !inString;
+              i++;
+              continue;
+            }
+            
+            if (inString) {
+              i++;
+              continue;
+            }
+            
+            // Track nesting depth
+            if (c === '{' || c === '[') {
+              depth++;
+              i++;
+              continue;
+            }
+            
+            if (c === '}' || c === ']') {
+              depth--;
+              i++;
+              // After closing at depth 0, everything following is prose
+              if (depth <= 0) {
+                // Skip any trailing whitespace to find start of prose
+                while (i < buffer.length && /\s/.test(buffer[i])) i++;
+                return i < buffer.length ? i : -1;
+              }
+              continue;
+            }
+            
+            // Inside JSON structure - skip valid JSON content
+            if (depth > 0) {
+              // Skip structural chars, whitespace, colons, commas
+              if (':,'.includes(c) || /\s/.test(c)) {
+                i++;
+                continue;
+              }
+              // Skip numbers
+              if ('-0123456789'.includes(c)) {
+                while (i < buffer.length && /[-+0-9.eE]/.test(buffer[i])) i++;
+                continue;
+              }
+              // Skip literals
+              if (buffer.substring(i, i + 4) === 'true') { i += 4; continue; }
+              if (buffer.substring(i, i + 5) === 'false') { i += 5; continue; }
+              if (buffer.substring(i, i + 4) === 'null') { i += 4; continue; }
+            }
+            
+            // Outside JSON structure or unrecognized - this is prose
+            return i;
+          }
+          
+          return -1; // Entire buffer consumed (incomplete JSON or pure JSON)
         }
+        
+        const proseStart = findFirstNonJsonIndex(afterMarker);
+        
+        // Stream recovered text if we found prose (preserve ALL content including whitespace)
+        if (proseStart >= 0 && proseStart < afterMarker.length) {
+          const recoveredText = afterMarker.substring(proseStart);
+          if (recoveredText.length > 0) {
+            cleanContentForStorage += recoveredText;
+            res.write(`data: ${JSON.stringify({ text: recoveredText })}\n\n`);
+            console.log("[Routes] Recovered text from malformed JSON:", recoveredText.length, "chars");
+          }
+        } else {
+          // No recoverable prose - this is pure/incomplete JSON, discard silently
+          console.log("[Routes] No prose found in malformed block, discarding JSON");
+        }
+        
+        tailBuffer = ""; // Clear buffer
       }
 
       // Detect error patterns in markdown format - treat as uncaught exception
@@ -895,7 +898,7 @@ export async function registerRoutes(
       const responseText = cleanContentForStorage || fullResponse;
       const isErrorResponse = errorPatterns.some(pattern => pattern.test(responseText));
       
-      if (isErrorResponse && !confirmedStructured) {
+      if (isErrorResponse && !parsedResponse) {
         console.error(`[Routes] UNCAUGHT EXCEPTION: AI returned error in markdown format`);
         console.error(`[Routes] Response: ${responseText.substring(0, 500)}`);
         
@@ -908,29 +911,18 @@ export async function registerRoutes(
         })}\n\n`);
       }
 
-      // Execute tool calls if we have a valid structured response
-      if (confirmedStructured && parsedResponse) {
+      // Execute tool calls if we parsed any
+      if (parsedResponse && parsedResponse.toolCalls && parsedResponse.toolCalls.length > 0) {
         // Log all tool calls for debugging
         console.log(`\n${"=".repeat(60)}`);
-        console.log(`[LLM] AI RESPONSE - ${parsedResponse.toolCalls!.length} TOOL CALLS:`);
+        console.log(`[LLM] AI RESPONSE - ${parsedResponse.toolCalls.length} TOOL CALLS:`);
         console.log(`${"─".repeat(60)}`);
-        for (const tc of parsedResponse.toolCalls!) {
+        for (const tc of parsedResponse.toolCalls) {
           console.log(`  • ${tc.type} (${tc.id})`);
-          if (tc.type === "send_chat" && tc.parameters) {
-            const params = tc.parameters as { content?: string };
-            if (params.content) {
-              console.log(`    → "${params.content.slice(0, 200)}${params.content.length > 200 ? "..." : ""}"`);
-            }
-          } else if (tc.type === "say" && tc.parameters) {
-            const params = tc.parameters as { utterance?: string };
-            if (params.utterance) {
-              console.log(`    🔊 "${params.utterance.slice(0, 200)}${params.utterance.length > 200 ? "..." : ""}"`);
-            }
-          }
         }
         console.log(`${"=".repeat(60)}\n`);
         
-        for (const toolCall of parsedResponse.toolCalls!) {
+        for (const toolCall of parsedResponse.toolCalls) {
           console.log(`[Routes] Executing tool call: ${toolCall.type} (${toolCall.id})`);
           try {
             const toolResult = await ragDispatcher.executeToolCall(toolCall, savedMessage.id);
@@ -942,66 +934,18 @@ export async function registerRoutes(
               error: toolResult.error,
             });
 
-            // If this is send_chat, extract content for display
-            if (toolCall.type === "send_chat" && toolResult.success && toolResult.result) {
-              const chatResult = toolResult.result as { content?: string };
-              if (chatResult.content) {
-                cleanContentForStorage += chatResult.content;
-                res.write(`data: ${JSON.stringify({ text: chatResult.content })}\n\n`);
-              }
-            }
-
-            // If this is say, stream the audio for playback AND store to message
-            // Both say and send_chat are stored, formatted with labels for clarity
-            if (toolCall.type === "say" && toolResult.success && toolResult.result) {
-              const sayResult = toolResult.result as { 
-                utterance?: string; 
-                locale?: string; 
-                voiceId?: string;
-                style?: string;
-                audioGenerated?: boolean;
-                audioBase64?: string;
-                mimeType?: string;
-                duration?: number;
-                error?: string;
-              };
-              if (sayResult.utterance) {
-                // Store say utterance with label prefix - ensure newline at end
-                const utterance = sayResult.utterance.endsWith('\n') 
-                  ? sayResult.utterance 
-                  : sayResult.utterance + '\n';
-                cleanContentForStorage += `🔊 ${utterance}\n`;
-                // Stream speech event to client with audio data if generated
-                res.write(`data: ${JSON.stringify({ 
-                  speech: {
-                    utterance: sayResult.utterance,
-                    locale: sayResult.locale || "en-US",
-                    voiceId: sayResult.voiceId,
-                    style: sayResult.style,
-                    audioGenerated: sayResult.audioGenerated,
-                    audioBase64: sayResult.audioBase64,
-                    mimeType: sayResult.mimeType,
-                    duration: sayResult.duration,
-                    error: sayResult.error,
-                  }
-                })}\n\n`);
-              }
-            }
-
-            // Send tool result to client (for non-output tools)
-            if (toolCall.type !== "send_chat" && toolCall.type !== "say") {
-              res.write(
-                `data: ${JSON.stringify({
-                  toolResult: {
-                    id: toolCall.id,
-                    type: toolCall.type,
-                    success: toolResult.success,
-                    result: toolResult.result,
-                    error: toolResult.error,
-                  },
-                })}\n\n`,
-              );
-            }
+            // Send tool result to client
+            res.write(
+              `data: ${JSON.stringify({
+                toolResult: {
+                  id: toolCall.id,
+                  type: toolCall.type,
+                  success: toolResult.success,
+                  result: toolResult.result,
+                  error: toolResult.error,
+                },
+              })}\n\n`,
+            );
           } catch (err: any) {
             console.error(`[Routes] Tool execution error:`, err);
             res.write(

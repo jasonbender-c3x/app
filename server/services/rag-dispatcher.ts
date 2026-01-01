@@ -50,7 +50,6 @@ import { searchWeb } from "../integrations/web-scraper";
 import { browserScrape } from "../integrations/browser-scraper";
 import { tavilySearch, tavilyQnA, tavilyDeepResearch } from "../integrations/tavily";
 import { perplexitySearch, perplexityQuickAnswer, perplexityDeepResearch, perplexityNews } from "../integrations/perplexity";
-import { generateSingleSpeakerAudio, getAvailableVoices } from "../integrations/expressive-tts";
 import * as googleTasks from "../integrations/google-tasks";
 import * as gmail from "../integrations/gmail";
 import * as googleCalendar from "../integrations/google-calendar";
@@ -351,12 +350,6 @@ export class RAGDispatcher {
           break;
         case "file_put":
           result = await this.executeFilePut(toolCall);
-          break;
-        case "send_chat":
-          result = await this.executeSendChat(toolCall);
-          break;
-        case "say":
-          result = await this.executeSay(toolCall);
           break;
         case "tasks_list":
           result = await this.executeTasksList(toolCall);
@@ -1036,97 +1029,6 @@ export class RAGDispatcher {
     const params = toolCall.parameters as { resourceName: string };
     const success = await googleContacts.deleteContact(params.resourceName);
     return { success, message: success ? "Contact deleted" : "Failed to delete contact" };
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SEND CHAT HANDLER
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /**
-   * Send Chat Tool - Primary tool for sending content to the chat window
-   * All user-facing markdown content should go through this tool
-   */
-  private async executeSendChat(toolCall: ToolCall): Promise<unknown> {
-    const params = toolCall.parameters as { content: string };
-    
-    if (!params.content || typeof params.content !== 'string') {
-      throw new Error('send_chat requires a content parameter');
-    }
-
-    return {
-      type: "send_chat",
-      content: params.content,
-      timestamp: new Date().toISOString(),
-      display: true,
-    };
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SAY HANDLER (VOICE OUTPUT)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /**
-   * Say Tool - Tool for sending speech output in turn-taking voice mode
-   * Uses Gemini 2.5 Flash TTS for high-quality expressive speech synthesis
-   */
-  private async executeSay(toolCall: ToolCall): Promise<unknown> {
-    // Import the schema for validation
-    const { sayParamsSchema, SayVoiceIds } = await import("@shared/schema");
-    
-    // Validate parameters against schema
-    const validation = sayParamsSchema.safeParse(toolCall.parameters);
-    if (!validation.success) {
-      throw new Error(`say parameter validation failed: ${validation.error.message}`);
-    }
-    const params = validation.data;
-
-    // Apply style prefix if specified (e.g., "Say cheerfully", "Whisper")
-    let textToSpeak = params.utterance;
-    if (params.style && params.style !== "natural") {
-      textToSpeak = `${params.style}: ${params.utterance}`;
-    }
-
-    // Default to Kore voice, validate if custom voice specified
-    const availableVoices = getAvailableVoices();
-    const voice = params.voiceId && availableVoices.includes(params.voiceId) 
-      ? params.voiceId 
-      : "Kore";
-
-    console.log(`[Say] Generating expressive speech with voice: ${voice}, style: ${params.style || 'natural'}`);
-
-    // Generate audio using Gemini TTS
-    const ttsResult = await generateSingleSpeakerAudio(textToSpeak, voice);
-
-    if (!ttsResult.success || !ttsResult.audioBase64) {
-      console.error(`[Say] TTS generation failed: ${ttsResult.error}`);
-      // Fall back to returning text only (client can use browser TTS)
-      return {
-        type: "say",
-        utterance: params.utterance,
-        locale: params.locale || "en-US",
-        voiceId: voice,
-        style: params.style,
-        audioGenerated: false,
-        error: ttsResult.error,
-        timestamp: new Date().toISOString(),
-        speak: true,
-      };
-    }
-
-    return {
-      type: "say",
-      utterance: params.utterance,
-      locale: params.locale || "en-US",
-      voiceId: voice,
-      style: params.style,
-      audioGenerated: true,
-      audioBase64: ttsResult.audioBase64,
-      mimeType: ttsResult.mimeType || "audio/mpeg",
-      duration: ttsResult.duration,
-      conversationalTurnId: params.conversationalTurnId,
-      timestamp: new Date().toISOString(),
-      speak: true,
-    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

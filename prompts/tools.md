@@ -1,14 +1,5 @@
 # Tool Reference
 
-## Output Tools
-
-| Tool | Purpose |
-|------|---------|
-| `send_chat` | Text to chat (required) |
-| `say` | Voice TTS (optional) - params: `utterance`, `voiceId?`, `style?` |
-
----
-
 ## Google Workspace
 
 ### Gmail
@@ -131,9 +122,12 @@
 
 ## Example
 
-```json
-{"toolCalls": [
-  {"type": "gmail_search", "id": "g1", "operation": "search", "parameters": {"query": "from:nick"}},
-  {"type": "send_chat", "id": "c1", "operation": "respond", "parameters": {"content": "Found emails from Nick..."}}
-]}
+When tools are needed, append a JSON block at the end:
+
 ```
+I'll search for Nick's emails now.
+
+{"toolCalls": [{"type": "gmail_search", "id": "g1", "parameters": {"query": "from:nick"}}]}
+```
+
+Or respond with plain text if no tools are needed.

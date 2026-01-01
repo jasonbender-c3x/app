@@ -45,9 +45,7 @@ interface ToolDef {
 // ============================================================================
 
 const ALL_TOOLS: ToolDef[] = [
-  // === GENERAL (3) ===
-  { name: "send_chat", params: "content:string", category: "general" },
-  { name: "say", params: "utterance:string, voiceId?, style?", category: "voice" },
+  // === GENERAL (1) ===
   { name: "debug_echo", params: "message:string", category: "general" },
   
   // === FILE (5) - Paths support prefixes: server: (default), client:, editor: ===
@@ -234,7 +232,8 @@ const CATEGORY_KEYWORDS: Record<ToolCategory, string[]> = {
   github: ["github", "repo", "repository", "code", "commit", "pull request", "pr", "issue", "branch"],
   search: ["search", "find", "look up", "google", "web", "internet", "research", "tavily", "perplexity"],
   file: ["file", "read", "write", "edit", "editor", "code", "save", "open", "terminal", "command", "shell", "run"],
-  voice: ["say", "speak", "voice", "audio", "talk", "tell"],
+  voice: [], // Removed - no longer used
+  sms: ["sms", "text", "message", "phone", "call", "twilio"],
   browser: ["browser", "webpage", "website", "url", "screenshot", "navigate", "scrape"],
   codebase: ["codebase", "analyze", "project", "structure", "glossary"],
   contacts: ["contact", "person", "phone", "address", "people"],

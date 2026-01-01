@@ -564,13 +564,26 @@ export default function Home() {
 
               // Step 5: Update UI as tokens arrive
               if (data.text) {
-                // If replace flag is set, replace content entirely (for structured responses)
-                if (data.replace) {
-                  aiMessageContent = data.text;
-                } else {
-                  aiMessageContent += data.text;
-                }
+                aiMessageContent += data.text;
                 // Replace temporary AI message with updated content
+                setMessages((prev) => {
+                  const filtered = prev.filter(m => !m.id.startsWith('temp-ai-'));
+                  return [
+                    ...filtered,
+                    {
+                      id: `temp-ai-${Date.now()}`,
+                      chatId: chatId,
+                      role: "ai",
+                      content: aiMessageContent,
+                      createdAt: new Date(),
+                    } as Message
+                  ];
+                });
+              }
+              
+              // Handle finalContent event - authoritative final content from server
+              if (data.finalContent !== undefined) {
+                aiMessageContent = data.finalContent;
                 setMessages((prev) => {
                   const filtered = prev.filter(m => !m.id.startsWith('temp-ai-'));
                   return [
