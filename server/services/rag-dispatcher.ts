@@ -1355,15 +1355,29 @@ export class RAGDispatcher {
     const sanitizedPath = actualPath.replace(/\.\./g, "").replace(/^\/+/, "");
     const fullPath = path.join(this.workspaceDir, sanitizedPath);
     
-    const content = await fs.readFile(fullPath, params.encoding === 'base64' ? 'base64' : 'utf8');
-    
-    return {
-      type: 'file_get',
-      path: sanitizedPath,
-      source: 'server',
-      content,
-      encoding: params.encoding || 'utf8'
-    };
+    try {
+      const content = await fs.readFile(fullPath, params.encoding === 'base64' ? 'base64' : 'utf8');
+      
+      return {
+        type: 'file_get',
+        path: sanitizedPath,
+        source: 'server',
+        content,
+        encoding: params.encoding || 'utf8'
+      };
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        return {
+          type: 'file_get',
+          path: sanitizedPath,
+          source: 'server',
+          content: null,
+          error: `File not found: ${sanitizedPath}. If you expected this file to exist, verify the path or use ls to find it.`,
+          exists: false
+        };
+      }
+      throw error;
+    }
   }
 
   /**
@@ -1450,44 +1464,54 @@ export class RAGDispatcher {
     const sanitizedPath = actualPath.replace(/\.\./g, "").replace(/^\/+/, "");
     const fullPath = path.join(this.workspaceDir, sanitizedPath);
     
-    await fs.mkdir(path.dirname(fullPath), { recursive: true });
-    await fs.writeFile(fullPath, params.content, 'utf8');
-    
-    if (params.permissions) {
-      try {
-        await fs.chmod(fullPath, parseInt(params.permissions, 8));
-      } catch (error) {
-        console.warn(`[RAGDispatcher] Failed to set permissions on ${sanitizedPath}:`, error);
+    try {
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.writeFile(fullPath, params.content, 'utf8');
+      
+      if (params.permissions) {
+        try {
+          await fs.chmod(fullPath, parseInt(params.permissions, 8));
+        } catch (error) {
+          console.warn(`[RAGDispatcher] Failed to set permissions on ${sanitizedPath}:`, error);
+        }
       }
-    }
 
-    // Auto-ingest into RAG if content is text-based
-    const mimeType = params.mimeType || this.detectMimeType(sanitizedPath);
-    let ingestResult = null;
-    if (chunkingService.supportsTextExtraction(mimeType)) {
-      try {
-        ingestResult = await ragService.ingestDocument(
-          params.content,
-          `file-${Date.now()}`,
-          path.basename(sanitizedPath),
-          mimeType
-        );
-        console.log(`[RAGDispatcher] Auto-ingested file: ${sanitizedPath}, chunks: ${ingestResult.chunksCreated}`);
-      } catch (error) {
-        console.warn(`[RAGDispatcher] Failed to auto-ingest file:`, error);
+      // Auto-ingest into RAG if content is text-based
+      const mimeType = params.mimeType || this.detectMimeType(sanitizedPath);
+      let ingestResult = null;
+      if (chunkingService.supportsTextExtraction(mimeType)) {
+        try {
+          ingestResult = await ragService.ingestDocument(
+            params.content,
+            `file-${Date.now()}`,
+            path.basename(sanitizedPath),
+            mimeType
+          );
+          console.log(`[RAGDispatcher] Auto-ingested file: ${sanitizedPath}, chunks: ${ingestResult.chunksCreated}`);
+        } catch (error) {
+          console.warn(`[RAGDispatcher] Failed to auto-ingest file:`, error);
+        }
       }
-    }
 
-    return {
-      type: 'file_put',
-      path: sanitizedPath,
-      destination: 'server',
-      mimeType,
-      summary: params.summary,
-      ingested: ingestResult?.success || false,
-      chunksCreated: ingestResult?.chunksCreated || 0,
-      message: `File written to: ${sanitizedPath}`
-    };
+      return {
+        type: 'file_put',
+        path: sanitizedPath,
+        destination: 'server',
+        mimeType,
+        summary: params.summary,
+        ingested: ingestResult?.success || false,
+        chunksCreated: ingestResult?.chunksCreated || 0,
+        message: `File written to: ${sanitizedPath}`
+      };
+    } catch (error: any) {
+      return {
+        type: 'file_put',
+        path: sanitizedPath,
+        destination: 'server',
+        success: false,
+        error: `Failed to write file: ${error.message || String(error)}`
+      };
+    }
   }
 
   /**

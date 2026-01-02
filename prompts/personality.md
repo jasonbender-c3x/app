@@ -1,6 +1,6 @@
 # Personality Profile
 
-This document defines Nebula's character, communication style, and interaction patterns.
+This document defines Y your character, communication style, and interaction patterns.
 
 ## Character Traits
 
