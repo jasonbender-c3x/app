@@ -6,11 +6,17 @@
  * High-quality TTS using Google Cloud Text-to-Speech API.
  * Free tier: 1M characters/month (vs Gemini TTS's 100/day limit)
  * 
+ * Supports two authentication methods:
+ * 1. Service Account (preferred): Set GOOGLE_APPLICATION_CREDENTIALS env var
+ * 2. OAuth2: Falls back to user OAuth tokens if no service account
+ * 
  * @see https://cloud.google.com/text-to-speech/docs
  */
 
-import { google } from "googleapis";
+import { google, Auth } from "googleapis";
 import { getAuthenticatedClient, isAuthenticated } from "./google-auth";
+import * as fs from "fs";
+import * as path from "path";
 
 export interface TTSResponse {
   success: boolean;
@@ -31,6 +37,33 @@ const AVAILABLE_VOICES: Record<string, { languageCode: string; name: string; ssm
   "Zephyr": { languageCode: "en-US", name: "en-US-Neural2-H", ssmlGender: "FEMALE" },
 };
 
+let serviceAccountAuth: Auth.GoogleAuth | null = null;
+
+function getServiceAccountAuth(): Auth.GoogleAuth | null {
+  if (serviceAccountAuth) return serviceAccountAuth;
+  
+  const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (!credentialsPath) return null;
+  
+  const resolvedPath = path.resolve(credentialsPath);
+  if (!fs.existsSync(resolvedPath)) {
+    console.warn(`[TTS] Service account file not found: ${resolvedPath}`);
+    return null;
+  }
+  
+  try {
+    serviceAccountAuth = new google.auth.GoogleAuth({
+      keyFile: resolvedPath,
+      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+    });
+    console.log('[TTS] Loaded service account credentials');
+    return serviceAccountAuth;
+  } catch (error) {
+    console.error('[TTS] Failed to load service account:', error);
+    return null;
+  }
+}
+
 export function getAvailableVoices(): string[] {
   return Object.keys(AVAILABLE_VOICES);
 }
@@ -40,12 +73,13 @@ export async function generateSingleSpeakerAudio(
   voice: string = "Kore",
   maxRetries: number = 2
 ): Promise<TTSResponse> {
-  const authenticated = await isAuthenticated();
+  const serviceAuth = getServiceAccountAuth();
+  const hasOAuth = await isAuthenticated();
   
-  if (!authenticated) {
+  if (!serviceAuth && !hasOAuth) {
     return {
       success: false,
-      error: "Google authentication not available. Please connect your Google account."
+      error: "Google authentication not available. Please connect your Google account or configure service account credentials."
     };
   }
 
@@ -59,10 +93,11 @@ export async function generateSingleSpeakerAudio(
         await new Promise(r => setTimeout(r, 500 * attempt));
       }
 
-      console.log(`[TTS] Generating audio with Google Cloud TTS, voice: ${voiceConfig.name}`);
+      const authMethod = serviceAuth ? "service account" : "OAuth";
+      console.log(`[TTS] Generating audio with Google Cloud TTS (${authMethod}), voice: ${voiceConfig.name}`);
 
-      const auth = await getAuthenticatedClient();
-      const tts = google.texttospeech({ version: "v1", auth });
+      const auth = serviceAuth || await getAuthenticatedClient();
+      const tts = google.texttospeech({ version: "v1", auth: auth as any });
       
       const response = await tts.text.synthesize({
         requestBody: {
