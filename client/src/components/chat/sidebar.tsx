@@ -511,7 +511,7 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               {!effectiveCollapsed && "Speech Generation"}
             </Button>
           </Link>
-
+          
           {/* AI Desktop Collaboration Button */}
           <Link href="/collaborate">
             <Button 
@@ -528,7 +528,7 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               {!effectiveCollapsed && "Collaborate"}
             </Button>
           </Link>
-          
+
           {/* Google Services Button */}
           <Link href="/google">
             <Button 
