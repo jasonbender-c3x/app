@@ -684,7 +684,24 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               {!effectiveCollapsed && "Debug"}
             </Button>
           </Link>
-          
+
+          {/* Database Explorer Button */}
+          <Link href="/database">
+            <Button 
+              variant="ghost" 
+              className={cn(
+                "font-normal text-muted-foreground hover:text-foreground",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                location === "/database" && "bg-secondary/50 text-foreground"
+              )}
+              title={effectiveCollapsed ? "Database Explorer" : undefined}
+              data-testid="button-database"
+            >
+              <History className="h-4 w-4" />
+              {!effectiveCollapsed && "Database Explorer"}
+            </Button>
+          </Link>
+
           {/* Evolution Engine Button */}
           <Link href="/evolution">
             <Button 
@@ -697,11 +714,28 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               title={effectiveCollapsed ? "Evolution Engine" : undefined}
               data-testid="button-evolution"
             >
-              <Brain className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4" />
               {!effectiveCollapsed && "Evolution Engine"}
             </Button>
           </Link>
-          
+
+          {/* Task Queue Button */}
+          <Link href="/queue">
+            <Button 
+              variant="ghost" 
+              className={cn(
+                "font-normal text-muted-foreground hover:text-foreground",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                location === "/queue" && "bg-secondary/50 text-foreground"
+              )}
+              title={effectiveCollapsed ? "Task Queue" : undefined}
+              data-testid="button-queue"
+            >
+              <Brain className="h-4 w-4" />
+              {!effectiveCollapsed && "Task Queue"}
+            </Button>
+          </Link>
+
           {/* Schedules & Triggers Button */}
           <Link href="/schedules">
             <Button 
@@ -716,6 +750,91 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
             >
               <Calendar className="h-4 w-4" />
               {!effectiveCollapsed && "Schedules"}
+            </Button>
+          </Link>
+
+          {/* Knowledge Ingestion Button */}
+          <Link href="/knowledge">
+            <Button 
+              variant="ghost" 
+              className={cn(
+                "font-normal text-muted-foreground hover:text-foreground",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                location === "/knowledge" && "bg-secondary/50 text-foreground"
+              )}
+              title={effectiveCollapsed ? "Knowledge Ingestion" : undefined}
+              data-testid="button-knowledge"
+            >
+              <Cloud className="h-4 w-4" />
+              {!effectiveCollapsed && "Knowledge Ingestion"}
+            </Button>
+          </Link>
+
+          {/* Markdown Playground Button */}
+          <Link href="/markdown">
+            <Button 
+              variant="ghost" 
+              className={cn(
+                "font-normal text-muted-foreground hover:text-foreground",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                location === "/markdown" && "bg-secondary/50 text-foreground"
+              )}
+              title={effectiveCollapsed ? "Markdown Playground" : undefined}
+              data-testid="button-markdown"
+            >
+              <FileCode className="h-4 w-4" />
+              {!effectiveCollapsed && "Markdown Playground"}
+            </Button>
+          </Link>
+
+          {/* Browser Button */}
+          <Link href="/browser">
+            <Button 
+              variant="ghost" 
+              className={cn(
+                "font-normal text-muted-foreground hover:text-foreground",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                location === "/browser" && "bg-secondary/50 text-foreground"
+              )}
+              title={effectiveCollapsed ? "Browser" : undefined}
+              data-testid="button-browser"
+            >
+              <Globe className="h-4 w-4" />
+              {!effectiveCollapsed && "Browser"}
+            </Button>
+          </Link>
+
+          {/* Live Voice Button */}
+          <Link href="/live">
+            <Button 
+              variant="ghost" 
+              className={cn(
+                "font-normal text-muted-foreground hover:text-foreground",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                location === "/live" && "bg-secondary/50 text-foreground"
+              )}
+              title={effectiveCollapsed ? "Live Voice" : undefined}
+              data-testid="button-live"
+            >
+              <Mic className="h-4 w-4" />
+              {!effectiveCollapsed && "Live Voice"}
+            </Button>
+          </Link>
+
+          {/* Install & Agent Button */}
+          <Link href="/install">
+            <Button 
+              variant="ghost" 
+              className={cn(
+                "font-normal text-muted-foreground hover:text-foreground",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                location === "/install" && "bg-secondary/50 text-foreground"
+              )}
+              title={effectiveCollapsed ? "Install Agent" : undefined}
+              data-testid="button-install"
+            >
+              <Cloud className="h-4 w-4" />
+              {!effectiveCollapsed && "Install Agent"}
             </Button>
           </Link>
           
