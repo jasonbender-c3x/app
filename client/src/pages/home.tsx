@@ -146,7 +146,7 @@ export default function Home() {
    * When true, sidebar shows only icons
    * Default: collapsed for guests (no history), expanded for logged-in users
    */
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true); // Start collapsed, will update based on auth
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Start expanded to show labels
 
   /**
    * Messages array for the current chat session
