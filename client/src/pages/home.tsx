@@ -295,13 +295,7 @@ export default function Home() {
    * Effect: Expand sidebar for authenticated users
    * Guests keep sidebar collapsed (no chat history), logged-in users see it expanded
    */
-  useEffect(() => {
-    if (isAuthenticated) {
-      setIsSidebarCollapsed(false); // Expand for logged-in users
-    } else {
-      setIsSidebarCollapsed(true); // Keep collapsed for guests
-    }
-  }, [isAuthenticated]);
+  // Sidebar stays expanded by default for all users (no auto-collapse)
 
   /**
    * Effect: Poll for error count to light up error indicator
