@@ -21,6 +21,7 @@ import queueRouter from "./queue";
 import orchestrationRouter from "./orchestration";
 import extensionRouter from "./extension";
 import agentRouter from "./agent";
+import agentsRouter from "./agents";
 import liveRouter from "./live";
 import desktopRouter from "./desktop";
 import computerUseRouter from "./computer-use";
@@ -54,6 +55,7 @@ export function createApiRouter(): Router {
   router.use("/orchestration", orchestrationRouter);
   router.use("/extension", extensionRouter);
   router.use("/agent", agentRouter);
+  router.use("/agents", agentsRouter);
   router.use("/live", liveRouter);
   router.use("/desktop", desktopRouter);
   router.use("/computer-use", computerUseRouter);

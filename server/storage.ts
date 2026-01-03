@@ -61,6 +61,10 @@ import {
   type ExecutorState,
   type LlmUsage,
   type InsertLlmUsage,
+  type AgentIdentity,
+  type InsertAgentIdentity,
+  type AgentActivityLog,
+  type InsertAgentActivityLog,
   chats,
   messages,
   attachments,
@@ -76,7 +80,9 @@ import {
   triggers,
   workflows,
   executorState,
-  llmUsage
+  llmUsage,
+  agentIdentities,
+  agentActivityLog
 } from "@shared/schema";
 import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq, desc, and, lte, lt, or, sql, isNull, isNotNull, inArray, arrayContains } from "drizzle-orm";
@@ -403,6 +409,73 @@ export interface IStorage {
     attachments?: InsertAttachment[],
     toolTasks?: InsertToolTask[]
   ): Promise<{ message: Message; attachments: Attachment[]; toolTasks: ToolTask[] }>;
+
+  // =========================================================================
+  // AGENT IDENTITY OPERATIONS
+  // =========================================================================
+  
+  /**
+   * Creates a new agent identity
+   * @param agent - The agent identity data
+   * @returns The created agent with auto-generated id and timestamps
+   */
+  createAgentIdentity(agent: InsertAgentIdentity): Promise<AgentIdentity>;
+  
+  /**
+   * Retrieves all agent identities
+   * @returns Array of all agents
+   */
+  getAgentIdentities(): Promise<AgentIdentity[]>;
+  
+  /**
+   * Retrieves enabled agent identities only
+   * @returns Array of enabled agents
+   */
+  getEnabledAgents(): Promise<AgentIdentity[]>;
+  
+  /**
+   * Finds a specific agent by ID
+   * @param id - The UUID of the agent
+   * @returns The agent if found, undefined otherwise
+   */
+  getAgentById(id: string): Promise<AgentIdentity | undefined>;
+  
+  /**
+   * Finds a specific agent by name
+   * @param name - The unique name of the agent
+   * @returns The agent if found, undefined otherwise
+   */
+  getAgentByName(name: string): Promise<AgentIdentity | undefined>;
+  
+  /**
+   * Updates an agent identity
+   * @param id - The UUID of the agent
+   * @param updates - Partial agent data to update
+   * @returns The updated agent
+   */
+  updateAgentIdentity(id: string, updates: Partial<InsertAgentIdentity>): Promise<AgentIdentity>;
+  
+  /**
+   * Logs an agent activity
+   * @param activity - The activity log data
+   * @returns The created activity log entry
+   */
+  logAgentActivity(activity: InsertAgentActivityLog): Promise<AgentActivityLog>;
+  
+  /**
+   * Retrieves activity logs for a specific agent
+   * @param agentId - The UUID of the agent
+   * @param limit - Maximum number of logs to retrieve
+   * @returns Array of activity logs, sorted by createdAt descending
+   */
+  getAgentActivity(agentId: string, limit?: number): Promise<AgentActivityLog[]>;
+  
+  /**
+   * Retrieves recent agent activities across all agents
+   * @param limit - Maximum number of logs to retrieve
+   * @returns Array of activity logs with agent info, sorted by createdAt descending
+   */
+  getRecentAgentActivity(limit?: number): Promise<(AgentActivityLog & { agent: AgentIdentity })[]>;
 }
 
 /**
@@ -1482,6 +1555,89 @@ export class DrizzleStorage implements IStorage {
       .values({ id: "singleton" })
       .returning();
     return created;
+  }
+
+  // =========================================================================
+  // AGENT IDENTITY OPERATIONS
+  // =========================================================================
+
+  async createAgentIdentity(agent: InsertAgentIdentity): Promise<AgentIdentity> {
+    const [created] = await this.getDb()
+      .insert(agentIdentities)
+      .values(agent)
+      .returning();
+    return created;
+  }
+
+  async getAgentIdentities(): Promise<AgentIdentity[]> {
+    return this.getDb()
+      .select()
+      .from(agentIdentities)
+      .orderBy(agentIdentities.name);
+  }
+
+  async getEnabledAgents(): Promise<AgentIdentity[]> {
+    return this.getDb()
+      .select()
+      .from(agentIdentities)
+      .where(eq(agentIdentities.enabled, true))
+      .orderBy(agentIdentities.name);
+  }
+
+  async getAgentById(id: string): Promise<AgentIdentity | undefined> {
+    const [agent] = await this.getDb()
+      .select()
+      .from(agentIdentities)
+      .where(eq(agentIdentities.id, id));
+    return agent;
+  }
+
+  async getAgentByName(name: string): Promise<AgentIdentity | undefined> {
+    const [agent] = await this.getDb()
+      .select()
+      .from(agentIdentities)
+      .where(eq(agentIdentities.name, name));
+    return agent;
+  }
+
+  async updateAgentIdentity(id: string, updates: Partial<InsertAgentIdentity>): Promise<AgentIdentity> {
+    const [updated] = await this.getDb()
+      .update(agentIdentities)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(agentIdentities.id, id))
+      .returning();
+    return updated;
+  }
+
+  async logAgentActivity(activity: InsertAgentActivityLog): Promise<AgentActivityLog> {
+    const [created] = await this.getDb()
+      .insert(agentActivityLog)
+      .values(activity)
+      .returning();
+    return created;
+  }
+
+  async getAgentActivity(agentId: string, limit = 50): Promise<AgentActivityLog[]> {
+    return this.getDb()
+      .select()
+      .from(agentActivityLog)
+      .where(eq(agentActivityLog.agentId, agentId))
+      .orderBy(desc(agentActivityLog.createdAt))
+      .limit(limit);
+  }
+
+  async getRecentAgentActivity(limit = 50): Promise<(AgentActivityLog & { agent: AgentIdentity })[]> {
+    const activities = await this.getDb()
+      .select()
+      .from(agentActivityLog)
+      .innerJoin(agentIdentities, eq(agentActivityLog.agentId, agentIdentities.id))
+      .orderBy(desc(agentActivityLog.createdAt))
+      .limit(limit);
+    
+    return activities.map(({ agent_activity_log, agent_identities }) => ({
+      ...agent_activity_log,
+      agent: agent_identities
+    }));
   }
 }
 

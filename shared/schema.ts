@@ -2070,3 +2070,119 @@ export const insertAgentWorkerSchema = createInsertSchema(agentWorkers).omit({
 });
 export type InsertAgentWorker = z.infer<typeof insertAgentWorkerSchema>;
 export type AgentWorker = typeof agentWorkers.$inferSelect;
+
+// =============================================================================
+// AGENT IDENTITY SYSTEM
+// For per-agent attribution of GitHub/Google Workspace actions
+// =============================================================================
+
+/**
+ * AGENT IDENTITIES TABLE
+ * ----------------------
+ * Stores distinct agent identities for attribution of automated actions.
+ * Each agent has its own identity that can be used to sign commits, PRs,
+ * issues, and other automated operations.
+ * 
+ * While actions are authenticated using the primary user's API key,
+ * the author/creator is attributed to the specific agent.
+ */
+export const agentIdentities = pgTable("agent_identities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Agent identification
+  name: text("name").notNull().unique(), // e.g., "Agentia Compiler"
+  email: text("email").notNull(), // Git commit email, e.g., "compiler@agentia.dev"
+  username: text("username"), // Optional GitHub username if dedicated account exists
+  
+  // Agent type and permissions
+  agentType: text("agent_type").notNull(), // 'compiler', 'guest', 'specialized'
+  permissionLevel: text("permission_level").default("full").notNull(), // 'full', 'limited', 'readonly'
+  
+  // Display information
+  displayName: text("display_name").notNull(), // Human-readable name
+  avatarUrl: text("avatar_url"), // Optional avatar image URL
+  description: text("description"), // Agent's purpose/role
+  
+  // Configuration
+  githubSignature: text("github_signature"), // Signature added to commits/PRs
+  enabled: boolean("enabled").default(true).notNull(),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertAgentIdentitySchema = createInsertSchema(agentIdentities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAgentIdentity = z.infer<typeof insertAgentIdentitySchema>;
+export type AgentIdentity = typeof agentIdentities.$inferSelect;
+
+/**
+ * AGENT ACTIVITY LOG TABLE
+ * -------------------------
+ * Audit trail of all actions performed by agents.
+ * Tracks GitHub commits, PRs, issues, and Google Workspace operations.
+ */
+export const agentActivityLog = pgTable("agent_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Agent reference
+  agentId: varchar("agent_id").references(() => agentIdentities.id, { onDelete: "cascade" }).notNull(),
+  
+  // Activity details
+  activityType: text("activity_type").notNull(), // 'commit', 'pr', 'issue', 'email', 'doc_edit', etc.
+  platform: text("platform").notNull(), // 'github', 'gmail', 'drive', 'calendar', etc.
+  
+  // Resource identification
+  resourceType: text("resource_type"), // 'repository', 'issue', 'pull_request', 'email', 'document'
+  resourceId: text("resource_id"), // External ID (PR number, commit SHA, email ID, etc.)
+  resourceUrl: text("resource_url"), // Direct link to the resource
+  
+  // Action details
+  action: text("action").notNull(), // 'create', 'update', 'delete', 'comment'
+  title: text("title"), // Brief description of the action
+  metadata: jsonb("metadata"), // Additional context (commit message, PR body, etc.)
+  
+  // Result
+  success: boolean("success").default(true).notNull(),
+  errorMessage: text("error_message"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_activity_agent").on(table.agentId),
+  index("idx_agent_activity_type").on(table.activityType),
+  index("idx_agent_activity_platform").on(table.platform),
+]);
+
+export const insertAgentActivityLogSchema = createInsertSchema(agentActivityLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAgentActivityLog = z.infer<typeof insertAgentActivityLogSchema>;
+export type AgentActivityLog = typeof agentActivityLog.$inferSelect;
+
+/**
+ * Agent type constants
+ */
+export const AgentTypes = {
+  COMPILER: "compiler",     // Main AI agent with full permissions
+  GUEST: "guest",           // Guest user agent with limited permissions
+  SPECIALIZED: "specialized" // Specialized agents for specific tasks
+} as const;
+
+export type AgentType = typeof AgentTypes[keyof typeof AgentTypes];
+
+/**
+ * Permission level constants
+ */
+export const PermissionLevels = {
+  FULL: "full",       // Full access to all operations
+  LIMITED: "limited", // Limited access (read + basic write)
+  READONLY: "readonly" // Read-only access
+} as const;
+
+export type PermissionLevel = typeof PermissionLevels[keyof typeof PermissionLevels];
