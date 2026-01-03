@@ -338,12 +338,12 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
         </div>
 
         {/* 
-         * Chat History List (Scrollable)
-         * Grouped by time period with section headers
-         * Hidden when collapsed on desktop
+         * Main Content Area (Scrollable)
+         * Contains both chat history and footer tools in a single scrollable area
+         * to accommodate many navigation items on any screen size.
          */}
-        <ScrollArea className={cn("flex-1", effectiveCollapsed ? "px-2" : "px-4")}>
-          <div className="space-y-6 py-2">
+        <ScrollArea className="flex-1">
+          <div className={cn("space-y-6 py-2", effectiveCollapsed ? "px-2" : "px-4")}>
             
             {/* TODAY section */}
             {today.length > 0 && (
@@ -448,414 +448,409 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
                 </div>
               </div>
             )}
+
+            {/* Separator for Tools */}
+            <div className="border-t border-border/50 pt-4 mt-4">
+              {/* AI Studio Section Header */}
+              {!effectiveCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-2 px-2">AI Studio</h3>}
+              
+              <div className="space-y-1">
+                {/* Image Studio Button */}
+                <Link href="/image">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/image" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Image Studio" : undefined}
+                    data-testid="button-image"
+                  >
+                    <Image className="h-4 w-4" />
+                    {!effectiveCollapsed && "Image Studio"}
+                  </Button>
+                </Link>
+                
+                {/* Music Generation Button */}
+                <Link href="/music">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/music" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Music Generation" : undefined}
+                    data-testid="button-music"
+                  >
+                    <Music className="h-4 w-4" />
+                    {!effectiveCollapsed && "Music Generation"}
+                  </Button>
+                </Link>
+                
+                {/* Speech Generation Button */}
+                <Link href="/speech">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/speech" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Speech Generation" : undefined}
+                    data-testid="button-speech"
+                  >
+                    <Mic className="h-4 w-4" />
+                    {!effectiveCollapsed && "Speech Generation"}
+                  </Button>
+                </Link>
+                
+                {/* AI Desktop Collaboration Button */}
+                <Link href="/collaborate">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/collaborate" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Collaborate" : undefined}
+                    data-testid="button-collaborate"
+                  >
+                    <Radio className="h-4 w-4" />
+                    {!effectiveCollapsed && "Collaborate"}
+                  </Button>
+                </Link>
+
+                {/* Google Services Button */}
+                <Link href="/google">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/google" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Google Services" : undefined}
+                    data-testid="button-google"
+                  >
+                    <Cloud className="h-4 w-4" />
+                    {!effectiveCollapsed && "Google Services"}
+                  </Button>
+                </Link>
+                
+                {/* Tools Section Header */}
+                {!effectiveCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-2 mt-4 px-2">Tools</h3>}
+                
+                {/* Python Sandbox Button */}
+                <Link href="/python">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/python" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Python Sandbox" : undefined}
+                    data-testid="button-python"
+                  >
+                    <FileCode className="h-4 w-4" />
+                    {!effectiveCollapsed && "Python Sandbox"}
+                  </Button>
+                </Link>
+                
+                {/* Playwright Testing Button */}
+                <Link href="/testing">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/testing" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Playwright Testing" : undefined}
+                    data-testid="button-testing"
+                  >
+                    <TestTube className="h-4 w-4" />
+                    {!effectiveCollapsed && "Playwright Testing"}
+                  </Button>
+                </Link>
+                
+                {/* Web Search Button */}
+                <Link href="/search">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/search" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Web Search" : undefined}
+                    data-testid="button-web-search"
+                  >
+                    <Globe className="h-4 w-4" />
+                    {!effectiveCollapsed && "Web Search"}
+                  </Button>
+                </Link>
+                
+                {/* About Button */}
+                <Link href="/landing">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/landing" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "About Meowstik" : undefined}
+                    data-testid="button-about"
+                  >
+                    <Info className="h-4 w-4" />
+                    {!effectiveCollapsed && "About Meowstik"}
+                  </Button>
+                </Link>
+                
+                {/* Help & FAQ Button */}
+                <Link href="/help">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/help" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Help & FAQ" : undefined}
+                    data-testid="button-help"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                    {!effectiveCollapsed && "Help & FAQ"}
+                  </Button>
+                </Link>
+                
+                {/* Editor Button */}
+                <Link href="/editor">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/editor" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Editor" : undefined}
+                    data-testid="button-editor"
+                  >
+                    <Code className="h-4 w-4" />
+                    {!effectiveCollapsed && "Editor"}
+                  </Button>
+                </Link>
+                
+                {/* Terminal Button */}
+                <Link href="/terminal">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/terminal" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Terminal" : undefined}
+                    data-testid="button-terminal"
+                  >
+                    <Terminal className="h-4 w-4" />
+                    {!effectiveCollapsed && "Terminal"}
+                  </Button>
+                </Link>
+                
+                {/* Debug Button (was Activity) */}
+                <Link href="/debug">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/debug" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Debug" : undefined}
+                    data-testid="button-debug"
+                  >
+                    <Bug className="h-4 w-4" />
+                    {!effectiveCollapsed && "Debug"}
+                  </Button>
+                </Link>
+
+                {/* Database Explorer Button */}
+                <Link href="/database">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/database" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Database Explorer" : undefined}
+                    data-testid="button-database"
+                  >
+                    <History className="h-4 w-4" />
+                    {!effectiveCollapsed && "Database Explorer"}
+                  </Button>
+                </Link>
+
+                {/* Evolution Engine Button */}
+                <Link href="/evolution">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/evolution" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Evolution Engine" : undefined}
+                    data-testid="button-evolution"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    {!effectiveCollapsed && "Evolution Engine"}
+                  </Button>
+                </Link>
+
+                {/* Task Queue Button */}
+                <Link href="/queue">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/queue" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Task Queue" : undefined}
+                    data-testid="button-queue"
+                  >
+                    <Brain className="h-4 w-4" />
+                    {!effectiveCollapsed && "Task Queue"}
+                  </Button>
+                </Link>
+
+                {/* Schedules & Triggers Button */}
+                <Link href="/schedules">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/schedules" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Schedules" : undefined}
+                    data-testid="button-schedules"
+                  >
+                    <Calendar className="h-4 w-4" />
+                    {!effectiveCollapsed && "Schedules"}
+                  </Button>
+                </Link>
+
+                {/* Knowledge Ingestion Button */}
+                <Link href="/knowledge">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/knowledge" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Knowledge Ingestion" : undefined}
+                    data-testid="button-knowledge"
+                  >
+                    <Cloud className="h-4 w-4" />
+                    {!effectiveCollapsed && "Knowledge Ingestion"}
+                  </Button>
+                </Link>
+
+                {/* Markdown Playground Button */}
+                <Link href="/markdown">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/markdown" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Markdown Playground" : undefined}
+                    data-testid="button-markdown"
+                  >
+                    <FileCode className="h-4 w-4" />
+                    {!effectiveCollapsed && "Markdown Playground"}
+                  </Button>
+                </Link>
+
+                {/* Browser Button */}
+                <Link href="/browser">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/browser" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Browser" : undefined}
+                    data-testid="button-browser"
+                  >
+                    <Globe className="h-4 w-4" />
+                    {!effectiveCollapsed && "Browser"}
+                  </Button>
+                </Link>
+
+                {/* Live Voice Button */}
+                <Link href="/live">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/live" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Live Voice" : undefined}
+                    data-testid="button-live"
+                  >
+                    <Mic className="h-4 w-4" />
+                    {!effectiveCollapsed && "Live Voice"}
+                  </Button>
+                </Link>
+
+                {/* Install & Agent Button */}
+                <Link href="/install">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/install" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Install Agent" : undefined}
+                    data-testid="button-install"
+                  >
+                    <Cloud className="h-4 w-4" />
+                    {!effectiveCollapsed && "Install Agent"}
+                  </Button>
+                </Link>
+                
+                {/* Settings Button */}
+                <Link href="/settings">
+                  <Button 
+                    variant="ghost" 
+                    className={cn(
+                      "font-normal text-muted-foreground hover:text-foreground",
+                      effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                      location === "/settings" && "bg-secondary/50 text-foreground"
+                    )}
+                    title={effectiveCollapsed ? "Settings" : undefined}
+                    data-testid="button-settings"
+                  >
+                    <Settings className="h-4 w-4" />
+                    {!effectiveCollapsed && "Settings"}
+                  </Button>
+                </Link>
+              </div>
+            </div>
           </div>
-        </ScrollArea>
-
-        {/* 
-         * Footer Section
-         * Contains action buttons and status information
-         * Scrollable to accommodate all tools on small screens
-         */}
-        <ScrollArea className="mt-auto border-t border-border/50 max-h-[50vh]">
-        <div className={cn("space-y-1", effectiveCollapsed ? "p-2" : "p-4")}>
-          {/* AI Studio Section Header */}
-          {!effectiveCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-2 px-2">AI Studio</h3>}
-          
-          {/* Image Studio Button */}
-          <Link href="/image">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/image" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Image Studio" : undefined}
-              data-testid="button-image"
-            >
-              <Image className="h-4 w-4" />
-              {!effectiveCollapsed && "Image Studio"}
-            </Button>
-          </Link>
-          
-          {/* Music Generation Button */}
-          <Link href="/music">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/music" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Music Generation" : undefined}
-              data-testid="button-music"
-            >
-              <Music className="h-4 w-4" />
-              {!effectiveCollapsed && "Music Generation"}
-            </Button>
-          </Link>
-          
-          {/* Speech Generation Button */}
-          <Link href="/speech">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/speech" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Speech Generation" : undefined}
-              data-testid="button-speech"
-            >
-              <Mic className="h-4 w-4" />
-              {!effectiveCollapsed && "Speech Generation"}
-            </Button>
-          </Link>
-          
-          {/* AI Desktop Collaboration Button */}
-          <Link href="/collaborate">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/collaborate" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Collaborate" : undefined}
-              data-testid="button-collaborate"
-            >
-              <Radio className="h-4 w-4" />
-              {!effectiveCollapsed && "Collaborate"}
-            </Button>
-          </Link>
-
-          {/* Google Services Button */}
-          <Link href="/google">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/google" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Google Services" : undefined}
-              data-testid="button-google"
-            >
-              <Cloud className="h-4 w-4" />
-              {!effectiveCollapsed && "Google Services"}
-            </Button>
-          </Link>
-          
-          {/* Tools Section Header */}
-          {!effectiveCollapsed && <h3 className="text-xs font-semibold text-muted-foreground mb-2 mt-4 px-2">Tools</h3>}
-          
-          {/* Python Sandbox Button */}
-          <Link href="/python">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/python" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Python Sandbox" : undefined}
-              data-testid="button-python"
-            >
-              <FileCode className="h-4 w-4" />
-              {!effectiveCollapsed && "Python Sandbox"}
-            </Button>
-          </Link>
-          
-          {/* Playwright Testing Button */}
-          <Link href="/testing">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/testing" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Playwright Testing" : undefined}
-              data-testid="button-testing"
-            >
-              <TestTube className="h-4 w-4" />
-              {!effectiveCollapsed && "Playwright Testing"}
-            </Button>
-          </Link>
-          
-          {/* Web Search Button */}
-          <Link href="/search">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/search" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Web Search" : undefined}
-              data-testid="button-web-search"
-            >
-              <Globe className="h-4 w-4" />
-              {!effectiveCollapsed && "Web Search"}
-            </Button>
-          </Link>
-          
-          {/* About Button */}
-          <Link href="/landing">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/landing" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "About Meowstik" : undefined}
-              data-testid="button-about"
-            >
-              <Info className="h-4 w-4" />
-              {!effectiveCollapsed && "About Meowstik"}
-            </Button>
-          </Link>
-          
-          {/* Help & FAQ Button */}
-          <Link href="/help">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/help" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Help & FAQ" : undefined}
-              data-testid="button-help"
-            >
-              <HelpCircle className="h-4 w-4" />
-              {!effectiveCollapsed && "Help & FAQ"}
-            </Button>
-          </Link>
-          
-          {/* Editor Button */}
-          <Link href="/editor">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/editor" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Editor" : undefined}
-              data-testid="button-editor"
-            >
-              <Code className="h-4 w-4" />
-              {!effectiveCollapsed && "Editor"}
-            </Button>
-          </Link>
-          
-          {/* Terminal Button */}
-          <Link href="/terminal">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/terminal" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Terminal" : undefined}
-              data-testid="button-terminal"
-            >
-              <Terminal className="h-4 w-4" />
-              {!effectiveCollapsed && "Terminal"}
-            </Button>
-          </Link>
-          
-          {/* Debug Button (was Activity) */}
-          <Link href="/debug">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/debug" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Debug" : undefined}
-              data-testid="button-debug"
-            >
-              <Bug className="h-4 w-4" />
-              {!effectiveCollapsed && "Debug"}
-            </Button>
-          </Link>
-
-          {/* Database Explorer Button */}
-          <Link href="/database">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/database" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Database Explorer" : undefined}
-              data-testid="button-database"
-            >
-              <History className="h-4 w-4" />
-              {!effectiveCollapsed && "Database Explorer"}
-            </Button>
-          </Link>
-
-          {/* Evolution Engine Button */}
-          <Link href="/evolution">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/evolution" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Evolution Engine" : undefined}
-              data-testid="button-evolution"
-            >
-              <RefreshCw className="h-4 w-4" />
-              {!effectiveCollapsed && "Evolution Engine"}
-            </Button>
-          </Link>
-
-          {/* Task Queue Button */}
-          <Link href="/queue">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/queue" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Task Queue" : undefined}
-              data-testid="button-queue"
-            >
-              <Brain className="h-4 w-4" />
-              {!effectiveCollapsed && "Task Queue"}
-            </Button>
-          </Link>
-
-          {/* Schedules & Triggers Button */}
-          <Link href="/schedules">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/schedules" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Schedules" : undefined}
-              data-testid="button-schedules"
-            >
-              <Calendar className="h-4 w-4" />
-              {!effectiveCollapsed && "Schedules"}
-            </Button>
-          </Link>
-
-          {/* Knowledge Ingestion Button */}
-          <Link href="/knowledge">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/knowledge" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Knowledge Ingestion" : undefined}
-              data-testid="button-knowledge"
-            >
-              <Cloud className="h-4 w-4" />
-              {!effectiveCollapsed && "Knowledge Ingestion"}
-            </Button>
-          </Link>
-
-          {/* Markdown Playground Button */}
-          <Link href="/markdown">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/markdown" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Markdown Playground" : undefined}
-              data-testid="button-markdown"
-            >
-              <FileCode className="h-4 w-4" />
-              {!effectiveCollapsed && "Markdown Playground"}
-            </Button>
-          </Link>
-
-          {/* Browser Button */}
-          <Link href="/browser">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/browser" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Browser" : undefined}
-              data-testid="button-browser"
-            >
-              <Globe className="h-4 w-4" />
-              {!effectiveCollapsed && "Browser"}
-            </Button>
-          </Link>
-
-          {/* Live Voice Button */}
-          <Link href="/live">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/live" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Live Voice" : undefined}
-              data-testid="button-live"
-            >
-              <Mic className="h-4 w-4" />
-              {!effectiveCollapsed && "Live Voice"}
-            </Button>
-          </Link>
-
-          {/* Install & Agent Button */}
-          <Link href="/install">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/install" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Install Agent" : undefined}
-              data-testid="button-install"
-            >
-              <Cloud className="h-4 w-4" />
-              {!effectiveCollapsed && "Install Agent"}
-            </Button>
-          </Link>
-          
-          {/* Settings Button */}
-          <Link href="/settings">
-            <Button 
-              variant="ghost" 
-              className={cn(
-                "font-normal text-muted-foreground hover:text-foreground",
-                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
-                location === "/settings" && "bg-secondary/50 text-foreground"
-              )}
-              title={effectiveCollapsed ? "Settings" : undefined}
-              data-testid="button-settings"
-            >
-              <Settings className="h-4 w-4" />
-              {!effectiveCollapsed && "Settings"}
-            </Button>
-          </Link>
-          
-        </div>
         </ScrollArea>
         
         {/* Status Bar - ALWAYS VISIBLE at bottom, outside ScrollArea */}
