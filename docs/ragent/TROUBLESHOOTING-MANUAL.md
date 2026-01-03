@@ -1,32 +1,137 @@
 # Meowstik Troubleshooting Manual
 
-> **For The Compiler**: A systematic guide to diagnosing and resolving any issue using core primitives.
+> **For The Compiler**: A systematic guide to diagnosing and resolving any issue using the full toolset.
 
 ---
 
-## Philosophy
+## Philosophy: The Complete Toolset
 
-You have three fundamental tools that, combined correctly, can solve any problem:
+You are not limited to three tools. You have an entire arsenal organized into layers of capability:
+
+### Layer 0: Core Primitives (Local Control)
 
 | Tool | Purpose | Power |
 |------|---------|-------|
 | `file_get` | Read any file | See the truth |
 | `file_put` | Write any file | Change reality |
 | `terminal_execute` | Run any command | Act on the world |
+| `send_chat` | Communicate with user | Share knowledge |
+| `say` | Speak with voice | Be heard |
 
-**Everything is a file. Everything can be executed. Everything can be changed.**
+**Everything local is a file. Everything can be executed. Everything can be changed.**
+
+### Layer 1: Communication (Reach Beyond)
+
+| Tool | Purpose | Power |
+|------|---------|-------|
+| `sms_send` | Send text message | Reach any phone |
+| `sms_list` | List SMS history | See conversations |
+| `call_make` | Make voice call | Speak to anyone |
+| `call_list` | List call history | See call records |
+| `gmail_send` | Send email | Reach any inbox |
+| `gmail_search` | Search emails | Find any message |
+| `gmail_read` | Read email content | Know what was said |
+| `gmail_list` | List emails | See the inbox |
+
+**Every person is reachable. Every message is findable.**
+
+### Layer 2: Google Workspace (Organize & Collaborate)
+
+| Tool | Purpose | Power |
+|------|---------|-------|
+| `drive_list` | List Drive files | See all documents |
+| `drive_get` | Get file content | Read any document |
+| `drive_create` | Create file | Make new documents |
+| `docs_read` | Read Google Doc | Extract doc content |
+| `docs_write` | Write Google Doc | Create/edit docs |
+| `sheets_read` | Read spreadsheet | Extract tabular data |
+| `sheets_write` | Write spreadsheet | Modify tabular data |
+| `calendar_list` | List events | See schedule |
+| `calendar_create` | Create event | Schedule meetings |
+| `calendar_update` | Update event | Modify schedule |
+| `tasks_list` | List tasks | See todos |
+| `tasks_create` | Create task | Add todos |
+| `contacts_search` | Search contacts | Find people |
+
+**Every document is accessible. Every schedule is modifiable. Every contact is findable.**
+
+### Layer 3: GitHub (Code & Collaboration)
+
+| Tool | Purpose | Power |
+|------|---------|-------|
+| `github_contents` | List repo contents | See repository structure |
+| `github_file_read` | Read file from repo | Get remote code |
+| `github_file_write` | Write file to repo | Push changes |
+| `github_issue_create` | Create issue | Report problems |
+| `github_issue_list` | List issues | See all issues |
+| `github_issue_update` | Update issue | Modify issues |
+| `github_pr_create` | Create pull request | Propose changes |
+| `github_pr_list` | List PRs | See pending changes |
+| `github_commit_list` | List commits | See history |
+| `github_repo_info` | Get repo info | Understand project |
+
+**Every repository is explorable. Every codebase is modifiable. Every issue is trackable.**
+
+### Layer 4: Web & Browser (See the Internet)
+
+| Tool | Purpose | Power |
+|------|---------|-------|
+| `browser_screenshot` | Capture webpage | See what users see |
+| `browser_navigate` | Go to URL | Visit any site |
+| `web_search` | Search the web | Find information |
+| `web_fetch` | Fetch URL content | Read any webpage |
+
+**Every website is visible. Every page is readable.**
+
+### Layer 5: AI Generation (Create from Nothing)
+
+| Tool | Purpose | Power |
+|------|---------|-------|
+| `image_generate` | Generate image | Create visuals |
+| `image_edit` | Edit image | Modify visuals |
+| `music_generate` | Generate music | Create audio |
+| `speech_generate` | Generate speech | Create voice |
+| `speech_transcribe` | Transcribe audio | Convert speech to text |
+
+**Every image is creatable. Every sound is producible.**
+
+### Layer 6: Knowledge (Memory & Understanding)
+
+| Tool | Purpose | Power |
+|------|---------|-------|
+| `rag_query` | Query knowledge base | Recall learned info |
+| `rag_ingest` | Ingest document | Learn new info |
+| `embed_text` | Create embedding | Vectorize knowledge |
+| `codebase_analyze` | Analyze repository | Understand any codebase |
+
+**Every document is memorable. Every codebase is understandable.**
 
 ---
 
-## The Troubleshooting Loop
+## The Universal Pattern
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  1. OBSERVE  →  2. HYPOTHESIZE  →  3. TEST  →  4. FIX      │
-│       ↑                                            │        │
-│       └────────────────────────────────────────────┘        │
-│                    (repeat until solved)                    │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│   1. UNDERSTAND    →   What is the actual problem?                  │
+│         ↓              (file_get, terminal_execute, logs)           │
+│                                                                     │
+│   2. RESEARCH      →   What information do I need?                  │
+│         ↓              (web_search, rag_query, github_contents)     │
+│                                                                     │
+│   3. COMMUNICATE   →   Do I need to involve others?                 │
+│         ↓              (send_chat, sms_send, gmail_send)            │
+│                                                                     │
+│   4. ACT           →   What changes need to be made?                │
+│         ↓              (file_put, terminal_execute, github_*)       │
+│                                                                     │
+│   5. VERIFY        →   Did the fix work?                            │
+│         ↓              (terminal_execute, browser_screenshot)       │
+│                                                                     │
+│   6. DOCUMENT      →   What did I learn?                            │
+│                        (file_put, rag_ingest, send_chat)            │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -90,6 +195,29 @@ terminal_execute: psql $DATABASE_URL -c "\d tablename"
 terminal_execute: psql $DATABASE_URL -c "SELECT * FROM messages LIMIT 5;"
 ```
 
+### 1.5 Check External Services
+
+```bash
+# Check Gmail for related errors/alerts
+gmail_search: "error OR alert OR failed" newer_than:1d
+
+# Check GitHub for recent commits that might have caused issues
+github_commit_list: repo="owner/repo" count=10
+
+# Check calendar for scheduled maintenance
+calendar_list: time_min="today" time_max="tomorrow"
+```
+
+### 1.6 Visual Verification
+
+```bash
+# Take screenshot of the current state
+browser_screenshot: url="http://localhost:5000"
+
+# See what the user sees
+browser_navigate: url="http://localhost:5000/problematic-page"
+```
+
 ---
 
 ## Chapter 2: Common Problem Patterns
@@ -110,6 +238,9 @@ terminal_execute: cat /tmp/logs/browser_console_*.log | tail -50
 
 # Step 4: Try the specific endpoint
 terminal_execute: curl -s localhost:5000/api/chats | head -20
+
+# Step 5: Visual check
+browser_screenshot: url="http://localhost:5000"
 ```
 
 ### 2.2 "API Returns 500"
@@ -125,6 +256,9 @@ file_get: server/routes.ts
 
 # Check for unhandled errors
 terminal_execute: grep -B5 -A10 "throw\|catch" server/routes.ts
+
+# Check if similar issues exist on GitHub
+github_issue_list: repo="owner/repo" state="open" labels="bug"
 ```
 
 ### 2.3 "Page Won't Load"
@@ -143,6 +277,9 @@ terminal_execute: ls -la client/src/pages/
 
 # Read the router
 file_get: client/src/App.tsx
+
+# Visual verification
+browser_screenshot: url="http://localhost:5000/broken-page"
 ```
 
 ### 2.4 "Database Error"
@@ -163,22 +300,40 @@ file_get: shared/schema.ts
 terminal_execute: npm run db:push
 ```
 
-### 2.5 "Module Not Found"
+### 2.5 "External Service Not Responding"
 
-**Strategy**: Check imports → packages → paths.
+**Strategy**: Check credentials → connectivity → service status.
 
 ```bash
-# Check if package is installed
-terminal_execute: grep "packageName" package.json
+# Test Gmail connection
+gmail_list: max_results=1
 
-# Install if missing
-terminal_execute: npm install packageName
+# Test GitHub connection
+github_repo_info: repo="owner/repo"
 
-# Check import path is correct
-terminal_execute: ls -la path/to/module
+# Test Twilio
+sms_list: limit=1
 
-# Check tsconfig paths
-file_get: tsconfig.json
+# Web search for service outages
+web_search: "Gmail API outage today"
+```
+
+### 2.6 "User Reported Issue via Email"
+
+**Strategy**: Find the report → understand → investigate → respond.
+
+```bash
+# Find the user's email
+gmail_search: "from:user@example.com bug OR error OR broken"
+
+# Read the details
+gmail_read: message_id="abc123"
+
+# Investigate the reported issue
+terminal_execute: grep -i "reported_error_text" /tmp/logs/*.log
+
+# Respond to user
+gmail_send: to="user@example.com" subject="Re: Bug Report" body="..."
 ```
 
 ---
@@ -242,6 +397,37 @@ terminal_execute: psql $DATABASE_URL -c "ALTER SEQUENCE table_id_seq RESTART WIT
 terminal_execute: npm run db:push --force
 ```
 
+### 3.5 Push Fixes to GitHub
+
+```bash
+# Create a branch and commit
+terminal_execute: git checkout -b fix/issue-description
+terminal_execute: git add -A
+terminal_execute: git commit -m "fix: description of fix"
+
+# Create PR
+github_pr_create: repo="owner/repo" title="Fix: issue" body="..." head="fix/issue" base="main"
+
+# Or update file directly
+github_file_write: repo="owner/repo" path="file.ts" content="..." message="fix: description"
+```
+
+### 3.6 Notify Stakeholders
+
+```bash
+# Notify via chat
+send_chat: "Fixed the issue. The problem was X, solution was Y."
+
+# Notify via email
+gmail_send: to="team@company.com" subject="Issue Resolved" body="..."
+
+# Notify via SMS (urgent)
+sms_send: to="+1234567890" body="Critical fix deployed. Please verify."
+
+# Update GitHub issue
+github_issue_update: repo="owner/repo" issue_number=123 state="closed" comment="Fixed in PR #456"
+```
+
 ---
 
 ## Chapter 4: Advanced Techniques
@@ -284,6 +470,10 @@ terminal_execute: git log --oneline -20
 
 # Git diff - what changed?
 terminal_execute: git diff HEAD~5 path/to/file.ts
+
+# Check GitHub for related issues/PRs
+github_issue_list: repo="owner/repo" search="related term"
+github_pr_list: repo="owner/repo" state="merged"
 ```
 
 ### 4.4 Memory/Performance Issues
@@ -302,11 +492,101 @@ terminal_execute: find . -type f -size +10M 2>/dev/null
 terminal_execute: ps aux | grep node | awk '{print $4, $11}'
 ```
 
+### 4.5 Cross-Reference Information
+
+```bash
+# Search knowledge base for similar issues
+rag_query: "error handling authentication timeout"
+
+# Search web for solutions
+web_search: "node.js ECONNRESET error handling"
+
+# Check if documented in Drive
+drive_list: query="troubleshooting OR debugging"
+
+# Analyze related codebase
+codebase_analyze: repo="owner/related-repo" focus="error handling"
+```
+
+### 4.6 Generate Documentation
+
+```bash
+# Create visual documentation
+image_generate: prompt="flowchart showing error handling process"
+
+# Speak the summary for accessibility
+say: "The issue was caused by a race condition in the authentication flow..."
+
+# Document in knowledge base
+rag_ingest: content="Lesson learned: Always check..." source="incident-2026-01-03"
+```
+
 ---
 
-## Chapter 5: Prevention
+## Chapter 5: Proactive Operations
 
-### 5.1 Before Making Changes
+### 5.1 Morning Health Check
+
+```bash
+# Check all services
+terminal_execute: curl -s localhost:5000/api/status | jq
+
+# Check for overnight errors
+terminal_execute: grep -i error /tmp/logs/*.log | wc -l
+
+# Check email for alerts
+gmail_search: "alert OR error OR urgent" newer_than:12h
+
+# Check calendar for scheduled tasks
+calendar_list: time_min="today" time_max="tomorrow"
+
+# Check GitHub for new issues
+github_issue_list: repo="owner/repo" state="open" since="yesterday"
+```
+
+### 5.2 Before Deployment
+
+```bash
+# Run tests
+terminal_execute: npm test 2>&1
+
+# Check TypeScript
+terminal_execute: npx tsc --noEmit
+
+# Visual regression check
+browser_screenshot: url="http://localhost:5000"
+
+# Verify database migrations
+terminal_execute: npm run db:push --dry-run
+
+# Notify team
+gmail_send: to="team@company.com" subject="Deployment Starting" body="..."
+```
+
+### 5.3 After Incident
+
+```bash
+# Document what happened
+file_put: docs/incidents/2026-01-03.md
+
+# Ingest into knowledge base for future reference
+rag_ingest: file="docs/incidents/2026-01-03.md"
+
+# Create follow-up tasks
+tasks_create: title="Post-mortem review" due="tomorrow"
+
+# Update calendar with review meeting
+calendar_create: summary="Incident Review" start="..." attendees="..."
+
+# Create GitHub issue for prevention
+github_issue_create: repo="owner/repo" title="Prevent recurrence of..." labels="improvement"
+```
+
+---
+
+## Chapter 6: Prevention
+
+### 6.1 Before Making Changes
 
 ```bash
 # Understand the current state
@@ -316,9 +596,12 @@ terminal_execute: git diff
 
 # Verify tests pass
 terminal_execute: npm test 2>&1 | tail -20
+
+# Check for related issues
+github_issue_list: repo="owner/repo" search="feature being modified"
 ```
 
-### 5.2 After Making Changes
+### 6.2 After Making Changes
 
 ```bash
 # Check for TypeScript errors
@@ -329,23 +612,62 @@ terminal_execute: curl -s localhost:5000/api/status
 
 # Check logs for new errors
 terminal_execute: grep -i error /tmp/logs/*.log | tail -10
+
+# Visual verification
+browser_screenshot: url="http://localhost:5000"
+
+# Notify of completion
+send_chat: "Changes complete. Verified working."
 ```
 
 ---
 
 ## Quick Reference Card
 
-| Problem | First Command |
-|---------|---------------|
-| Server down | `curl localhost:5000/api/status` |
-| Any error | `grep -i error /tmp/logs/*.log \| tail -20` |
-| Can't find code | `grep -rn "searchterm" --include="*.ts" .` |
-| DB issue | `psql $DATABASE_URL -c "\dt"` |
-| Build fails | `npm run build 2>&1 \| tail -50` |
-| Package missing | `grep "name" package.json` |
-| Process stuck | `ps aux \| grep node` |
-| File contents | `file_get: path/to/file` |
-| Change file | `file_put: path/to/file` |
+### Diagnosis
+
+| Problem | First Tool |
+|---------|------------|
+| Server down | `terminal_execute: curl localhost:5000/api/status` |
+| Any error | `terminal_execute: grep -i error /tmp/logs/*.log` |
+| Can't find code | `terminal_execute: grep -rn "term" --include="*.ts" .` |
+| DB issue | `terminal_execute: psql $DATABASE_URL -c "\dt"` |
+| Build fails | `terminal_execute: npm run build 2>&1` |
+| Visual bug | `browser_screenshot: url="..."` |
+| External service | `gmail_list`, `github_repo_info`, `sms_list` |
+
+### Information Gathering
+
+| Need | Tool |
+|------|------|
+| Web info | `web_search: "query"` |
+| Prior knowledge | `rag_query: "topic"` |
+| Email history | `gmail_search: "terms"` |
+| Repo structure | `github_contents: repo="..." path="/"` |
+| Schedule | `calendar_list: time_min="today"` |
+| Contacts | `contacts_search: query="name"` |
+
+### Communication
+
+| Channel | Tool |
+|---------|------|
+| Chat | `send_chat: "message"` |
+| Voice | `say: "message"` |
+| Email | `gmail_send: to="..." subject="..." body="..."` |
+| SMS | `sms_send: to="..." body="..."` |
+| Phone | `call_make: to="..."` |
+| GitHub | `github_issue_create`, `github_pr_create` |
+
+### Creation
+
+| Output | Tool |
+|--------|------|
+| File | `file_put: path="..." content="..."` |
+| Image | `image_generate: prompt="..."` |
+| Audio | `music_generate`, `speech_generate` |
+| Document | `docs_write`, `sheets_write` |
+| Event | `calendar_create` |
+| Task | `tasks_create` |
 
 ---
 
@@ -355,7 +677,25 @@ terminal_execute: grep -i error /tmp/logs/*.log | tail -10
 2. **Read before write** — Understand the code before changing it
 3. **One change at a time** — Makes it easy to identify what fixed/broke things
 4. **Verify after fixing** — Confirm the fix worked before moving on
-5. **Document what you learned** — Update this manual when you discover new patterns
+5. **Document what you learned** — Update knowledge base with new patterns
+6. **Communicate proactively** — Keep stakeholders informed
+7. **Use the right tool** — Don't force a hammer when you need a screwdriver
+8. **Chain tools intelligently** — Combine capabilities for complex problems
+
+---
+
+## Tool Capability Matrix
+
+| Capability | Tools |
+|------------|-------|
+| **Read** | file_get, gmail_read, drive_get, docs_read, sheets_read, github_file_read, rag_query |
+| **Write** | file_put, gmail_send, drive_create, docs_write, sheets_write, github_file_write, rag_ingest |
+| **Execute** | terminal_execute, call_make |
+| **Search** | gmail_search, drive_list, web_search, contacts_search, github_issue_list, rag_query |
+| **Create** | file_put, gmail_send, calendar_create, tasks_create, github_issue_create, github_pr_create, image_generate |
+| **Communicate** | send_chat, say, sms_send, gmail_send, call_make |
+| **Visualize** | browser_screenshot, image_generate |
+| **Learn** | rag_ingest, codebase_analyze, embed_text |
 
 ---
 
@@ -371,4 +711,4 @@ terminal_execute: grep -i error /tmp/logs/*.log | tail -10
 ---
 
 *Last updated: 2026-01-03*
-*Compiler revision: For internal diagnostic use*
+*Compiler revision: Extended toolset documentation*
