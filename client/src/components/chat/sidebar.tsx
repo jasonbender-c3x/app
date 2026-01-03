@@ -511,6 +511,23 @@ export function Sidebar({ isOpen, setIsOpen, onNewChat, chats, currentChatId, on
               {!effectiveCollapsed && "Speech Generation"}
             </Button>
           </Link>
+
+          {/* AI Desktop Collaboration Button */}
+          <Link href="/collaborate">
+            <Button 
+              variant="ghost" 
+              className={cn(
+                "font-normal text-muted-foreground hover:text-foreground",
+                effectiveCollapsed ? "w-12 h-9 p-0 justify-center" : "w-full justify-start gap-3",
+                location === "/collaborate" && "bg-secondary/50 text-foreground"
+              )}
+              title={effectiveCollapsed ? "Collaborate" : undefined}
+              data-testid="button-collaborate"
+            >
+              <Radio className="h-4 w-4" />
+              {!effectiveCollapsed && "Collaborate"}
+            </Button>
+          </Link>
           
           {/* Google Services Button */}
           <Link href="/google">
