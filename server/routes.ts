@@ -496,7 +496,7 @@ export async function registerRoutes(
       // OPTIMIZATION: Only fetch a small recent window for immediate context.
       // RAG (in PromptComposer) handles retrieving relevant older context.
       // This prevents loading massive tool outputs that bloat token usage.
-      const RECENT_WINDOW = 4; // Last 4 messages for conversational flow
+      const RECENT_WINDOW = 25; // Last 25 messages for conversational flow
       const MAX_CONTENT_LENGTH = 2000; // Truncate long messages
       
       // Fetch only recent messages (not all history)
