@@ -116,6 +116,29 @@ export async function getRepo(owner: string, repo: string) {
   };
 }
 
+export async function createRepo(name: string, options: { description?: string; isPrivate?: boolean; autoInit?: boolean } = {}) {
+  const octokit = await getUncachableGitHubClient();
+  const { data } = await octokit.repos.createForAuthenticatedUser({
+    name,
+    description: options.description || '',
+    private: options.isPrivate || false,
+    auto_init: options.autoInit !== false
+  });
+  
+  return {
+    id: data.id,
+    name: data.name,
+    fullName: data.full_name,
+    description: data.description,
+    private: data.private,
+    htmlUrl: data.html_url,
+    cloneUrl: data.clone_url,
+    sshUrl: data.ssh_url,
+    defaultBranch: data.default_branch,
+    createdAt: data.created_at
+  };
+}
+
 export async function searchRepos(query: string, perPage = 10) {
   const octokit = await getUncachableGitHubClient();
   const { data } = await octokit.search.repos({
