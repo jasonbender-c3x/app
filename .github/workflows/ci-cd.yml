@@ -1,0 +1,85 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+
+jobs:
+  test-and-build:
+    name: Test and Build
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Type check
+        run: npm run check
+      
+      - name: Build application
+        run: npm run build
+      
+      - name: Upload build artifacts
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: dist/
+          retention-days: 7
+  
+  deploy:
+    name: Deploy to Production
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: dist/
+      
+      - name: Deploy
+        run: |
+          echo "🚀 Deploying to production..."
+          echo "✅ Deployment would happen here"
+          # Add your deployment steps here
+          # Examples:
+          # - Deploy to cloud provider (AWS, GCP, Azure, etc.)
+          # - Deploy to container registry
+          # - Deploy to serverless platform
+          # - Sync with Replit deployment (if applicable)
+          
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "✅ Deployment completed successfully!"
+          # Add notification steps here (Slack, Discord, email, etc.)
+      
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          # Add notification steps here

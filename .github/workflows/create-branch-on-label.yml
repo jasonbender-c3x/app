@@ -1,0 +1,104 @@
+name: Create Branch on Label
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  create-branch:
+    # Only run if the label is "ready-to-develop" or "approved"
+    if: github.event.label.name == 'ready-to-develop' || github.event.label.name == 'approved'
+    runs-on: ubuntu-latest
+    
+    permissions:
+      issues: write
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Create branch name
+        id: branch-name
+        run: |
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+          ISSUE_TITLE="${{ github.event.issue.title }}"
+          
+          # Convert title to lowercase and replace spaces/special chars with hyphens
+          TITLE_SLUG=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9]/-/g' -e 's/--*/-/g' -e 's/^-//' -e 's/-$//' | cut -c 1-50)
+          
+          # Create branch name in format: feature/<issue-number>-<title-slug>
+          BRANCH_NAME="feature/${ISSUE_NUMBER}-${TITLE_SLUG}"
+          
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "Branch name will be: ${BRANCH_NAME}"
+      
+      - name: Check if branch already exists
+        id: check-branch
+        run: |
+          BRANCH_NAME="${{ steps.branch-name.outputs.branch_name }}"
+          
+          # Check if branch exists locally or remotely
+          if git show-ref --verify --quiet "refs/heads/${BRANCH_NAME}" || git ls-remote --heads origin "${BRANCH_NAME}" | grep -q "${BRANCH_NAME}"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Branch ${BRANCH_NAME} already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Branch ${BRANCH_NAME} does not exist, will create"
+          fi
+      
+      - name: Create and push branch
+        if: steps.check-branch.outputs.exists == 'false'
+        run: |
+          BRANCH_NAME="${{ steps.branch-name.outputs.branch_name }}"
+          
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create branch from main
+          git checkout -b "${BRANCH_NAME}"
+          
+          # Push the new branch to remote
+          git push origin "${BRANCH_NAME}"
+          
+          echo "✅ Created and pushed branch: ${BRANCH_NAME}"
+      
+      - name: Comment on issue
+        if: steps.check-branch.outputs.exists == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branchName = '${{ steps.branch-name.outputs.branch_name }}';
+            const issueNumber = context.issue.number;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `🚀 Branch \`${branchName}\` has been automatically created for this issue.\n\n` +
+                    `You can start working on this issue by:\n` +
+                    `1. Checking out the branch: \`git fetch && git checkout ${branchName}\`\n` +
+                    `2. Opening a [Codespace](https://github.com/${context.repo.owner}/${context.repo.repo}/codespaces/new?ref=${branchName}) for this branch\n` +
+                    `3. Starting development!\n\n` +
+                    `When you're ready, create a Pull Request to merge your changes back to \`main\`.`
+            });
+      
+      - name: Comment on issue if branch exists
+        if: steps.check-branch.outputs.exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branchName = '${{ steps.branch-name.outputs.branch_name }}';
+            const issueNumber = context.issue.number;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `ℹ️ Branch \`${branchName}\` already exists for this issue.\n\n` +
+                    `You can continue working by checking out the existing branch or opening a Codespace.`
+            });

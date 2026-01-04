@@ -8,8 +8,9 @@ A next-generation AI chat interface built with modern web technologies, featurin
 
 1. [Features](#features)
 2. [Getting Started](#getting-started)
-3. [Architecture Overview](#architecture-overview)
-4. [Glossary](#glossary)
+3. [Development Workflow](#development-workflow)
+4. [Architecture Overview](#architecture-overview)
+5. [Glossary](#glossary)
    - [Database Tables & Types](#database-tables--types)
    - [Core Functions](#core-functions)
    - [React Hooks](#react-hooks)
@@ -144,6 +145,48 @@ The application runs on port 5000 with the following routes:
 | `/editor` | Code editor with Monaco Editor |
 | `/preview` | Live preview of your code |
 | `/google` | Google Workspace services dashboard |
+
+---
+
+## Development Workflow
+
+Meowstik uses an automated workflow powered by GitHub Actions and Codespaces to streamline feature development and bug fixes.
+
+### Automated Issue-to-Deployment Pipeline
+
+The workflow automates the entire development lifecycle:
+
+1. **Issue Creation** → Developer creates an issue describing the feature or bug
+2. **Branch Creation** → Add `ready-to-develop` or `approved` label to auto-create a feature branch
+3. **Development** → Work in a pre-configured Codespace or locally
+4. **Pull Request** → PR description is auto-populated from the issue
+5. **CI/CD** → Automated testing, building, and deployment
+
+### Quick Start
+
+**For a New Feature/Bug:**
+1. Create an issue with a clear title and description
+2. Add the `ready-to-develop` label
+3. A branch will be automatically created (e.g., `feature/42-add-user-auth`)
+4. Click the Codespace link in the issue comment to start developing
+5. Make your changes and create a PR
+6. The PR will be auto-populated with issue details and CI will run automatically
+
+**Branch Naming Convention:**
+- Format: `feature/<issue-number>-<title-slug>`
+- Example: Issue #14 "Automate Issue Workflow" → `feature/14-automate-issue-workflow`
+
+**Codespace Features:**
+- Pre-configured Node.js 20 and PostgreSQL 16
+- All VS Code extensions installed automatically
+- Port 5000 automatically forwarded
+- Environment setup runs on creation
+
+### Documentation
+
+For complete workflow documentation, see [Automated Workflow Guide](docs/automated-workflow.md).
+
+For CI/CD configuration details, see [GitHub Workflows README](.github/workflows/README.md).
 
 ---
 

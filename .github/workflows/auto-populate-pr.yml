@@ -1,0 +1,94 @@
+name: Auto-populate PR from Issue
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  populate-pr:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      pull-requests: write
+      issues: read
+    
+    steps:
+      - name: Extract issue number from branch
+        id: extract-issue
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          
+          # Extract issue number from branch name (e.g., feature/123-some-title -> 123)
+          if [[ $BRANCH_NAME =~ ^[^/]+/([0-9]+)- ]]; then
+            ISSUE_NUMBER="${BASH_REMATCH[1]}"
+            echo "issue_number=${ISSUE_NUMBER}" >> $GITHUB_OUTPUT
+            echo "Found issue number: ${ISSUE_NUMBER}"
+          else
+            echo "No issue number found in branch name"
+            echo "issue_number=" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Get issue details and update PR
+        if: steps.extract-issue.outputs.issue_number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = parseInt('${{ steps.extract-issue.outputs.issue_number }}');
+            
+            try {
+              // Get the issue details
+              const { data: issue } = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber
+              });
+              
+              // Get the current PR
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number
+              });
+              
+              // Build PR description from issue
+              const prBody = `## Closes #${issueNumber}\n\n` +
+                           `### Original Issue\n\n` +
+                           `**${issue.title}**\n\n` +
+                           `${issue.body || 'No description provided.'}\n\n` +
+                           `---\n\n` +
+                           `### Changes Made\n\n` +
+                           `<!-- Please describe the changes you made to address the issue -->\n\n` +
+                           `### Testing\n\n` +
+                           `<!-- Describe how you tested your changes -->\n\n` +
+                           `### Checklist\n\n` +
+                           `- [ ] Code follows project conventions\n` +
+                           `- [ ] Tests added/updated (if applicable)\n` +
+                           `- [ ] Documentation updated (if applicable)\n` +
+                           `- [ ] Changes have been tested locally\n`;
+              
+              // Update PR description only if it's empty or default
+              if (!pr.body || pr.body.trim() === '' || pr.body.includes('<!--')) {
+                await github.rest.pulls.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.issue.number,
+                  body: prBody
+                });
+                
+                console.log(`✅ Updated PR #${context.issue.number} with details from issue #${issueNumber}`);
+              } else {
+                console.log(`ℹ️ PR already has a description, skipping update`);
+              }
+              
+              // Add a comment to the issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `🔗 Pull Request #${context.issue.number} has been created for this issue.\n\n` +
+                      `[View Pull Request](${pr.html_url})`
+              });
+              
+            } catch (error) {
+              console.log(`⚠️ Could not find issue #${issueNumber} or failed to update PR: ${error.message}`);
+            }
