@@ -550,6 +550,21 @@ export async function createOrUpdateFile(
   };
 }
 
+/**
+ * Creates a new file (wrapper around createOrUpdateFile for clarity)
+ * This will fail if the file already exists
+ */
+export async function createFile(
+  owner: string,
+  repo: string,
+  path: string,
+  content: string,
+  message: string,
+  branch: string
+) {
+  return createOrUpdateFile(owner, repo, path, content, message, branch);
+}
+
 export async function createPullRequest(
   owner: string,
   repo: string,
@@ -608,5 +623,227 @@ export async function getAuthenticatedUser() {
     followers: user.followers,
     following: user.following,
     createdAt: user.created_at
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AGENT ATTRIBUTION SUPPORT
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Agent author information for Git commits
+ */
+export interface AgentAuthor {
+  name: string;      // e.g., "Agentia Compiler"
+  email: string;     // e.g., "compiler@agentia.dev"
+  signature?: string; // Optional signature to add to commit messages
+}
+
+/**
+ * Creates or updates a file with custom agent author attribution
+ * This uses the Git Data API to create a commit with custom author information
+ */
+export async function createOrUpdateFileWithAgent(
+  owner: string,
+  repo: string,
+  path: string,
+  content: string,
+  message: string,
+  branch: string,
+  agent: AgentAuthor,
+  sha?: string
+): Promise<{
+  path: string | undefined;
+  sha: string | undefined;
+  htmlUrl: string | undefined;
+  commitSha: string;
+  commitUrl: string | undefined;
+}> {
+  const octokit = await getUncachableGitHubClient();
+  
+  // Get the current commit of the branch
+  const { data: refData } = await octokit.git.getRef({
+    owner,
+    repo,
+    ref: `heads/${branch}`
+  });
+  const latestCommitSha = refData.object.sha;
+  
+  // Get the tree of the latest commit
+  const { data: commitData } = await octokit.git.getCommit({
+    owner,
+    repo,
+    commit_sha: latestCommitSha
+  });
+  const baseTreeSha = commitData.tree.sha;
+  
+  // Create a blob for the file content
+  const { data: blobData } = await octokit.git.createBlob({
+    owner,
+    repo,
+    content: Buffer.from(content).toString('base64'),
+    encoding: 'base64'
+  });
+  
+  // Create a new tree with the file
+  const { data: treeData } = await octokit.git.createTree({
+    owner,
+    repo,
+    base_tree: baseTreeSha,
+    tree: [
+      {
+        path,
+        mode: '100644',
+        type: 'blob',
+        sha: blobData.sha
+      }
+    ]
+  });
+  
+  // Add agent signature to commit message if provided
+  const commitMessage = agent.signature 
+    ? `${message}\n\n---\n${agent.signature}`
+    : message;
+  
+  // Create a commit with custom author
+  const { data: newCommit } = await octokit.git.createCommit({
+    owner,
+    repo,
+    message: commitMessage,
+    tree: treeData.sha,
+    parents: [latestCommitSha],
+    author: {
+      name: agent.name,
+      email: agent.email,
+      date: new Date().toISOString()
+    }
+  });
+  
+  // Update the reference to point to the new commit
+  await octokit.git.updateRef({
+    owner,
+    repo,
+    ref: `heads/${branch}`,
+    sha: newCommit.sha
+  });
+  
+  return {
+    path,
+    sha: blobData.sha,
+    htmlUrl: `https://github.com/${owner}/${repo}/blob/${branch}/${path}`,
+    commitSha: newCommit.sha,
+    commitUrl: newCommit.html_url
+  };
+}
+
+/**
+ * Creates a pull request with agent attribution in the body
+ */
+export async function createPullRequestWithAgent(
+  owner: string,
+  repo: string,
+  title: string,
+  body: string,
+  head: string,
+  agent: AgentAuthor,
+  base?: string,
+  draft = false
+) {
+  const octokit = await getUncachableGitHubClient();
+  const baseBranch = base || await getDefaultBranch(owner, repo);
+  
+  // Add agent attribution to PR body
+  const attributedBody = `${body}\n\n---\n*Created by: **${agent.name}** (${agent.email})*`;
+  
+  const { data: pr } = await octokit.pulls.create({
+    owner,
+    repo,
+    title,
+    body: attributedBody,
+    head,
+    base: baseBranch,
+    draft
+  });
+  
+  return {
+    id: pr.id,
+    number: pr.number,
+    title: pr.title,
+    body: pr.body,
+    state: pr.state,
+    htmlUrl: pr.html_url,
+    head: pr.head.ref,
+    base: pr.base.ref,
+    draft: pr.draft,
+    createdAt: pr.created_at
+  };
+}
+
+/**
+ * Creates an issue with agent attribution
+ */
+export async function createIssueWithAgent(
+  owner: string,
+  repo: string,
+  title: string,
+  agent: AgentAuthor,
+  body?: string,
+  labels?: string[],
+  assignees?: string[]
+) {
+  const octokit = await getUncachableGitHubClient();
+  
+  // Add agent attribution to issue body
+  const attributedBody = body 
+    ? `${body}\n\n---\n*Created by: **${agent.name}** (${agent.email})*`
+    : `*Created by: **${agent.name}** (${agent.email})*`;
+  
+  const { data: issue } = await octokit.issues.create({
+    owner,
+    repo,
+    title,
+    body: attributedBody,
+    labels,
+    assignees
+  });
+  
+  return {
+    id: issue.id,
+    number: issue.number,
+    title: issue.title,
+    htmlUrl: issue.html_url,
+    state: issue.state,
+    createdAt: issue.created_at
+  };
+}
+
+/**
+ * Adds a comment to an issue or PR with agent attribution
+ */
+export async function addCommentWithAgent(
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  body: string,
+  agent: AgentAuthor
+) {
+  const octokit = await getUncachableGitHubClient();
+  
+  // Add agent attribution to comment
+  const attributedBody = `${body}\n\n---\n*Posted by: **${agent.name}** (${agent.email})*`;
+  
+  const { data: comment } = await octokit.issues.createComment({
+    owner,
+    repo,
+    issue_number: issueNumber,
+    body: attributedBody
+  });
+  
+  return {
+    id: comment.id,
+    body: comment.body,
+    user: comment.user?.login,
+    htmlUrl: comment.html_url,
+    createdAt: comment.created_at
   };
 }
