@@ -136,6 +136,253 @@ You are not limited to three tools. You have an entire arsenal organized into la
 
 ---
 
+## Directory Exploration & Log Discovery
+
+### Getting Directory Structures
+
+```bash
+# Tree view (best for understanding structure)
+terminal_execute: tree -L 3 -I 'node_modules|.git|dist'
+
+# If tree not available, use find
+terminal_execute: find . -type d -not -path '*/node_modules/*' -not -path '*/.git/*' | head -50
+
+# List with details (size, permissions, dates)
+terminal_execute: ls -lahR . | head -100
+
+# Just directories
+terminal_execute: find . -type d -maxdepth 3 2>/dev/null | grep -v node_modules | grep -v .git
+
+# Count files by type
+terminal_execute: find . -type f -name "*.ts" | wc -l
+
+# Find largest directories
+terminal_execute: du -sh */ 2>/dev/null | sort -hr | head -10
+```
+
+### Standard Project Structure (Node.js/React)
+
+```
+project/
+├── client/                 # Frontend React app
+│   ├── src/
+│   │   ├── components/     # Reusable UI components
+│   │   ├── pages/          # Route pages
+│   │   ├── hooks/          # Custom React hooks
+│   │   ├── lib/            # Utility functions
+│   │   └── App.tsx         # Main app component
+│   └── index.html          # Entry HTML
+├── server/                 # Backend Express app
+│   ├── routes.ts           # API endpoints
+│   ├── storage.ts          # Database operations
+│   ├── services/           # Business logic
+│   └── index.ts            # Server entry point
+├── shared/                 # Shared types/schemas
+│   └── schema.ts           # Drizzle ORM schema
+├── docs/                   # Documentation
+│   └── ragent/             # AI knowledge docs
+├── packages/               # Monorepo packages
+│   ├── extension/          # Browser extension
+│   └── meowstik-agent/     # Desktop agent
+├── /tmp/logs/              # Runtime logs (ephemeral)
+├── package.json            # Dependencies
+├── tsconfig.json           # TypeScript config
+├── vite.config.ts          # Vite bundler config
+├── drizzle.config.ts       # Database config
+└── replit.md               # Project documentation
+```
+
+---
+
+## Where to Find Log Files
+
+### Meowstik-Specific Logs
+
+| Log Type | Location | Contains |
+|----------|----------|----------|
+| **Workflow/Server** | `/tmp/logs/Start_application_*.log` | Express server output, API calls, errors |
+| **Browser Console** | `/tmp/logs/browser_console_*.log` | Frontend errors, React warnings, console.log |
+| **Database (Drizzle)** | Inline in server logs | SQL queries, connection errors |
+
+### Standard Linux Log Locations
+
+| Log Type | Location | Contains |
+|----------|----------|----------|
+| System messages | `/var/log/syslog` | General system events |
+| Kernel | `/var/log/kern.log` | Kernel-level events |
+| Auth | `/var/log/auth.log` | Login attempts, sudo usage |
+| Cron | `/var/log/cron.log` | Scheduled job output |
+| Nginx | `/var/log/nginx/` | Web server access/error |
+| PM2 | `~/.pm2/logs/` | Process manager logs |
+
+### Node.js Application Logs
+
+| Pattern | Location | Notes |
+|---------|----------|-------|
+| stdout/stderr | Console or redirected file | `node app.js > app.log 2>&1` |
+| Winston | Configurable, often `./logs/` | Check winston config |
+| Bunyan | Configurable | JSON formatted |
+| Pino | Configurable | Fast JSON logger |
+| Morgan | stdout | HTTP request logging |
+| Debug | stderr | Set `DEBUG=*` env var |
+
+### Finding Logs Dynamically
+
+```bash
+# Find all log files
+terminal_execute: find / -name "*.log" 2>/dev/null | head -30
+
+# Find recently modified logs
+terminal_execute: find /tmp -name "*.log" -mmin -60 2>/dev/null
+
+# Find logs by content
+terminal_execute: grep -rl "error" /tmp/logs/ 2>/dev/null
+
+# Check where app writes logs
+terminal_execute: lsof -p $(pgrep -f "node") 2>/dev/null | grep -E "\.log|/tmp"
+
+# Environment variables for log paths
+terminal_execute: env | grep -i log
+```
+
+---
+
+## Logging Libraries & Tools
+
+### Node.js Logging Libraries
+
+| Library | Best For | Install | Features |
+|---------|----------|---------|----------|
+| **Winston** | Full-featured | `npm i winston` | Transports, levels, formatting |
+| **Pino** | Performance | `npm i pino` | Fast, JSON, low overhead |
+| **Bunyan** | Structured | `npm i bunyan` | JSON, child loggers |
+| **Morgan** | HTTP only | `npm i morgan` | Express middleware |
+| **Debug** | Development | `npm i debug` | Namespace filtering |
+| **loglevel** | Minimal | `npm i loglevel` | Lightweight, browser+node |
+| **consola** | Beautiful | `npm i consola` | Pretty output, types |
+
+### Quick Setup Examples
+
+#### Winston (Recommended for Production)
+
+```typescript
+// server/logger.ts
+import winston from 'winston';
+
+export const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    }),
+    new winston.transports.File({ 
+      filename: '/tmp/logs/error.log', 
+      level: 'error' 
+    }),
+    new winston.transports.File({ 
+      filename: '/tmp/logs/combined.log' 
+    })
+  ]
+});
+```
+
+#### Pino (Fastest)
+
+```typescript
+// server/logger.ts
+import pino from 'pino';
+
+export const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  transport: {
+    target: 'pino-pretty',
+    options: { colorize: true }
+  }
+});
+
+// Usage
+logger.info({ userId: 123 }, 'User logged in');
+logger.error({ err }, 'Database connection failed');
+```
+
+#### Debug (Development)
+
+```typescript
+// Enable with: DEBUG=app:* node server.js
+import debug from 'debug';
+
+const log = debug('app:server');
+const dbLog = debug('app:database');
+
+log('Server starting on port %d', 5000);
+dbLog('Connected to database');
+```
+
+### Log Analysis Tools
+
+```bash
+# Real-time log watching
+terminal_execute: tail -f /tmp/logs/*.log
+
+# Filter by level
+terminal_execute: grep -E "ERROR|WARN" /tmp/logs/combined.log
+
+# JSON log parsing with jq
+terminal_execute: cat /tmp/logs/app.log | jq 'select(.level == "error")'
+
+# Count errors by type
+terminal_execute: grep -oP '"message":"[^"]*"' /tmp/logs/*.log | sort | uniq -c | sort -rn
+
+# Time-based filtering
+terminal_execute: awk '/2026-01-03T21:/ {print}' /tmp/logs/combined.log
+
+# Log rotation (logrotate config)
+terminal_execute: cat /etc/logrotate.d/app
+```
+
+### Log Aggregation Services
+
+| Service | Use Case | Integration |
+|---------|----------|-------------|
+| **Datadog** | Full observability | Agent + library |
+| **Logtail** | Simple log management | HTTP transport |
+| **Papertrail** | Real-time search | Syslog/HTTP |
+| **LogDNA** | IBM Cloud | Agent/API |
+| **Elastic Stack** | Self-hosted | Filebeat/Logstash |
+
+### Frontend Logging
+
+```typescript
+// client/src/lib/logger.ts
+const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const;
+
+export const clientLogger = {
+  debug: (...args: any[]) => {
+    if (import.meta.env.DEV) console.debug('[DEBUG]', ...args);
+  },
+  info: (...args: any[]) => console.info('[INFO]', ...args),
+  warn: (...args: any[]) => console.warn('[WARN]', ...args),
+  error: (...args: any[]) => {
+    console.error('[ERROR]', ...args);
+    // Optionally send to server
+    fetch('/api/log', {
+      method: 'POST',
+      body: JSON.stringify({ level: 'error', args, timestamp: Date.now() })
+    }).catch(() => {});
+  }
+};
+```
+
+---
+
 ## Chapter 1: Observation — Finding the Problem
 
 ### 1.1 Check Logs First
